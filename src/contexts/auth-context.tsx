@@ -15,7 +15,7 @@ interface AuthContextType {
     name: string,
     email: string,
     role: UserRole,
-    password?: string, // Added password for Supabase signup
+    password?: string, 
     e_code?: string,
     location?: string,
     reports_to?: string
@@ -42,17 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('id', sessionUser.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116: no rows found
+        if (error && error.code !== 'PGRST116') { 
           console.error('Error fetching user profile:', error);
           toast({ title: "Error", description: "Could not fetch user profile.", variant: "destructive" });
           setUser(null);
         } else if (userProfile) {
           setUser(userProfile as User);
         } else {
-          // This case might happen if a user exists in Supabase auth but not in our public.users table
-          // For robust systems, you might want to create the profile here or handle it differently.
           console.warn('User profile not found in public.users table for an authenticated user.');
-          setUser(null); // Or set a minimal user object if appropriate
+          setUser(null); 
         }
       } else {
         setUser(null);
@@ -60,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     };
     
-    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
         fetchUserAndSetSession(session?.user ?? null);
     });
@@ -81,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isLoading && !user && !pathname.startsWith('/auth')) {
       router.push('/auth/login');
     } else if (!isLoading && user && pathname.startsWith('/auth/login')) {
-      // If user is logged in and on login page, redirect to their dashboard
       navigateToDashboard(user.role);
     }
   }, [user, isLoading, pathname, router]);
@@ -114,9 +110,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     if (data.user) {
       // onAuthStateChange will handle fetching profile and setting user state
-      toast({ title: "Login Successful", description: `Welcome back!` });
+      // No need to call setIsLoading(false) here, as onAuthStateChange will trigger it
+      // navigateToDashboard will also be handled by the useEffect listening to user changes
+       toast({ title: "Login Successful", description: `Welcome back!` });
     }
-    // setIsLoading(false) will be handled by onAuthStateChange listener
   };
 
   const signup = async (
@@ -140,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       options: {
         data: {
-          name: name, // You can add non-sensitive initial data here
+          name: name, 
         }
       }
     });
@@ -152,9 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (authData.user) {
-      // Insert user profile into public.users table
       const { error: profileError } = await supabase.from('users').insert({
-        id: authData.user.id, // Link to the auth.users table
+        id: authData.user.id, 
         name,
         email,
         role,
@@ -164,24 +160,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (profileError) {
-        // This is a tricky state. Auth user created, but profile failed.
-        // For simplicity, we'll toast and log. In a real app, you might want to clean up the auth user.
-        toast({ title: "Profile Creation Failed", description: profileError.message, variant: "destructive" });
+        let detailedMessage = profileError.message;
+        if (profileError.message.includes("violates row-level security policy") && profileError.message.includes("users")) {
+            detailedMessage = "Profile creation failed due to RLS. Please ensure 'Enable email confirmations' is turned OFF in your Supabase Auth settings for easier development, or implement server-side profile creation for production. Original error: " + profileError.message;
+        }
+        toast({ title: "Profile Creation Failed", description: detailedMessage, variant: "destructive" });
         console.error("Error creating user profile:", profileError);
-        // Potentially sign out the user again or guide them
-        await supabase.auth.signOut();
+        // Attempt to clean up the auth user if profile creation fails. This might not always be desired.
+        // Consider manual cleanup or a different strategy for production.
+        // await supabase.auth.deleteUser(authData.user.id); // This requires admin privileges, not suitable for client-side.
+        // For now, just log and let the user exist in auth.users.
         setIsLoading(false);
         throw profileError;
       }
-      // onAuthStateChange will handle setting user state after profile creation
-      // but since signUp doesn't automatically sign in for email confirmation flows,
-      // we might want to set user state optimistically or wait for email confirmation.
-      // For this app, assuming direct sign-in or test mode where email confirmation is off.
-      toast({ title: "Signup Successful", description: "Your account has been created. Welcome!"});
+      toast({ title: "Signup Successful", description: "Account created! If email confirmation is enabled in Supabase, please check your email."});
+      // onAuthStateChange will handle setting user state if auto-signin occurs or after email confirm
+      // For now, after successful signup, we might want to redirect to login or a "check your email" page
+      // if email confirmation is on. If off, onAuthStateChange should pick up the new user.
     } else {
-        toast({ title: "Signup Issue", description: "User not returned after signup.", variant: "destructive" });
+        toast({ title: "Signup Issue", description: "User not returned after signup, or email confirmation may be pending.", variant: "destructive" });
     }
-    // setIsLoading(false) will be handled by onAuthStateChange listener
+    setIsLoading(false); // Explicitly set false here
   };
 
   const logout = async () => {
@@ -189,11 +188,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({ title: "Logout Failed", description: error.message, variant: "destructive" });
-    } else {
-      setUser(null); // Clear user state immediately
-      router.push('/auth/login'); // Redirect to login
     }
-    setIsLoading(false); // Explicitly set here as onAuthStateChange might not fire immediately or as expected on forced nav
+    setUser(null); 
+    router.push('/auth/login'); 
+    setIsLoading(false); 
   };
 
   return (
