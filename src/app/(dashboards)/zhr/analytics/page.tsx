@@ -4,14 +4,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
-import type { Visit, User as AppUser, Branch } from '@/types';
+import type { Visit, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, TrendingUp, CalendarDays, ShieldQuestion, Target } from 'lucide-react';
+import { Loader2, TrendingUp, CalendarDays, ShieldQuestion, Target, PieChart as PieChartIcon } from 'lucide-react';
 import {
   format,
   parseISO,
@@ -25,12 +25,15 @@ import {
   isValid,
 } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
+import type { ChartData } from '@/types';
+
 
 interface MetricConfig {
   key: keyof Visit;
   label: string;
   color: string;
-  yAxisId?: string; 
+  yAxisId?: string;
 }
 
 const METRIC_CONFIGS: MetricConfig[] = [
@@ -38,7 +41,7 @@ const METRIC_CONFIGS: MetricConfig[] = [
   { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left' },
   { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left' },
   { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left' },
-  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' }, 
+  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' },
 ];
 
 type TimeframeKey = 'past_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
@@ -58,21 +61,21 @@ const TIMEFRAME_OPTIONS: TimeframeOption[] = [
 ];
 
 type ChartDataPoint = {
-  date: string; 
-  [key: string]: any; 
+  date: string;
+  [key: string]: any;
 };
 
 interface QualitativeQuestionConfig {
     key: keyof Visit;
     label: string;
-    positiveIsYes: boolean; // If true, 'yes' = 5, 'no' = 0. If false, 'yes' = 0, 'no' = 5.
+    positiveIsYes: boolean;
 }
 
 const QUALITATIVE_QUESTIONS_CONFIG: QualitativeQuestionConfig[] = [
     { key: 'qual_aligned_conduct', label: 'Leaders Aligned with Code', positiveIsYes: true },
     { key: 'qual_safe_secure', label: 'Employees Feel Safe', positiveIsYes: true },
     { key: 'qual_motivated', label: 'Employees Feel Motivated', positiveIsYes: true },
-    { key: 'qual_abusive_language', label: 'Leaders Use Abusive Language', positiveIsYes: false }, // 'no' is good
+    { key: 'qual_abusive_language', label: 'Leaders Use Abusive Language', positiveIsYes: false },
     { key: 'qual_comfortable_escalate', label: 'Comfortable with Escalation', positiveIsYes: true },
     { key: 'qual_inclusive_culture', label: 'Inclusive Culture', positiveIsYes: true },
 ];
@@ -89,11 +92,13 @@ export default function ZHRAnalyticsPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [allZoneVisits, setAllZoneVisits] = useState<Visit[]>([]);
+  const [allBranchesForCategoryLookup, setAllBranchesForCategoryLookup] = useState<Pick<Branch, 'id' | 'category'>[]>([]);
   const [activeMetrics, setActiveMetrics] = useState<Record<string, boolean>>(
-    METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {}) 
+    METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {})
   );
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeKey>('past_month');
   const [qualitativeSpiderData, setQualitativeSpiderData] = useState<SpiderChartDataPoint[]>([]);
+  const [branchCategoryDistributionData, setBranchCategoryDistributionData] = useState<ChartData[]>([]);
 
 
   useEffect(() => {
@@ -113,26 +118,41 @@ export default function ZHRAnalyticsPage() {
 
           if (bhrIds.length === 0) {
             setAllZoneVisits([]);
+            setAllBranchesForCategoryLookup([]);
             setIsLoading(false);
             console.log("ZHR Analytics: No BHRs found for this ZHR.");
             return;
           }
 
+          // Fetch visits
           const { data: visitsData, error: visitsError } = await supabase
             .from('visits')
-            .select('visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture')
+            .select('branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture')
             .in('bhr_id', bhrIds)
             .eq('status', 'submitted');
 
           if (visitsError) throw visitsError;
-          
-          console.log("ZHR Analytics: Raw visitsData fetched from Supabase:", visitsData); // <-- ADDED CONSOLE LOG
+          console.log("ZHR Analytics: Raw visitsData fetched from Supabase:", visitsData);
           setAllZoneVisits(visitsData || []);
-          console.log("ZHR Analytics: allZoneVisits set with", (visitsData || []).length, "records.");
+
+          // Fetch branches for category lookup
+          const { data: branchesData, error: branchesError } = await supabase
+            .from('branches')
+            .select('id, category');
+
+          if (branchesError) {
+            console.error("ZHR Analytics: Error fetching branches for category lookup:", branchesError);
+            toast({ title: "Error", description: `Failed to load branch categories: ${branchesError.message}`, variant: "destructive" });
+          } else {
+            setAllBranchesForCategoryLookup(branchesData || []);
+            console.log("ZHR Analytics: Fetched branches for category lookup:", branchesData);
+          }
+
         } catch (error: any) {
           console.error("ZHR Analytics: Error fetching data:", error);
           toast({ title: "Error", description: `Failed to load analytics data: ${error.message}`, variant: "destructive" });
           setAllZoneVisits([]);
+          setAllBranchesForCategoryLookup([]);
         } finally {
           setIsLoading(false);
           console.log("ZHR Analytics: fetchData finished");
@@ -153,28 +173,15 @@ export default function ZHRAnalyticsPage() {
     const endDateFilter: Date = endOfDay(now);
 
     switch (selectedTimeframe) {
-      case 'past_week':
-        startDateFilter = startOfDay(subDays(now, 6));
-        break;
-      case 'past_month':
-        startDateFilter = startOfDay(subMonths(now, 1));
-        break;
-      case 'last_3_months':
-        startDateFilter = startOfDay(subMonths(now, 3));
-        break;
-      case 'last_6_months':
-        startDateFilter = startOfDay(subMonths(now, 6));
-        break;
-      case 'last_year':
-        startDateFilter = startOfDay(subYears(now, 1));
-        break;
-      case 'last_3_years':
-        startDateFilter = startOfDay(subYears(now, 3));
-        break;
-      default: 
-        startDateFilter = startOfDay(subMonths(now, 1)); 
+      case 'past_week': startDateFilter = startOfDay(subDays(now, 6)); break;
+      case 'past_month': startDateFilter = startOfDay(subMonths(now, 1)); break;
+      case 'last_3_months': startDateFilter = startOfDay(subMonths(now, 3)); break;
+      case 'last_6_months': startDateFilter = startOfDay(subMonths(now, 6)); break;
+      case 'last_year': startDateFilter = startOfDay(subYears(now, 1)); break;
+      case 'last_3_years': startDateFilter = startOfDay(subYears(now, 3)); break;
+      default: startDateFilter = startOfDay(subMonths(now, 1));
     }
-    
+
     if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) {
         console.warn("ZHR Analytics - Trend Data: Invalid date range for filtering.", {startDateFilter, endDateFilter});
         return [];
@@ -187,7 +194,7 @@ export default function ZHRAnalyticsPage() {
     console.log("ZHR Analytics - Trend Data: Filtered visits for trend chart. Count:", filteredVisits.length);
 
     if (filteredVisits.length === 0) return [];
-    
+
     const aggregatedData: Record<string, { [key: string]: { sum: number; count: number } }> = {};
 
     filteredVisits.forEach(visit => {
@@ -207,13 +214,13 @@ export default function ZHRAnalyticsPage() {
         }
       });
     });
-    
+
     let dateRangeForChart: Date[] = [];
     try {
         dateRangeForChart = eachDayOfInterval({ start: startDateFilter, end: endDateFilter });
     } catch (e) {
         console.error("ZHR Analytics - Trend Data: Error creating date interval for chart:", e, {startDateFilter, endDateFilter});
-        return []; 
+        return [];
     }
 
     const trendChartData = dateRangeForChart.map(dayDate => {
@@ -223,13 +230,11 @@ export default function ZHRAnalyticsPage() {
 
       METRIC_CONFIGS.forEach(m => {
         if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
-          if (m.key === 'cwt_cases') { 
+          if (m.key === 'cwt_cases') {
             point[m.key] = dayData[m.key].sum;
-          } else { 
+          } else {
             point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
           }
-        } else {
-          // point[m.key] = undefined; // Let Recharts handle gaps
         }
       });
       return point;
@@ -313,6 +318,70 @@ export default function ZHRAnalyticsPage() {
     setQualitativeSpiderData(qualitativeDataForSpiderChart);
   }, [qualitativeDataForSpiderChart]);
 
+  const branchCategoryDistributionChartData = useMemo(() => {
+    if (allZoneVisits.length === 0 || allBranchesForCategoryLookup.length === 0) {
+        console.log("ZHR Analytics - Category Pie: allZoneVisits or allBranchesForCategoryLookup is empty.");
+        return [];
+    }
+    console.log("ZHR Analytics - Category Pie: Processing. Visits:", allZoneVisits.length, "Branches:", allBranchesForCategoryLookup.length, "Timeframe:", selectedTimeframe);
+
+    const now = new Date();
+    let startDateFilter: Date;
+    const endDateFilter: Date = endOfDay(now);
+
+    switch (selectedTimeframe) {
+        case 'past_week': startDateFilter = startOfDay(subDays(now, 6)); break;
+        case 'past_month': startDateFilter = startOfDay(subMonths(now, 1)); break;
+        case 'last_3_months': startDateFilter = startOfDay(subMonths(now, 3)); break;
+        case 'last_6_months': startDateFilter = startOfDay(subMonths(now, 6)); break;
+        case 'last_year': startDateFilter = startOfDay(subYears(now, 1)); break;
+        case 'last_3_years': startDateFilter = startOfDay(subYears(now, 3)); break;
+        default: startDateFilter = startOfDay(subMonths(now, 1));
+    }
+    
+    if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) {
+      console.warn("ZHR Analytics - Category Pie: Invalid date range for filtering.", {startDateFilter, endDateFilter});
+      return [];
+    }
+
+    const filteredVisitsForCategoryPie = allZoneVisits.filter(visit => {
+        const visitDate = parseISO(visit.visit_date);
+        return isValid(visitDate) && isWithinInterval(visitDate, { start: startDateFilter, end: endDateFilter });
+    });
+    console.log("ZHR Analytics - Category Pie: Filtered visits. Count:", filteredVisitsForCategoryPie.length);
+
+    if (filteredVisitsForCategoryPie.length === 0) return [];
+
+    const categoryCounts: Record<string, number> = {};
+    const branchCategoryMap = new Map(allBranchesForCategoryLookup.map(b => [b.id, b.category]));
+
+    filteredVisitsForCategoryPie.forEach(visit => {
+        const category = branchCategoryMap.get(visit.branch_id);
+        if (category) {
+            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+        } else {
+            console.warn(`ZHR Analytics - Category Pie: No category found for branch_id: ${visit.branch_id}`);
+        }
+    });
+    console.log("ZHR Analytics - Category Pie: Aggregated categoryCounts:", categoryCounts);
+
+    const distributionData: ChartData[] = Object.entries(categoryCounts)
+        .map(([name, value], index) => ({
+            name,
+            value,
+            fill: `hsl(var(--chart-${(index % 5) + 1}))`, 
+        }))
+        .sort((a, b) => b.value - a.value); // Sort by value descending for better pie chart readability
+        
+    console.log("ZHR Analytics - Category Pie: Final distributionData:", distributionData);
+    return distributionData;
+
+  }, [allZoneVisits, selectedTimeframe, allBranchesForCategoryLookup]);
+
+  useEffect(() => {
+    setBranchCategoryDistributionData(branchCategoryDistributionChartData);
+  }, [branchCategoryDistributionChartData]);
+
 
   const handleMetricToggle = (metricKey: string) => {
     setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
@@ -364,7 +433,7 @@ export default function ZHRAnalyticsPage() {
                 id={metric.key}
                 checked={!!activeMetrics[metric.key]}
                 onCheckedChange={() => handleMetricToggle(metric.key)}
-                style={{ accentColor: metric.color } as React.CSSProperties} 
+                style={{ accentColor: metric.color } as React.CSSProperties}
               />
               <Label htmlFor={metric.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" style={{ color: metric.color }}>
                 {metric.label}
@@ -373,7 +442,7 @@ export default function ZHRAnalyticsPage() {
           ))}
         </CardContent>
       </Card>
-      
+
       <Card className="shadow-xl">
         <CardHeader>
             <CardTitle>Metric Trends</CardTitle>
@@ -384,30 +453,30 @@ export default function ZHRAnalyticsPage() {
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={chartDisplayData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(tick) => format(parseISO(tick), 'MMM d')} 
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(tick) => format(parseISO(tick), 'MMM d')}
                   stroke="hsl(var(--muted-foreground))"
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" orientation="left" tick={{ fontSize: 12 }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                 <YAxis yAxisId="right" stroke="hsl(var(--muted-foreground))" orientation="right" tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--background))', 
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
                     borderColor: 'hsl(var(--border))',
                     borderRadius: 'var(--radius)',
-                    boxShadow: 'var(--shadow-md)' 
+                    boxShadow: 'var(--shadow-md)'
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
-                  formatter={(value, name, props) => {
+                  formatter={(value: number, name) => { // Explicitly type value
                     const config = METRIC_CONFIGS.find(m => m.label === name);
                     if (config?.key.includes('percentage')) return [`${value}%`, name];
                     return [value, name];
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                {METRIC_CONFIGS.map(metric => 
+                {METRIC_CONFIGS.map(metric =>
                   activeMetrics[metric.key] && (
                     <Line
                       key={metric.key}
@@ -416,10 +485,10 @@ export default function ZHRAnalyticsPage() {
                       name={metric.label}
                       stroke={metric.color}
                       strokeWidth={2}
-                      yAxisId={metric.yAxisId || 'left'} 
+                      yAxisId={metric.yAxisId || 'left'}
                       dot={{ r: 2, fill: metric.color }}
                       activeDot={{ r: 5 }}
-                      connectNulls 
+                      connectNulls
                     />
                   )
                 )}
@@ -435,39 +504,64 @@ export default function ZHRAnalyticsPage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary"/>Qualitative Assessment Overview</CardTitle>
-          <CardDescription>Average scores for qualitative questions from visits in the selected timeframe (0-5 scale).</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {qualitativeSpiderData.length > 0 && qualitativeSpiderData.some(d => d.score > 0) ? (
-            <ResponsiveContainer width="100%" height={400}>
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderData}>
-                <PolarGrid stroke="hsl(var(--border))" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                <Radar name="Average Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} />
-                <Tooltip 
-                    contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))', 
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: 'var(--radius)',
-                    }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-96 text-center p-4">
-              <ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground font-semibold">No qualitative assessment data available.</p>
-              <p className="text-xs text-muted-foreground">Ensure BHRs have submitted visits with qualitative answers within the selected timeframe.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="shadow-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary"/>Qualitative Assessment Overview</CardTitle>
+            <CardDescription>Average scores for qualitative questions from visits in the selected timeframe (0-5 scale).</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {qualitativeSpiderData.length > 0 && qualitativeSpiderData.some(d => d.score > 0) ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderData}>
+                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                  <Radar name="Average Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} />
+                  <Tooltip
+                      contentStyle={{
+                          backgroundColor: 'hsl(var(--background))',
+                          borderColor: 'hsl(var(--border))',
+                          borderRadius: 'var(--radius)',
+                      }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-96 text-center p-4">
+                <ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground font-semibold">No qualitative assessment data available.</p>
+                <p className="text-xs text-muted-foreground">Ensure BHRs have submitted visits with qualitative answers within the selected timeframe.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-xl">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary"/>Branch Category Distribution</CardTitle>
+                <CardDescription>Distribution of submitted visits by branch category in the selected timeframe.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {branchCategoryDistributionData.length > 0 ? (
+                    <PlaceholderPieChart
+                        data={branchCategoryDistributionData}
+                        title=""
+                        dataKey="value"
+                        nameKey="name"
+                    />
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-96 text-center p-4">
+                        <PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground font-semibold">No branch category data available.</p>
+                        <p className="text-xs text-muted-foreground">Ensure BHRs have submitted visits and branches have categories assigned within the selected timeframe.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    </div>
+
 
     </div>
   );
 }
-
