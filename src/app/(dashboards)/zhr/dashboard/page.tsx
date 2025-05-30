@@ -7,7 +7,7 @@ import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
 import type { Branch, User, Visit } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, CalendarDays, Loader2, UserCheck } from 'lucide-react'; // Added UserCheck
+import { Users, CalendarDays, Loader2, UserCheck } from 'lucide-react';
 import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { format, parseISO, isSameMonth, startOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -18,7 +18,7 @@ export default function ZHRDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [bhrCount, setBhrCount] = useState(0);
   const [totalVisitsThisMonth, setTotalVisitsThisMonth] = useState(0);
-  const [activeBHRsCount, setActiveBHRsCount] = useState(0); // Changed from assignedBranchesCount
+  const [activeBHRsCount, setActiveBHRsCount] = useState(0);
   const [recentVisits, setRecentVisits] = useState<Visit[]>([]);
   const [allBranches, setAllBranches] = useState<Branch[]>([]);
   const [bhrUsersInZone, setBhrUsersInZone] = useState<User[]>([]);
@@ -46,11 +46,11 @@ export default function ZHRDashboardPage() {
       header: 'Visit Date',
       cell: (visit) => format(parseISO(visit.visit_date), 'PPP')
     },
-    {
-      accessorKey: 'additional_remarks', 
-      header: 'Summary',
-      cell: (visit) => <p className="truncate max-w-xs">{visit.additional_remarks || 'N/A'}</p>
-    },
+    // { // Summary column removed as per request
+    //   accessorKey: 'additional_remarks', 
+    //   header: 'Summary',
+    //   cell: (visit) => <p className="truncate max-w-xs">{visit.additional_remarks || 'N/A'}</p>
+    // },
   ], [allBranches, bhrUsersInZone]);
 
 
@@ -60,28 +60,28 @@ export default function ZHRDashboardPage() {
         setIsLoading(true);
         try {
           // 1. Fetch BHRs reporting to this ZHR
-          const { data: bhrUsers, error: bhrError } = await supabase
+          const { data: bhrUsersData, error: bhrError } = await supabase
             .from('users')
             .select('id, name')
             .eq('role', 'BHR')
             .eq('reports_to', user.id);
 
           if (bhrError) throw bhrError;
-          setBhrCount(bhrUsers?.length || 0);
-          setBhrUsersInZone(bhrUsers || []);
+          setBhrCount(bhrUsersData?.length || 0);
+          setBhrUsersInZone(bhrUsersData || []);
 
 
           let currentMonthVisitsCount = 0;
           let activeBHRsThisMonth = 0;
           let recentVisitsData: Visit[] = [];
           
-          const bhrIds = (bhrUsers || []).map(bhr => bhr.id);
+          const bhrIds = (bhrUsersData || []).map(bhr => bhr.id);
 
           if (bhrIds.length > 0) {
             // 2. Fetch submitted visits for these BHRs
             const { data: submittedVisits, error: visitsError } = await supabase
               .from('visits')
-              .select('*')
+              .select('*') // Select all columns needed for a Visit type
               .in('bhr_id', bhrIds)
               .eq('status', 'submitted')
               .order('visit_date', { ascending: false });
@@ -99,21 +99,20 @@ export default function ZHRDashboardPage() {
             const uniqueBHRsThisMonth = new Set(visitsThisMonth.map(visit => visit.bhr_id));
             activeBHRsThisMonth = uniqueBHRsThisMonth.size;
             
-            recentVisitsData = (submittedVisits || []).slice(0, 5);
+            recentVisitsData = (submittedVisits || []).slice(0, 5) as Visit[];
             
             // Fetch all branches for name lookup for recent visits
-            // This could be optimized to only fetch branches relevant to recentVisitsData if needed
             const { data: branchesData, error: branchesErr } = await supabase
                 .from('branches')
-                .select('*');
+                .select('*'); // Select all columns needed for Branch type
             if (branchesErr) throw branchesErr;
-            setAllBranches(branchesData || []); 
+            setAllBranches(branchesData as Branch[] || []); 
           } else {
             setAllBranches([]); 
           }
           
           setTotalVisitsThisMonth(currentMonthVisitsCount);
-          setActiveBHRsCount(activeBHRsThisMonth); // Set active BHRs count
+          setActiveBHRsCount(activeBHRsThisMonth);
           setRecentVisits(recentVisitsData);
 
         } catch (error: any) {
