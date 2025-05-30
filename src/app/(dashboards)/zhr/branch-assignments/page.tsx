@@ -37,7 +37,7 @@ export default function ZHRBranchAssignmentsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [branchesInZone, setBranchesInZone] = useState<BranchAssignmentView[]>([]);
-  const [bhrsInZone, setBhrsInZone] = useState<User[]>([]);
+  const [bhrsInZone, setBhrsInZone] = useState<User[]>([]); // Still needed for the dialog
   const [selectedBranchForAssignment, setSelectedBranchForAssignment] = useState<Branch | null>(null);
   const [selectedBhrForAssignment, setSelectedBhrForAssignment] = useState<string>('');
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
@@ -47,110 +47,79 @@ export default function ZHRBranchAssignmentsPage() {
   const fetchData = async () => {
     if (!user || user.role !== 'ZHR') {
       setIsLoading(false);
+      setError("User is not a ZHR or not logged in.");
+      console.log("ZHRBranchAssignmentsPage: User not ZHR or not logged in, bailing.", user);
       return;
     }
     setIsLoading(true);
     setError(null);
-    console.log("ZHRBranchAssignmentsPage: Starting data fetch for user:", user.id);
+    console.log("ZHRBranchAssignmentsPage: Starting simplified data fetch for user:", user.id);
 
     try {
-      // 1. Fetch BHRs reporting to the current ZHR
-      const { data: bhrsInZoneQuery, error: bhrsError } = await supabase
+      // 0. Fetch BHRs in the zone (still needed for the assignment dialog)
+      const { data: bhrsData, error: bhrsError } = await supabase
         .from('users')
         .select('id, name, email, role')
         .eq('role', 'BHR')
         .eq('reports_to', user.id);
 
-      console.log("ZHRBranchAssignmentsPage: Fetched BHRs data:", bhrsInZoneQuery);
       if (bhrsError) {
         console.error("ZHRBranchAssignmentsPage: Fetched BHRs error:", bhrsError.message, bhrsError);
         throw new Error(`Failed to fetch BHRs: ${bhrsError.message}`);
       }
-      if (!bhrsInZoneQuery) {
-        console.warn("ZHRBranchAssignmentsPage: No BHRs found or query returned null.");
-        setBhrsInZone([]);
-        setBranchesInZone([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      setBhrsInZone(bhrsInZoneQuery as User[]);
-      const bhrIds = bhrsInZoneQuery.map(bhr => bhr.id);
-      console.log("ZHRBranchAssignmentsPage: BHR IDs in zone:", bhrIds);
+      setBhrsInZone(bhrsData as User[] || []);
+      console.log("ZHRBranchAssignmentsPage: Fetched BHRs for dialog:", bhrsData);
 
-      if (bhrIds.length === 0) {
-        console.log("ZHRBranchAssignmentsPage: No BHRs in zone, setting empty branches and assignments.");
-        setBranchesInZone([]);
-        setIsLoading(false);
-        return;
-      }
 
-      // 2. Fetch assignments for these BHRs
-      const { data: assignmentsQuery, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select('id, bhr_id, branch_id')
-        .in('bhr_id', bhrIds);
-      
-      console.log("ZHRBranchAssignmentsPage: Fetched assignments data:", assignmentsQuery);
-      if (assignmentsError) {
-        console.error("ZHRBranchAssignmentsPage: Fetched assignments error:", assignmentsError.message, assignmentsError);
-        throw new Error(`Failed to fetch assignments: ${assignmentsError.message}`);
-      }
-      if (!assignmentsQuery) {
-         console.warn("ZHRBranchAssignmentsPage: No assignments found or query returned null.");
-         setBranchesInZone([]);
-         setIsLoading(false);
-         return;
-      }
-
-      const branchIdsFromAssignments = Array.from(new Set(assignmentsQuery.map(a => a.branch_id)));
-      console.log("ZHRBranchAssignmentsPage: Branch IDs from assignments:", branchIdsFromAssignments);
-
-      if (branchIdsFromAssignments.length === 0) {
-        console.log("ZHRBranchAssignmentsPage: No branches assigned to BHRs (no assignments found linking BHRs to branches), setting empty branches.");
-        setBranchesInZone([]); 
-        setIsLoading(false);
-        return;
-      }
-
-      // 3. Fetch details for these branches
-      const { data: branchesQuery, error: branchesError } = await supabase
+      // 1. Fetch ALL branches
+      const { data: allBranchesData, error: branchesError } = await supabase
         .from('branches')
-        .select('id, name, location, category, code')
-        .in('id', branchIdsFromAssignments);
+        .select('id, name, location, category, code');
 
-      console.log("ZHRBranchAssignmentsPage: Fetched branches data:", branchesQuery);
+      console.log("ZHRBranchAssignmentsPage: Fetched ALL branches data:", allBranchesData);
       if (branchesError) {
-        console.error("ZHRBranchAssignmentsPage: Fetched branches error:", branchesError.message, branchesError);
+        console.error("ZHRBranchAssignmentsPage: Fetched ALL branches error:", branchesError.message, branchesError);
         throw new Error(`Failed to fetch branches: ${branchesError.message}`);
       }
-      if (!branchesQuery) {
-        console.warn("ZHRBranchAssignmentsPage: No branch details found for the assigned branch IDs, or query returned null.");
+      
+      if (!allBranchesData || allBranchesData.length === 0) {
+        console.warn("ZHRBranchAssignmentsPage: No branches found in the database or query returned null/empty.");
         setBranchesInZone([]);
         setIsLoading(false);
         return;
       }
-      if (branchesQuery.length === 0 && branchIdsFromAssignments.length > 0) {
-        console.warn("ZHRBranchAssignmentsPage: Branch IDs were found in assignments, but no corresponding branch details were fetched. Check RLS on 'branches' or if branch IDs are valid.", branchIdsFromAssignments);
+
+      // For this simplified test, we'll just display branches and ignore assignments for now
+      // We still need to fetch assignments for the full functionality later
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('assignments')
+        .select('id, bhr_id, branch_id')
+        .in('bhr_id', (bhrsData || []).map(bhr => bhr.id)); // Filter by BHRs in zone
+
+      if (assignmentsError) {
+        console.error("ZHRBranchAssignmentsPage: Fetched assignments error:", assignmentsError.message, assignmentsError);
+        // Don't throw, proceed with empty assignments if necessary
       }
+      const assignments = assignmentsData || [];
+      console.log("ZHRBranchAssignmentsPage: Fetched assignments for ZHR's BHRs:", assignments);
 
-
-      // 4. Construct BranchAssignmentView
-      const branchViews = branchesQuery.map(branch => {
-        const assignmentsForThisBranch = assignmentsQuery.filter(a => a.branch_id === branch.id);
+      // 2. Construct BranchAssignmentView, linking assignments
+      const branchViews: BranchAssignmentView[] = allBranchesData.map(branch => {
+        const assignmentsForThisBranch = assignments.filter(a => a.branch_id === branch.id);
         const assignedBHRsDetails = assignmentsForThisBranch
-          .map(a => bhrsInZoneQuery.find(bhrUser => bhrUser.id === a.bhr_id)) // Renamed bhr to bhrUser to avoid conflict
+          .map(a => (bhrsData || []).find(bhrUser => bhrUser.id === a.bhr_id))
           .filter(bhrUser => bhrUser !== undefined) as User[];
         return { ...branch, assignedBHRs: assignedBHRsDetails };
       });
+      
       console.log("ZHRBranchAssignmentsPage: Constructed branchViews:", branchViews);
-
       setBranchesInZone(branchViews);
 
     } catch (e: any) {
       console.error("ZHRBranchAssignmentsPage: Error in fetchData's try-catch block:", e.message, e);
       setError(e.message || "An unexpected error occurred while fetching data.");
-      toast({ title: "Error", description: e.message || "Could not load assignments.", variant: "destructive" });
+      toast({ title: "Error", description: e.message || "Could not load branch data.", variant: "destructive" });
+      setBranchesInZone([]); // Clear data on error
     } finally {
       setIsLoading(false);
       console.log("ZHRBranchAssignmentsPage: Data fetch finished. Loading state:", false);
@@ -158,12 +127,20 @@ export default function ZHRBranchAssignmentsPage() {
   };
 
   useEffect(() => {
-    if (user) { // Ensure user is loaded before fetching
+    if (user && user.role === 'ZHR') { // Ensure user is loaded and is a ZHR
         fetchData();
+    } else if (user && user.role !== 'ZHR') {
+        setError("Access denied. User is not a ZHR.");
+        setIsLoading(false);
     } else {
-        setIsLoading(false); // If no user, not loading assignments
+        // User is null, isLoading might still be true from AuthContext, or already false
+        // If AuthContext isLoading is false and user is null, then it's truly no user.
+        // Let AuthContext handle redirect or loading screen.
+        // If we set isLoading to false here prematurely, it might flash content.
+        // However, if user is null and AuthContext indicates loading is done, then no data to fetch.
+        // This part is tricky; usually AuthProvider handles the main loading/redirect for no user.
     }
-  }, [user, toast]); // fetchData will be called when user changes
+  }, [user]); // Only re-run if user object changes.
 
 
   const handleOpenAssignDialog = (branch: Branch) => {
@@ -178,7 +155,7 @@ export default function ZHRBranchAssignmentsPage() {
       return;
     }
 
-    // Check if assignment already exists
+    setIsLoading(true); // Indicate an operation is in progress
     const { data: existingAssignment, error: checkError } = await supabase
         .from('assignments')
         .select('id')
@@ -188,16 +165,17 @@ export default function ZHRBranchAssignmentsPage() {
 
     if (checkError) {
         toast({ title: "Error", description: `Failed to check existing assignment: ${checkError.message}`, variant: "destructive" });
+        setIsLoading(false);
         return;
     }
     
     if (existingAssignment) {
         toast({ title: "Info", description: "This BHR is already assigned to this branch.", variant: "default" });
         setIsAssignDialogOpen(false);
+        setIsLoading(false);
         return;
     }
 
-    // Perform assignment
     const { error: insertError } = await supabase
         .from('assignments')
         .insert({
@@ -209,12 +187,14 @@ export default function ZHRBranchAssignmentsPage() {
         toast({ title: "Error", description: `Failed to assign BHR: ${insertError.message}`, variant: "destructive" });
     } else {
         toast({ title: "Success", description: `BHR assigned to ${selectedBranchForAssignment.name}.` });
-        fetchData(); 
+        await fetchData(); // Refetch data to show the new assignment
     }
     setIsAssignDialogOpen(false);
+    setIsLoading(false); // Ensure loading is false after operation
   };
   
   const handleUnassignBHR = async (branchId: string, bhrId: string) => {
+    setIsLoading(true); // Indicate an operation is in progress
     const { error } = await supabase
         .from('assignments')
         .delete()
@@ -225,17 +205,21 @@ export default function ZHRBranchAssignmentsPage() {
         toast({ title: "Error", description: `Failed to unassign BHR: ${error.message}`, variant: "destructive" });
     } else {
         toast({ title: "Success", description: "BHR unassigned from branch." });
-        fetchData();
+        await fetchData(); // Refetch data
     }
+    setIsLoading(false); // Ensure loading is false after operation
   };
 
+  // Simplified columns for debugging
   const columns: ColumnConfig<BranchAssignmentView>[] = [
     { accessorKey: 'name', header: 'Branch Name' },
     { accessorKey: 'location', header: 'Location' },
+    { accessorKey: 'category', header: 'Category' },
+    { accessorKey: 'code', header: 'Code' },
     {
       accessorKey: 'assignedBHRs',
       header: 'Assigned BHR(s)',
-      cell: ({ row }) => ( // ShadCN DataTable passes the full row object here
+      cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.assignedBHRs.length > 0 ? row.original.assignedBHRs.map(bhrUser => (
             <div key={bhrUser.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-xs">
@@ -251,7 +235,7 @@ export default function ZHRBranchAssignmentsPage() {
     {
       accessorKey: 'actions',
       header: 'Actions',
-      cell: ({ row }) => ( // ShadCN DataTable passes the full row object here
+      cell: ({ row }) => (
         <Button variant="outline" size="sm" onClick={() => handleOpenAssignDialog(row.original)}>
           <UserPlus className="mr-2 h-4 w-4" /> Assign BHR
         </Button>
@@ -259,7 +243,7 @@ export default function ZHRBranchAssignmentsPage() {
     },
   ];
 
-  if (isLoading) {
+  if (isLoading && branchesInZone.length === 0) { // Show loader only if data is truly not there yet
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -268,7 +252,7 @@ export default function ZHRBranchAssignmentsPage() {
     );
   }
 
-  if (error && !branchesInZone.length) { // Only show full page error if no data is loaded
+  if (error) { // Show full page error only if it's critical
      return (
       <div className="space-y-8">
         <PageTitle title="Branch Assignments" description="Manage BHR assignments to branches within your zone." />
@@ -283,7 +267,18 @@ export default function ZHRBranchAssignmentsPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user && !isLoading) { // Handles case where auth context has finished loading and there's no user.
+    return <PageTitle title="Access Denied" description="Please log in to view this page." />;
+  }
+  if (user && user.role !== 'ZHR' && !isLoading) {
+    return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
+  }
+
+
+  // Log branchesInZone right before rendering DataTable
+  console.log("ZHRBranchAssignmentsPage: Rendering DataTable with branchesInZone:", branchesInZone);
+  console.log("ZHRBranchAssignmentsPage: isLoading state:", isLoading);
+
 
   return (
     <div className="space-y-8">
@@ -291,7 +286,7 @@ export default function ZHRBranchAssignmentsPage() {
       <DataTable
         columns={columns}
         data={branchesInZone}
-        emptyStateMessage="No branches found with assignments in your zone, or no BHRs are assigned yet."
+        emptyStateMessage={isLoading ? "Loading..." : (error ? "Error loading data." : "No branches found in the system, or no branches are assignable by you.")}
       />
 
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
@@ -312,19 +307,20 @@ export default function ZHRBranchAssignmentsPage() {
                   <SelectValue placeholder="Select a BHR" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bhrsInZone.map(bhrUser => (
+                  {bhrsInZone.length > 0 ? bhrsInZone.map(bhrUser => (
                     <SelectItem key={bhrUser.id} value={bhrUser.id}>{bhrUser.name}</SelectItem>
-                  ))}
+                  )) : <SelectItem value="nobhrs" disabled>No BHRs in your zone</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAssignBHR}><Check className="mr-2 h-4 w-4" />Assign</Button>
+            <Button onClick={handleAssignBHR} disabled={isLoading || !selectedBhrForAssignment || bhrsInZone.length === 0}><Check className="mr-2 h-4 w-4" />Assign</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
