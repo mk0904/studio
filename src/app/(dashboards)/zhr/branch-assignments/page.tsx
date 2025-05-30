@@ -62,9 +62,10 @@ export default function ZHRBranchAssignmentsPage() {
         .eq('reports_to', user.id);
 
       console.log("ZHRBranchAssignmentsPage: Fetched BHRs data:", bhrsInZoneQuery);
-      console.error("ZHRBranchAssignmentsPage: Fetched BHRs error:", bhrsError);
-
-      if (bhrsError) throw new Error(`Failed to fetch BHRs: ${bhrsError.message}`);
+      if (bhrsError) {
+        console.error("ZHRBranchAssignmentsPage: Fetched BHRs error:", bhrsError);
+        throw new Error(`Failed to fetch BHRs: ${bhrsError.message}`);
+      }
       if (!bhrsInZoneQuery) throw new Error('No BHRs found or query returned null.');
       
       setBhrsInZone(bhrsInZoneQuery as User[]);
@@ -85,9 +86,10 @@ export default function ZHRBranchAssignmentsPage() {
         .in('bhr_id', bhrIds);
       
       console.log("ZHRBranchAssignmentsPage: Fetched assignments data:", assignmentsQuery);
-      console.error("ZHRBranchAssignmentsPage: Fetched assignments error:", assignmentsError);
-
-      if (assignmentsError) throw new Error(`Failed to fetch assignments: ${assignmentsError.message}`);
+      if (assignmentsError) {
+        console.error("ZHRBranchAssignmentsPage: Fetched assignments error:", assignmentsError);
+        throw new Error(`Failed to fetch assignments: ${assignmentsError.message}`);
+      }
       if (!assignmentsQuery) throw new Error('No assignments found or query returned null.');
 
       const branchIdsFromAssignments = Array.from(new Set(assignmentsQuery.map(a => a.branch_id)));
@@ -95,7 +97,7 @@ export default function ZHRBranchAssignmentsPage() {
 
       if (branchIdsFromAssignments.length === 0) {
         console.log("ZHRBranchAssignmentsPage: No branches assigned to BHRs, setting empty branches.");
-        setBranchesInZone([]); // Or maybe display branches with no assignments? For now, empty.
+        setBranchesInZone([]); 
         setIsLoading(false);
         return;
       }
@@ -107,9 +109,10 @@ export default function ZHRBranchAssignmentsPage() {
         .in('id', branchIdsFromAssignments);
 
       console.log("ZHRBranchAssignmentsPage: Fetched branches data:", branchesQuery);
-      console.error("ZHRBranchAssignmentsPage: Fetched branches error:", branchesError);
-      
-      if (branchesError) throw new Error(`Failed to fetch branches: ${branchesError.message}`);
+      if (branchesError) {
+        console.error("ZHRBranchAssignmentsPage: Fetched branches error:", branchesError);
+        throw new Error(`Failed to fetch branches: ${branchesError.message}`);
+      }
       if (!branchesQuery) throw new Error('No branches found or query returned null.');
 
       // 4. Construct BranchAssignmentView
@@ -136,7 +139,7 @@ export default function ZHRBranchAssignmentsPage() {
 
   useEffect(() => {
     fetchData();
-  }, [user, toast]); // Removed 'toast' if it causes re-runs unnecessarily, but useful if error messages change. Re-added for now.
+  }, [user, toast]); 
 
 
   const handleOpenAssignDialog = (branch: Branch) => {
@@ -157,7 +160,7 @@ export default function ZHRBranchAssignmentsPage() {
         .select('id')
         .eq('branch_id', selectedBranchForAssignment.id)
         .eq('bhr_id', selectedBhrForAssignment)
-        .maybeSingle(); // Use maybeSingle to expect 0 or 1 row
+        .maybeSingle(); 
 
     if (checkError) {
         toast({ title: "Error", description: `Failed to check existing assignment: ${checkError.message}`, variant: "destructive" });
@@ -182,8 +185,6 @@ export default function ZHRBranchAssignmentsPage() {
         toast({ title: "Error", description: `Failed to assign BHR: ${insertError.message}`, variant: "destructive" });
     } else {
         toast({ title: "Success", description: `BHR assigned to ${selectedBranchForAssignment.name}.` });
-        // Optimistic update or refetch data
-        // For simplicity, refetching all data
         fetchData(); 
     }
     setIsAssignDialogOpen(false);
@@ -200,7 +201,6 @@ export default function ZHRBranchAssignmentsPage() {
         toast({ title: "Error", description: `Failed to unassign BHR: ${error.message}`, variant: "destructive" });
     } else {
         toast({ title: "Success", description: "BHR unassigned from branch." });
-        // Optimistic update or refetch data
         fetchData();
     }
   };
