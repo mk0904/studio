@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import {
-  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, Globe, LogOut, BarChartHorizontalBig
+  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, Globe, LogOut, BarChartHorizontalBig, Settings, Users
 } from 'lucide-react';
 
 const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
@@ -20,12 +20,13 @@ const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
     { href: '/bhr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/bhr/new-visit', label: 'New Visit', icon: PlusCircle },
     { href: '/bhr/my-visits', label: 'My Visits', icon: ListChecks },
-    { href: '/bhr/analytics', label: 'Analytics', icon: BarChartHorizontalBig },
+    // Removed BHR Analytics: { href: '/bhr/analytics', label: 'Analytics', icon: BarChartHorizontalBig },
   ],
   ZHR: [
     { href: '/zhr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/zhr/visits-made', label: 'Visits Made', icon: Eye },
     { href: '/zhr/branch-assignments', label: 'Branch Assignments', icon: Briefcase },
+    { href: '/zhr/analytics', label: 'Analytics', icon: BarChart3 }, // Added ZHR Analytics
   ],
   VHR: [
     { href: '/vhr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
