@@ -7,7 +7,6 @@ import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit, Branch, User } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/shared/date-range-picker';
@@ -51,11 +50,7 @@ export default function ZHRVisitsMadePage() {
       header: 'Visit Date',
       cell: (visit) => format(parseISO(visit.visit_date), 'PPP') 
     },
-    { 
-      accessorKey: 'additional_remarks', 
-      header: 'Notes',
-      cell: (visit) => <p className="max-w-md whitespace-pre-wrap break-words">{visit.additional_remarks || 'N/A'}</p>
-    },
+    // Removed 'Notes' column
   ];
 
   const fetchData = useCallback(async () => {
@@ -86,7 +81,7 @@ export default function ZHRVisitsMadePage() {
       // 2. Fetch all branches for filter and name lookup
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
-        .select('id, name, location'); // Add any other fields needed for display or filtering
+        .select('id, name, location'); 
 
       if (branchesError) {
         console.error("ZHRVisitsMadePage: Error fetching branches:", branchesError);
