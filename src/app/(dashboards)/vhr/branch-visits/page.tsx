@@ -11,7 +11,7 @@ import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal'; // Reusing ZHR modal
+import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 
 export default function VHRBranchVisitsPage() {
   const { user } = useAuth();
@@ -25,31 +25,26 @@ export default function VHRBranchVisitsPage() {
   const [selectedVisitForView, setSelectedVisitForView] = useState<EnrichedVisitForModal | null>(null);
 
   const columns: ColumnConfig<Visit>[] = useMemo(() => [
-    { 
-      accessorKey: 'bhr_id', 
+    {
+      accessorKey: 'bhr_id',
       header: 'BHR Name',
       cell: (visit) => {
           const bhr = bhrUsersInVertical.find(u => u.id === visit.bhr_id);
           return bhr ? bhr.name : 'N/A';
       }
     },
-    { 
-      accessorKey: 'branch_id', 
+    {
+      accessorKey: 'branch_id',
       header: 'Branch Name',
       cell: (visit) => {
           const branch = allBranchesInVertical.find(b => b.id === visit.branch_id);
           return branch ? branch.name : 'N/A';
       }
     },
-    { 
-      accessorKey: 'visit_date', 
+    {
+      accessorKey: 'visit_date',
       header: 'Visit Date',
-      cell: (visit) => format(parseISO(visit.visit_date), 'PPP') 
-    },
-    { 
-      accessorKey: 'additional_remarks', 
-      header: 'Remarks', 
-      cell: (visit) => <p className="max-w-md whitespace-pre-wrap break-words">{visit.additional_remarks}</p>
+      cell: (visit) => format(parseISO(visit.visit_date), 'PPP')
     },
     {
       accessorKey: 'actions',
@@ -59,7 +54,7 @@ export default function VHRBranchVisitsPage() {
           const branch = allBranchesInVertical.find(b => b.id === visit.branch_id);
           const bhr = bhrUsersInVertical.find(u => u.id === visit.bhr_id);
           const enrichedVisit: EnrichedVisitForModal = {
-            ...(visit as Visit), // Cast to Visit
+            ...(visit as Visit),
             branch_name_display: branch?.name || visit.branch_id,
             branch_category_display: branch?.category,
             branch_code_display: branch?.code,
@@ -87,17 +82,21 @@ export default function VHRBranchVisitsPage() {
       return;
     }
     setIsLoading(true);
+    console.log(`VHRBranchVisitsPage: Initiating data fetch for VHR ${user.id} (${user.name}).`);
     try {
       // 1. Fetch ZHRs reporting to this VHR
       const { data: zhrUsersData, error: zhrError } = await supabase
         .from('users')
-        .select('id')
+        .select('id, name') // Select name for logging
         .eq('role', 'ZHR')
         .eq('reports_to', user.id);
+
       if (zhrError) throw zhrError;
+      console.log(`VHRBranchVisitsPage: VHR ${user.id} - Found ZHRs reporting to this VHR:`, zhrUsersData);
       const zhrIds = (zhrUsersData || []).map(z => z.id);
 
       if (zhrIds.length === 0) {
+        console.log(`VHRBranchVisitsPage: VHR ${user.id} - No ZHRs found reporting to this VHR. No further data will be fetched.`);
         setBhrUsersInVertical([]);
         setAllBranchesInVertical([]);
         setAllSubmittedVisits([]);
@@ -113,22 +112,30 @@ export default function VHRBranchVisitsPage() {
         .in('reports_to', zhrIds);
       if (bhrError) throw bhrError;
       setBhrUsersInVertical(bhrsData || []);
+      console.log(`VHRBranchVisitsPage: VHR ${user.id} - Found BHRs reporting to the identified ZHRs:`, bhrsData);
       const bhrIds = (bhrsData || []).map(b => b.id);
 
       if (bhrIds.length === 0) {
-        setAllBranchesInVertical([]);
+        console.log(`VHRBranchVisitsPage: VHR ${user.id} - No BHRs found reporting to the identified ZHRs. No visits will be fetched.`);
+        setAllBranchesInVertical([]); // Still fetch branches for consistency if needed elsewhere, though visits will be empty
         setAllSubmittedVisits([]);
         setIsLoading(false);
+        // Fetch all branches in case any part of UI needs it even if no visits.
+        const { data: allBranches, error: allBranchesError } = await supabase
+          .from('branches')
+          .select('id, name, category, code, location');
+        if (allBranchesError) throw allBranchesError;
+        setAllBranchesInVertical(allBranches || []);
         return;
       }
 
-      // 3. Fetch all branches (for name lookup)
-      // In a real app, might only fetch branches relevant to these BHRs if performance is a concern
+      // 3. Fetch all branches (for name lookup and modal)
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
-        .select('id, name, category, code, location'); // Fetch all needed fields
+        .select('id, name, category, code, location');
       if (branchesError) throw branchesError;
       setAllBranchesInVertical(branchesData || []);
+      console.log(`VHRBranchVisitsPage: VHR ${user.id} - Fetched all branches for lookup:`, branchesData);
 
       // 4. Fetch submitted visits by these BHRs, ordered by date
       const { data: visitsData, error: visitsError } = await supabase
@@ -139,6 +146,7 @@ export default function VHRBranchVisitsPage() {
         .order('visit_date', { ascending: false });
       if (visitsError) throw visitsError;
       setAllSubmittedVisits((visitsData as Visit[]) || []);
+      console.log(`VHRBranchVisitsPage: VHR ${user.id} - Found submitted visits by these BHRs:`, visitsData);
 
     } catch (error: any) {
       console.error("VHRBranchVisitsPage: Error fetching data:", error);
@@ -148,6 +156,7 @@ export default function VHRBranchVisitsPage() {
       setAllBranchesInVertical([]);
     } finally {
       setIsLoading(false);
+      console.log(`VHRBranchVisitsPage: Data fetch complete for VHR ${user.id}. Loading: false.`);
     }
   }, [user, toast]);
 
@@ -169,7 +178,7 @@ export default function VHRBranchVisitsPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="All Submitted Branch Visits in Vertical" description="A comprehensive log of all submitted visits within your vertical, sorted by most recent." />
+      <PageTitle title="All Submitted Branch Visits in Vertical" description="A comprehensive log of all submitted visits conducted by BHRs within your reporting structure, sorted by most recent." />
       <DataTable
         columns={columns}
         data={allSubmittedVisits}
