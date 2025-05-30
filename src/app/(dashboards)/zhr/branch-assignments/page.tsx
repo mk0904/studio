@@ -63,10 +63,16 @@ export default function ZHRBranchAssignmentsPage() {
 
       console.log("ZHRBranchAssignmentsPage: Fetched BHRs data:", bhrsInZoneQuery);
       if (bhrsError) {
-        console.error("ZHRBranchAssignmentsPage: Fetched BHRs error:", bhrsError);
+        console.error("ZHRBranchAssignmentsPage: Fetched BHRs error:", bhrsError.message, bhrsError);
         throw new Error(`Failed to fetch BHRs: ${bhrsError.message}`);
       }
-      if (!bhrsInZoneQuery) throw new Error('No BHRs found or query returned null.');
+      if (!bhrsInZoneQuery) {
+        console.warn("ZHRBranchAssignmentsPage: No BHRs found or query returned null.");
+        setBhrsInZone([]);
+        setBranchesInZone([]);
+        setIsLoading(false);
+        return;
+      }
       
       setBhrsInZone(bhrsInZoneQuery as User[]);
       const bhrIds = bhrsInZoneQuery.map(bhr => bhr.id);
@@ -87,16 +93,21 @@ export default function ZHRBranchAssignmentsPage() {
       
       console.log("ZHRBranchAssignmentsPage: Fetched assignments data:", assignmentsQuery);
       if (assignmentsError) {
-        console.error("ZHRBranchAssignmentsPage: Fetched assignments error:", assignmentsError);
+        console.error("ZHRBranchAssignmentsPage: Fetched assignments error:", assignmentsError.message, assignmentsError);
         throw new Error(`Failed to fetch assignments: ${assignmentsError.message}`);
       }
-      if (!assignmentsQuery) throw new Error('No assignments found or query returned null.');
+      if (!assignmentsQuery) {
+         console.warn("ZHRBranchAssignmentsPage: No assignments found or query returned null.");
+         setBranchesInZone([]);
+         setIsLoading(false);
+         return;
+      }
 
       const branchIdsFromAssignments = Array.from(new Set(assignmentsQuery.map(a => a.branch_id)));
       console.log("ZHRBranchAssignmentsPage: Branch IDs from assignments:", branchIdsFromAssignments);
 
       if (branchIdsFromAssignments.length === 0) {
-        console.log("ZHRBranchAssignmentsPage: No branches assigned to BHRs, setting empty branches.");
+        console.log("ZHRBranchAssignmentsPage: No branches assigned to BHRs (no assignments found linking BHRs to branches), setting empty branches.");
         setBranchesInZone([]); 
         setIsLoading(false);
         return;
@@ -110,17 +121,26 @@ export default function ZHRBranchAssignmentsPage() {
 
       console.log("ZHRBranchAssignmentsPage: Fetched branches data:", branchesQuery);
       if (branchesError) {
-        console.error("ZHRBranchAssignmentsPage: Fetched branches error:", branchesError);
+        console.error("ZHRBranchAssignmentsPage: Fetched branches error:", branchesError.message, branchesError);
         throw new Error(`Failed to fetch branches: ${branchesError.message}`);
       }
-      if (!branchesQuery) throw new Error('No branches found or query returned null.');
+      if (!branchesQuery) {
+        console.warn("ZHRBranchAssignmentsPage: No branch details found for the assigned branch IDs, or query returned null.");
+        setBranchesInZone([]);
+        setIsLoading(false);
+        return;
+      }
+      if (branchesQuery.length === 0 && branchIdsFromAssignments.length > 0) {
+        console.warn("ZHRBranchAssignmentsPage: Branch IDs were found in assignments, but no corresponding branch details were fetched. Check RLS on 'branches' or if branch IDs are valid.", branchIdsFromAssignments);
+      }
+
 
       // 4. Construct BranchAssignmentView
       const branchViews = branchesQuery.map(branch => {
         const assignmentsForThisBranch = assignmentsQuery.filter(a => a.branch_id === branch.id);
         const assignedBHRsDetails = assignmentsForThisBranch
-          .map(a => bhrsInZoneQuery.find(bhr => bhr.id === a.bhr_id))
-          .filter(bhr => bhr !== undefined) as User[];
+          .map(a => bhrsInZoneQuery.find(bhrUser => bhrUser.id === a.bhr_id)) // Renamed bhr to bhrUser to avoid conflict
+          .filter(bhrUser => bhrUser !== undefined) as User[];
         return { ...branch, assignedBHRs: assignedBHRsDetails };
       });
       console.log("ZHRBranchAssignmentsPage: Constructed branchViews:", branchViews);
@@ -128,7 +148,7 @@ export default function ZHRBranchAssignmentsPage() {
       setBranchesInZone(branchViews);
 
     } catch (e: any) {
-      console.error("ZHRBranchAssignmentsPage: Error in fetchData:", e);
+      console.error("ZHRBranchAssignmentsPage: Error in fetchData's try-catch block:", e.message, e);
       setError(e.message || "An unexpected error occurred while fetching data.");
       toast({ title: "Error", description: e.message || "Could not load assignments.", variant: "destructive" });
     } finally {
@@ -138,8 +158,12 @@ export default function ZHRBranchAssignmentsPage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [user, toast]); 
+    if (user) { // Ensure user is loaded before fetching
+        fetchData();
+    } else {
+        setIsLoading(false); // If no user, not loading assignments
+    }
+  }, [user, toast]); // fetchData will be called when user changes
 
 
   const handleOpenAssignDialog = (branch: Branch) => {
@@ -211,12 +235,12 @@ export default function ZHRBranchAssignmentsPage() {
     {
       accessorKey: 'assignedBHRs',
       header: 'Assigned BHR(s)',
-      cell: (row) => (
+      cell: ({ row }) => ( // ShadCN DataTable passes the full row object here
         <div className="flex flex-wrap gap-1">
-          {row.assignedBHRs.length > 0 ? row.assignedBHRs.map(bhr => (
-            <div key={bhr.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-xs">
-                {bhr.name}
-                <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => handleUnassignBHR(row.id, bhr.id)}>
+          {row.original.assignedBHRs.length > 0 ? row.original.assignedBHRs.map(bhrUser => (
+            <div key={bhrUser.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-xs">
+                {bhrUser.name}
+                <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => handleUnassignBHR(row.original.id, bhrUser.id)}>
                     <Trash2 className="h-3 w-3 text-destructive"/>
                 </Button>
             </div>
@@ -227,8 +251,8 @@ export default function ZHRBranchAssignmentsPage() {
     {
       accessorKey: 'actions',
       header: 'Actions',
-      cell: (row) => (
-        <Button variant="outline" size="sm" onClick={() => handleOpenAssignDialog(row)}>
+      cell: ({ row }) => ( // ShadCN DataTable passes the full row object here
+        <Button variant="outline" size="sm" onClick={() => handleOpenAssignDialog(row.original)}>
           <UserPlus className="mr-2 h-4 w-4" /> Assign BHR
         </Button>
       ),
@@ -244,7 +268,7 @@ export default function ZHRBranchAssignmentsPage() {
     );
   }
 
-  if (error) {
+  if (error && !branchesInZone.length) { // Only show full page error if no data is loaded
      return (
       <div className="space-y-8">
         <PageTitle title="Branch Assignments" description="Manage BHR assignments to branches within your zone." />
@@ -267,7 +291,7 @@ export default function ZHRBranchAssignmentsPage() {
       <DataTable
         columns={columns}
         data={branchesInZone}
-        emptyStateMessage="No branches found in your zone or available for assignment."
+        emptyStateMessage="No branches found with assignments in your zone, or no BHRs are assigned yet."
       />
 
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
@@ -288,8 +312,8 @@ export default function ZHRBranchAssignmentsPage() {
                   <SelectValue placeholder="Select a BHR" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bhrsInZone.map(bhr => (
-                    <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>
+                  {bhrsInZone.map(bhrUser => (
+                    <SelectItem key={bhrUser.id} value={bhrUser.id}>{bhrUser.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
