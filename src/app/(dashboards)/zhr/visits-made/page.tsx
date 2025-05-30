@@ -14,7 +14,8 @@ import type { DateRange } from 'react-day-picker';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye } from 'lucide-react';
+import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 
 export default function ZHRVisitsMadePage() {
   const { user } = useAuth();
@@ -28,13 +29,16 @@ export default function ZHRVisitsMadePage() {
   const [branchOptions, setBranchOptions] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const columns: ColumnConfig<Visit>[] = [
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedVisitForView, setSelectedVisitForView] = useState<EnrichedVisitForModal | null>(null);
+
+  const columns: ColumnConfig<Visit>[] = useMemo(() => [
     { 
       accessorKey: 'bhr_id', 
       header: 'BHR Name',
       cell: (visit) => {
         const bhr = bhrOptions.find(b => b.id === visit.bhr_id);
-        return bhr ? bhr.name : visit.bhr_id; // Fallback to ID if name not found
+        return bhr ? bhr.name : visit.bhr_id; 
       }
     },
     { 
@@ -42,7 +46,7 @@ export default function ZHRVisitsMadePage() {
       header: 'Branch Name',
       cell: (visit) => {
         const branch = branchOptions.find(b => b.id === visit.branch_id);
-        return branch ? branch.name : visit.branch_id; // Fallback to ID
+        return branch ? branch.name : visit.branch_id; 
       }
     },
     { 
@@ -50,8 +54,35 @@ export default function ZHRVisitsMadePage() {
       header: 'Visit Date',
       cell: (visit) => format(parseISO(visit.visit_date), 'PPP') 
     },
-    // Removed 'Notes' column
-  ];
+    {
+      accessorKey: 'actions',
+      header: 'Actions',
+      cell: (visit) => {
+        const handleViewClick = () => {
+          const branch = branchOptions.find(b => b.id === visit.branch_id);
+          const bhr = bhrOptions.find(u => u.id === visit.bhr_id);
+          const enrichedVisit: EnrichedVisitForModal = {
+            ...visit,
+            branch_name_display: branch?.name || visit.branch_id,
+            branch_category_display: branch?.category,
+            branch_code_display: branch?.code,
+            bhr_name_display: bhr?.name || visit.bhr_id,
+          };
+          setSelectedVisitForView(enrichedVisit);
+          setIsViewModalOpen(true);
+        };
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleViewClick}
+          >
+            <Eye className="mr-2 h-4 w-4" /> View
+          </Button>
+        );
+      }
+    }
+  ], [bhrOptions, branchOptions]);
 
   const fetchData = useCallback(async () => {
     if (!user || user.role !== 'ZHR') {
@@ -78,10 +109,10 @@ export default function ZHRVisitsMadePage() {
         console.log("ZHRVisitsMadePage: Fetched BHRs:", bhrsData);
       }
 
-      // 2. Fetch all branches for filter and name lookup
+      // 2. Fetch all branches for filter and name lookup (including category and code for modal)
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
-        .select('id, name, location'); 
+        .select('id, name, location, category, code'); 
 
       if (branchesError) {
         console.error("ZHRVisitsMadePage: Error fetching branches:", branchesError);
@@ -146,7 +177,7 @@ export default function ZHRVisitsMadePage() {
 
   if (!user) return null;
 
-  if (isLoading && user.role === 'ZHR') {
+  if (isLoading && user.role === 'ZHR' && allVisits.length === 0) { // Added allVisits.length check for initial load
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -196,6 +227,17 @@ export default function ZHRVisitsMadePage() {
         data={filteredVisits}
         emptyStateMessage={isLoading ? "Loading visits..." : (allVisits.length === 0 ? "No visits found for BHRs in your zone." : "No visits match your current filters.")}
       />
+      {selectedVisitForView && (
+        <ViewVisitDetailsModal
+            visit={selectedVisitForView}
+            isOpen={isViewModalOpen}
+            onClose={() => {
+                setIsViewModalOpen(false);
+                setSelectedVisitForView(null);
+            }}
+        />
+      )}
     </div>
   );
 }
+
