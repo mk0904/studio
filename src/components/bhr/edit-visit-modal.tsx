@@ -24,7 +24,7 @@ interface EditVisitModalProps {
   visitToEdit: Visit | null;
   isOpen: boolean;
   onClose: () => void;
-  onVisitUpdated: () => void; // To refresh the list on MyVisitsPage
+  onVisitUpdated: () => void; 
 }
 
 export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }: EditVisitModalProps) {
@@ -65,14 +65,13 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
   }, [user, toast]);
 
   useEffect(() => {
-    if (isOpen) { // Fetch branches only when modal is open or about to open
+    if (isOpen) { 
       fetchAssignedBranches();
     }
   }, [isOpen, fetchAssignedBranches]);
 
   const initialDataForForm = visitToEdit ? {
     ...visitToEdit,
-    // Ensure all fields expected by VisitFormValues are present, converting types if necessary
     visit_date: visitToEdit.visit_date ? new Date(visitToEdit.visit_date) : new Date(),
     hr_connect_employees_invited: visitToEdit.hr_connect_employees_invited ?? undefined,
     hr_connect_participants: visitToEdit.hr_connect_participants ?? undefined,
@@ -104,19 +103,17 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
     }
 
     const visitPayload = {
-      // bhr_id and branch_id are part of 'data' from the form
       ...data,
-      bhr_id: user.id, // ensure current user is bhr_id
+      bhr_id: user.id, 
       bhr_name: user.name,
       branch_name: currentSelectedBranchInfo.name,
       visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-      status: statusToSet, // Usually 'submitted' when editing a draft via modal
+      status: statusToSet, 
       hr_connect_conducted: data.hr_connect_conducted,
       hr_connect_employees_invited: data.hr_connect_conducted ? data.hr_connect_employees_invited : null,
       hr_connect_participants: data.hr_connect_conducted ? data.hr_connect_participants : null,
     };
     
-    // Remove id from payload if it exists to prevent trying to update it
     const { id: visitId, ...payloadWithoutId } = visitPayload as any;
 
 
@@ -125,16 +122,16 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
         .from('visits')
         .update(payloadWithoutId)
         .eq('id', visitToEdit.id)
-        .eq('bhr_id', user.id); // Ensure BHR can only update their own visits
+        .eq('bhr_id', user.id); 
 
       if (error) throw error;
 
       toast({
         title: "Visit Updated!",
-        description: `Visit to ${currentSelectedBranchInfo.name} on ${format(data.visit_date, "PPP")} has been updated and submitted.`,
+        description: `Visit to ${currentSelectedBranchInfo.name} on ${format(data.visit_date, "PPP")} has been updated and ${statusToSet === 'submitted' ? 'submitted' : 'saved as draft'}.`,
       });
-      onVisitUpdated(); // Callback to refresh list
-      onClose(); // Close modal
+      onVisitUpdated(); 
+      onClose(); 
     } catch (error: any) {
       toast({ title: "Error Updating Visit", description: error.message, variant: "destructive" });
     } finally {
@@ -150,7 +147,7 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
         <DialogHeader>
           <DialogTitle>Edit Draft Visit</DialogTitle>
           <DialogDescription>
-            Update the details of your draft visit to {visitToEdit.branch_name}. Press Submit to change status to 'Submitted'.
+            Update the details of your draft visit to {visitToEdit.branch_name}. You can save changes as a draft or submit the report.
           </DialogDescription>
         </DialogHeader>
         
@@ -161,16 +158,9 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
           assignedBranches={assignedBranches}
           isLoadingBranches={isLoadingBranches}
           submitButtonText="Update & Submit"
-          draftButtonText="Save Changes as Draft" // Or hide draft button if only submit is allowed from modal
+          draftButtonText="Save Changes as Draft"
         />
         
-        {/* <DialogFooter className="sm:justify-start">
-          <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-          </DialogClose>
-        </DialogFooter> */}
       </DialogContent>
     </Dialog>
   );

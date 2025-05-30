@@ -24,8 +24,8 @@ export interface Branch {
   id: string;
   name: string;
   location: string;
-  category: string; // Added
-  code: string;     // Added
+  category: string; 
+  code: string;     
 }
 
 export interface Assignment {
@@ -34,7 +34,7 @@ export interface Assignment {
   branch_id: string;
 }
 
-export type VisitStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+export type VisitStatus = 'draft' | 'submitted'; // Simplified
 
 export interface Visit {
   id: string;
@@ -75,7 +75,7 @@ export interface Visit {
   qual_inclusive_culture?: 'yes' | 'no';
 
   additional_remarks?: string;
-  notes?: string;
+  notes?: string; // Kept for potential legacy data, but new forms use additional_remarks
 }
 
 export interface VisitReportInput {

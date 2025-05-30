@@ -43,7 +43,7 @@ export const mockVisits: Visit[] = [
     manning_percentage: 95,
     attrition_percentage: 5,
     performance_level: 'Good',
-    status: 'approved',
+    status: 'submitted', // Changed from 'approved'
   },
   {
     id: 'visit-2', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-2', branch_name: 'Southern Cross Branch',
@@ -73,7 +73,7 @@ export const mockVisits: Visit[] = [
     manning_percentage: 100,
     attrition_percentage: 2,
     performance_level: 'Good',
-    status: 'approved',
+    status: 'submitted', // Changed from 'approved'
   },
   {
     id: 'visit-5', bhr_id: 'bhr-4', bhr_name: 'Jack Sparrow', branch_id: 'branch-6', branch_name: 'Metro Point',
@@ -83,7 +83,7 @@ export const mockVisits: Visit[] = [
     manning_percentage: 92,
     attrition_percentage: 6,
     performance_level: 'Needs Improvement',
-    status: 'rejected',
+    status: 'draft', // Changed from 'rejected'
   },
   {
     id: 'visit-6', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-1', branch_name: 'North Star Branch',
@@ -93,7 +93,7 @@ export const mockVisits: Visit[] = [
     manning_percentage: 96,
     attrition_percentage: 4,
     performance_level: 'Good',
-    status: 'approved',
+    status: 'submitted', // Changed from 'approved'
   },
 ];
 
@@ -101,7 +101,7 @@ export const mockVisits: Visit[] = [
 export const mockVisitReportInputs: VisitReportInput[] = mockVisits.map(v => ({
   branch: v.branch_name,
   visitDate: v.visit_date,
-  notes: v.additional_remarks || '', // Use additional_remarks for AI summary
+  notes: v.additional_remarks || v.notes || '', 
   bhr: v.bhr_name,
 }));
 
@@ -153,4 +153,4 @@ export const getVisibleBranchesForZHR = (zhrId: string): Branch[] => {
   // Unique branch IDs
   return mockBranches.filter(b => Array.from(new Set(assignedBranchIds)).includes(b.id));
 };
-// Add more complex data retrieval logic as needed for VHR/CHR or specific filters
+

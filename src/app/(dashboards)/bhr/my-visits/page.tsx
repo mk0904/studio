@@ -12,12 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Removed CardTitle
+import { Card, CardContent, CardHeader } from '@/components/ui/card'; 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow, getMonth, parseISO } from 'date-fns';
-import { Search, FileText, Eye, CheckCircle2, Trash2, Clock, PlusCircle, FileQuestion, Loader2, Edit } from 'lucide-react';
+import { Search, FileText, Eye, Trash2, Clock, PlusCircle, FileQuestion, Loader2, Edit } from 'lucide-react'; // Removed CheckCircle2
 import { useToast } from '@/hooks/use-toast';
-import { EditVisitModal } from '@/components/bhr/edit-visit-modal'; // Import the modal
+import { EditVisitModal } from '@/components/bhr/edit-visit-modal'; 
 
 export default function MyVisitsPage() {
   const { user } = useAuth();
@@ -59,13 +59,13 @@ export default function MyVisitsPage() {
       cell: (visit) => {
         if (!visit.status) return <Badge variant="outline">Unknown</Badge>;
         let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
-        if (visit.status === 'approved') variant = 'default'; 
-        if (visit.status === 'submitted') variant = 'secondary';
-        if (visit.status === 'rejected') variant = 'destructive';
+        // With only 'draft' and 'submitted', 'default' and 'secondary' are less distinct.
+        // Let's use 'secondary' for 'submitted' and 'outline' for 'draft' for now.
+        if (visit.status === 'submitted') variant = 'secondary'; 
+        if (visit.status === 'draft') variant = 'outline';
         return <Badge variant={variant} className="capitalize">{visit.status}</Badge>;
       }
     },
-    // Summary column removed as per request
     {
       accessorKey: 'actions',
       header: 'Actions',
@@ -77,7 +77,7 @@ export default function MyVisitsPage() {
             </Button>
           );
         }
-        // For 'submitted', 'approved', 'rejected'
+        // For 'submitted'
         return (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/bhr/new-visit?visit_id=${visit.id}`}>
@@ -92,9 +92,7 @@ export default function MyVisitsPage() {
   const statusFilters: { value: VisitStatus | 'all'; label: string; icon: React.ElementType }[] = [
     { value: 'all', label: 'All', icon: FileText },
     { value: 'draft', label: 'Draft', icon: Clock },
-    { value: 'submitted', label: 'Submitted', icon: Eye }, // Using Eye for submitted
-    { value: 'approved', label: 'Approved', icon: CheckCircle2 },
-    { value: 'rejected', label: 'Rejected', icon: Trash2 },
+    { value: 'submitted', label: 'Submitted', icon: Eye },
   ];
 
   const monthOptions = [
@@ -175,12 +173,12 @@ export default function MyVisitsPage() {
   };
 
   const handleVisitUpdated = () => {
-    fetchVisitsAndBranches(); // Refetch visits after an update
+    fetchVisitsAndBranches(); 
   };
 
   if (!user) return null;
 
-  if (isLoading && myVisits.length === 0) { // Show loader only on initial load
+  if (isLoading && myVisits.length === 0) { 
     return (
         <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -226,7 +224,7 @@ export default function MyVisitsPage() {
             </Select>
           </div>
           <Tabs value={activeStatusTab} onValueChange={(value) => setActiveStatusTab(value as VisitStatus | 'all')}>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3"> {/* Adjusted grid columns */}
               {statusFilters.map(filter => (
                 <TabsTrigger key={filter.value} value={filter.value} className="gap-2">
                   <filter.icon className="h-4 w-4" />
@@ -238,7 +236,7 @@ export default function MyVisitsPage() {
         </CardContent>
       </Card>
 
-      {isLoading && myVisits.length > 0 && ( // Show a subtle loading indicator if refreshing
+      {isLoading && myVisits.length > 0 && ( 
         <div className="flex items-center justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin text-primary/70" />
             <p className="ml-2 text-muted-foreground text-sm">Refreshing visits...</p>
@@ -249,10 +247,9 @@ export default function MyVisitsPage() {
         <DataTable
           columns={columns}
           data={filteredVisits}
-          // title="My Visits" // Title is now part of PageTitle
         />
       ) : (
-        !isLoading && ( // Only show "No reports" if not loading
+        !isLoading && ( 
           <Card className="shadow-md">
             <CardContent className="py-12 flex flex-col items-center justify-center text-center space-y-4">
               <div className="p-4 bg-primary/10 rounded-full">
@@ -277,8 +274,8 @@ export default function MyVisitsPage() {
           isOpen={isEditModalOpen}
           onClose={handleCloseEditModal}
           onVisitUpdated={() => {
-            handleCloseEditModal(); // Close modal first
-            fetchVisitsAndBranches(); // Then refetch data
+            handleCloseEditModal(); 
+            fetchVisitsAndBranches(); 
           }}
         />
       )}

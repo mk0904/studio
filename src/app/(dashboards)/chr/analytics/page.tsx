@@ -4,8 +4,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
-import type { Visit, Branch, User } from '@/types';
-import { getVisibleVisits, getVisibleUsers, mockBranches, mockUsers, mockVisits } from '@/lib/mock-data'; // CHR sees all
+import type { Visit, Branch, User, VisitStatus } from '@/types'; // Import VisitStatus
+import { mockBranches, mockUsers, mockVisits } from '@/lib/mock-data'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/shared/date-range-picker';
@@ -15,6 +15,7 @@ import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable, ColumnConfig } from '@/components/shared/data-table';
+import { Badge } from '@/components/ui/badge';
 
 const visitColumns: ColumnConfig<Visit>[] = [
   { accessorKey: 'bhr_name', header: 'BHR' },
@@ -25,7 +26,17 @@ const visitColumns: ColumnConfig<Visit>[] = [
     cell: (row) => format(new Date(row.visit_date), 'PPP')
   },
   { 
-    accessorKey: 'additional_remarks', // Changed from 'notes' to reflect Visit type
+    accessorKey: 'status', 
+    header: 'Status',
+    cell: (row) => {
+      if (!row.status) return <Badge variant="outline">Unknown</Badge>;
+      let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
+      if (row.status === 'submitted') variant = 'secondary'; 
+      return <Badge variant={variant} className="capitalize">{row.status}</Badge>;
+    }
+  },
+  { 
+    accessorKey: 'additional_remarks', 
     header: 'Summary',
     cell: (row) => <p className="truncate max-w-xs">{row.additional_remarks || row.notes || 'N/A'}</p>
   },
@@ -68,7 +79,7 @@ export default function CHRAnalyticsPage() {
         setZhrOptions(mockUsers.filter(u => u.role === 'ZHR')); 
         setBhrOptions(mockUsers.filter(u => u.role === 'BHR'));
     }
-    if (vhrFilter === 'all' || !vhrFilter) { // if VHR is all or cleared, reset ZHR filter
+    if (vhrFilter === 'all' || !vhrFilter) { 
       setZhrFilter('');
     }
   }, [vhrFilter]);
@@ -82,7 +93,7 @@ export default function CHRAnalyticsPage() {
     } else {
         setBhrOptions(mockUsers.filter(u => u.role === 'BHR')); 
     }
-    if (zhrFilter === 'all' || !zhrFilter) { // if ZHR is all or cleared, reset BHR filter
+    if (zhrFilter === 'all' || !zhrFilter) { 
       setBhrFilter('');
     }
   }, [zhrFilter, vhrFilter]);
@@ -118,7 +129,7 @@ export default function CHRAnalyticsPage() {
 
   useEffect(() => {
     const visitsPerSelectedHierarchy = filteredVisits.reduce((acc, visit) => {
-      let key = 'Overall'; // Default key if no specific filter is active at that level
+      let key = 'Overall'; 
       const bhrUser = mockUsers.find(u=>u.id === visit.bhr_id);
 
       if (bhrFilter && bhrFilter !== 'all' && bhrUser?.id === bhrFilter) {
@@ -132,7 +143,7 @@ export default function CHRAnalyticsPage() {
             const vhrUser = mockUsers.find(u=>u.id === vhrFilter);
             key = vhrUser ? vhrUser.name : `ZHRs under VHR ${vhrFilter}`;
           } else {
-            key = "Other Verticals"; // Belongs to a ZHR not under the selected VHR
+            key = "Other Verticals"; 
           }
       }
       
@@ -201,4 +212,3 @@ export default function CHRAnalyticsPage() {
     </div>
   );
 }
-
