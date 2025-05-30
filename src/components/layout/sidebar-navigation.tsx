@@ -11,15 +11,16 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { 
-  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, Globe, LogOut 
-} from 'lucide-react'; // Using BarChart3 for VHR Analytics to differentiate if needed.
+import {
+  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, Globe, LogOut, BarChartHorizontalBig
+} from 'lucide-react';
 
 const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
   BHR: [
     { href: '/bhr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/bhr/new-visit', label: 'New Visit', icon: PlusCircle },
     { href: '/bhr/my-visits', label: 'My Visits', icon: ListChecks },
+    { href: '/bhr/analytics', label: 'Analytics', icon: BarChartHorizontalBig },
   ],
   ZHR: [
     { href: '/zhr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
