@@ -112,7 +112,7 @@ export default function ZHRBranchAssignmentsPage() {
         const assignmentsForThisBranchByZhrsBHRs = assignmentsForZHRsBHRs.filter(a => a.branch_id === branch.id);
         const assignedBHRsDetails = assignmentsForThisBranchByZhrsBHRs
           .map(a => (bhrsData || []).find(bhrUser => bhrUser.id === a.bhr_id))
-          .filter(bhrUser => bhrUser !== undefined) as User[];
+          .filter(bhrUser => bhrUser !== undefined) as User[]; // Type assertion
         return { ...branch, assignedBHRs: assignedBHRsDetails };
       });
       
@@ -123,7 +123,7 @@ export default function ZHRBranchAssignmentsPage() {
       console.error("ZHRBranchAssignmentsPage: Error in fetchData's try-catch block:", e.message, e);
       setError(e.message || "An unexpected error occurred while fetching data.");
       toast({ title: "Error", description: e.message || "Could not load branch data.", variant: "destructive" });
-      setBranchesInZone([]);
+      setBranchesInZone([]); // Clear data on critical error
     } finally {
       setIsLoading(false);
       console.log("ZHRBranchAssignmentsPage: Data fetch finished. Loading state:", false);
@@ -138,7 +138,7 @@ export default function ZHRBranchAssignmentsPage() {
         setIsLoading(false);
     }
     // Do not add toast to dependencies, it can cause infinite loops if its identity changes.
-  }, [user]);
+  }, [user]); // Only re-fetch if user object identity changes
 
 
   const handleOpenAssignDialog = (branch: Branch) => {
@@ -153,7 +153,7 @@ export default function ZHRBranchAssignmentsPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsLoading(true); // Consider a more specific loading state for this action
     const { data: existingAssignment, error: checkError } = await supabase
         .from('assignments')
         .select('id')
@@ -186,23 +186,14 @@ export default function ZHRBranchAssignmentsPage() {
     } else {
         toast({ title: "Success", description: `BHR assigned to ${selectedBranchForAssignment.name}.` });
         // Optimistic update or refetch
-        const assignedBhrUser = bhrsInZoneForDialog.find(b => b.id === selectedBhrForAssignment);
-        if (assignedBhrUser) {
-            setBranchesInZone(prev => prev.map(b => 
-                b.id === selectedBranchForAssignment.id 
-                ? { ...b, assignedBHRs: [...b.assignedBHRs, assignedBhrUser] }
-                : b
-            ));
-        } else {
-             await fetchData(); // Fallback to refetch if user details aren't readily available
-        }
+        await fetchData(); // Refetch all data to ensure consistency
     }
     setIsAssignDialogOpen(false);
     setIsLoading(false);
   };
   
   const handleUnassignBHR = async (branchId: string, bhrId: string) => {
-    setIsLoading(true);
+    setIsLoading(true); // Consider a more specific loading state
     const { error } = await supabase
         .from('assignments')
         .delete()
@@ -214,11 +205,7 @@ export default function ZHRBranchAssignmentsPage() {
     } else {
         toast({ title: "Success", description: "BHR unassigned from branch." });
         // Optimistic update or refetch
-        setBranchesInZone(prev => prev.map(b => 
-            b.id === branchId
-            ? { ...b, assignedBHRs: b.assignedBHRs.filter(user => user.id !== bhrId) }
-            : b
-        ));
+        await fetchData(); // Refetch all data to ensure consistency
     }
     setIsLoading(false);
   };
@@ -305,7 +292,7 @@ export default function ZHRBranchAssignmentsPage() {
       <DataTable
         columns={columns}
         data={branchesInZone}
-        emptyStateMessage={isLoading ? "Loading..." : (error ? `Error loading data: ${error}` : "No branches found in the system.")}
+        emptyStateMessage={isLoading ? "Loading..." : (error ? `Error loading data: ${error}` : "No branches found in the system, or no branches assigned to BHRs in your zone.")}
       />
 
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
