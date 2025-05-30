@@ -8,7 +8,7 @@ import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { useAuth } from '@/contexts/auth-context';
 import type { Branch, Visit } from '@/types';
 import { mockBranches, mockVisits, getVisibleBranchesForBHR, getVisibleVisits } from '@/lib/mock-data';
-import { Building, CalendarCheck, ListChecks } from 'lucide-react';
+import { Building, CalendarCheck, ListChecks, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
