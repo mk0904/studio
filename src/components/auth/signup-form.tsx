@@ -24,25 +24,24 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from '@/contexts/auth-context';
 import type { User, UserRole } from '@/types';
-import { mockUsers } from '@/lib/mock-data'; // To populate 'reports_to' dropdowns
+// import { mockUsers } from '@/lib/mock-data'; // Will fetch from Supabase later or pass as props if needed for reports_to
 import { Loader2, Eye, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabaseClient'; // For fetching users for 'reports_to'
 
 const signupFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
   confirmPassword: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-  e_code: z.string().min(1, {message: "E-Code is required."}),
+  e_code: z.string().optional(),
   role: z.enum(['BHR', 'ZHR', 'VHR', 'CHR'], { required_error: "Please select a role." }),
-  location: z.string().min(1, {message: "Location is required."}),
+  location: z.string().optional(),
   reports_to: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"], 
+  path: ["confirmPassword"],
 }).refine(data => {
-    // If role is CHR, reports_to is not needed.
-    // For other roles, reports_to becomes mandatory.
     if (data.role === 'CHR') return true;
     return !!data.reports_to;
 }, {
@@ -59,9 +58,7 @@ export function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [zhrUsers, setZhrUsers] = useState<User[]>([]);
-  const [vhrUsers, setVhrUsers] = useState<User[]>([]);
-  const [chrUsers, setChrUsers] = useState<User[]>([]);
+  const [potentialManagers, setPotentialManagers] = useState<User[]>([]);
   
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupFormSchema),
@@ -80,28 +77,51 @@ export function SignupForm() {
   const selectedRole = form.watch('role');
 
   useEffect(() => {
-    setZhrUsers(mockUsers.filter(user => user.role === 'ZHR'));
-    setVhrUsers(mockUsers.filter(user => user.role === 'VHR'));
-    setChrUsers(mockUsers.filter(user => user.role === 'CHR'));
-    // Reset reports_to when role changes to ensure correct validation and options
-    form.setValue('reports_to', '');
-  }, [selectedRole, form]);
+    const fetchManagers = async (role: UserRole) => {
+      let targetRole: UserRole | null = null;
+      if (role === 'BHR') targetRole = 'ZHR';
+      else if (role === 'ZHR') targetRole = 'VHR';
+      else if (role === 'VHR') targetRole = 'CHR';
+
+      if (targetRole) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, name, role')
+          .eq('role', targetRole);
+        
+        if (error) {
+          console.error(`Error fetching ${targetRole}s:`, error);
+          toast({title: "Error", description: `Could not load ${targetRole} list.`, variant: "destructive"})
+          setPotentialManagers([]);
+        } else {
+          setPotentialManagers(data as User[]);
+        }
+      } else {
+        setPotentialManagers([]);
+      }
+    };
+
+    if (selectedRole) {
+      fetchManagers(selectedRole);
+      form.setValue('reports_to', ''); // Reset reports_to when role changes
+    }
+  }, [selectedRole, form, toast]);
 
   async function onSubmit(values: SignupFormValues) {
     try {
-      // Password handling is mocked; in a real app, hash password before sending.
-      await signup(values.name, values.email, values.role as UserRole, values.e_code, values.location, values.reports_to);
-      toast({
-        title: "Signup Successful",
-        description: "Your account has been created. Welcome!",
-      });
-      // Form will reset or redirect via AuthContext or page navigation
+      await signup(
+        values.name, 
+        values.email, 
+        values.role as UserRole, 
+        values.password,
+        values.e_code, 
+        values.location, 
+        values.reports_to
+      );
+      // toast for success is handled in AuthContext after profile creation
+      // form.reset(); // Reset form on successful signup
     } catch (error) {
-       toast({
-        title: "Signup Failed",
-        description: (error as Error).message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      // Toast for error is handled in AuthContext
     }
   }
 
@@ -109,31 +129,23 @@ export function SignupForm() {
     if (!selectedRole || selectedRole === 'CHR') return null;
 
     let label = "";
-    let options: User[] = [];
+    let targetRoleName = "";
 
-    if (selectedRole === 'BHR') {
-      label = "Select ZHR (Reports to)";
-      options = zhrUsers;
-    } else if (selectedRole === 'ZHR') {
-      label = "Select VHR (Reports to)";
-      options = vhrUsers;
-    } else if (selectedRole === 'VHR') {
-      label = "Select CHR (Reports to)";
-      options = chrUsers;
-    }
+    if (selectedRole === 'BHR') { label = "Select ZHR (Reports to)"; targetRoleName = "ZHRs"; }
+    else if (selectedRole === 'ZHR') { label = "Select VHR (Reports to)"; targetRoleName = "VHRs"; }
+    else if (selectedRole === 'VHR') { label = "Select CHR (Reports to)"; targetRoleName = "CHRs"; }
 
-    if (options.length === 0 && selectedRole !== 'CHR') {
+    if (potentialManagers.length === 0 && selectedRole !== 'CHR') {
         return (
              <FormItem>
                 <FormLabel>{label}</FormLabel>
                 <FormControl>
-                    <Input readOnly value={`No ${selectedRole === 'BHR' ? 'ZHRs' : selectedRole === 'ZHR' ? 'VHRs' : 'CHRs'} available in mock data.`} className="bg-muted"/>
+                    <Input readOnly value={`No ${targetRoleName} available.`} className="bg-muted"/>
                 </FormControl>
-                <FormMessage />
+                <FormMessage /> {/* Will show required message if reports_to is not filled */}
              </FormItem>
         )
     }
-
 
     return (
       <FormField
@@ -142,14 +154,14 @@ export function SignupForm() {
         render={({ field }) => (
           <FormItem>
             <FormLabel>{label}</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined}>
+            <Select onValueChange={field.onChange} value={field.value || undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder={`Select who this ${selectedRole} reports to`} />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {options.map(user => (
+                {potentialManagers.map(user => (
                   <SelectItem key={user.id} value={user.id}>{user.name} ({user.role})</SelectItem>
                 ))}
               </SelectContent>
@@ -256,7 +268,7 @@ export function SignupForm() {
             name="e_code"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>E-Code</FormLabel>
+                <FormLabel>E-Code (Optional)</FormLabel>
                 <FormControl>
                     <Input placeholder="E12345" {...field} />
                 </FormControl>
@@ -293,7 +305,7 @@ export function SignupForm() {
             name="location"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Location</FormLabel>
+                <FormLabel>Location (Optional)</FormLabel>
                 <FormControl>
                     <Input placeholder="e.g., Delhi" {...field} />
                 </FormControl>
@@ -316,3 +328,4 @@ export function SignupForm() {
     </Form>
   );
 }
+

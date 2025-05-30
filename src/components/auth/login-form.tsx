@@ -22,12 +22,12 @@ import React from 'react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().optional(), // Password is for UI purposes in mock, not validated
+  password: z.string().min(1, { message: 'Password is required.' }), // Password is now required
 });
 
 export function LoginForm() {
   const { login, isLoading } = useAuth();
-  const { toast } = useToast();
+  const { toast } = useToast(); // toast is initialized but not used here, as AuthContext handles toasts
   const [showPassword, setShowPassword] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -40,15 +40,10 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      // Pass email; password is not used by mock login but is in form
       await login(values.email, values.password);
-      // successful login will redirect via AuthContext
+      // successful login redirect is handled by AuthContext via onAuthStateChange and useEffect
     } catch (error) {
-      toast({
-        title: "Login Failed",
-        description: (error as Error).message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      // Error toast is handled by the login function in AuthContext
     }
   }
 
@@ -114,3 +109,4 @@ export function LoginForm() {
     </Form>
   );
 }
+
