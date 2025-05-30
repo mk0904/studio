@@ -1,4 +1,3 @@
-
 -- Custom ENUM types
 DROP TYPE IF EXISTS public.user_role_enum CASCADE;
 CREATE TYPE public.user_role_enum AS ENUM ('BHR', 'ZHR', 'VHR', 'CHR');
@@ -74,8 +73,8 @@ CREATE TABLE public.visits (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   bhr_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   branch_id UUID NOT NULL REFERENCES public.branches(id) ON DELETE CASCADE,
-  bhr_name TEXT, 
-  branch_name TEXT, 
+  bhr_name TEXT, -- Denormalized for easier display
+  branch_name TEXT, -- Denormalized for easier display
   visit_date TIMESTAMPTZ NOT NULL,
   status public.visit_status_enum DEFAULT 'draft',
   hr_connect_conducted BOOLEAN DEFAULT false,
@@ -110,6 +109,11 @@ CREATE TRIGGER on_visits_updated
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 
+-- Add missing columns to visits table if they don't exist (safer than full DROP/CREATE if data exists)
+ALTER TABLE public.visits
+ADD COLUMN IF NOT EXISTS bhr_name TEXT,
+ADD COLUMN IF NOT EXISTS branch_name TEXT;
+
 --------------------------------------------------------------------------------
 -- Row Level Security (RLS) Policies
 --------------------------------------------------------------------------------
@@ -120,11 +124,11 @@ CREATE OR REPLACE FUNCTION public.get_my_role()
 RETURNS public.user_role_enum
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public 
+SET search_path = public -- Ensures it uses the public schema
 AS $$
 BEGIN
   IF auth.uid() IS NULL THEN
-    RETURN NULL; 
+    RETURN NULL;
   ELSE
     RETURN (SELECT role FROM users WHERE id = auth.uid());
   END IF;
@@ -140,25 +144,29 @@ ALTER TABLE public.users FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own user record" ON public.users;
 DROP POLICY IF EXISTS "Authenticated users can read basic user info for selection" ON public.users;
 DROP POLICY IF EXISTS "CHR can view all user records" ON public.users;
-DROP POLICY IF EXISTS "Authenticated users can insert their own user record" ON public.users; 
+DROP POLICY IF EXISTS "Authenticated users can insert their own user record" ON public.users;
 DROP POLICY IF EXISTS "Users can update their own user record" ON public.users;
 DROP POLICY IF EXISTS "CHR can update any user record" ON public.users;
 DROP POLICY IF EXISTS "CHR can delete any user record" ON public.users;
 
+-- For Supabase Auth, users need to be able to insert their own profile after signup.
+-- This policy uses auth.uid() which is the ID from the auth.users table.
+-- Make sure "Enable email confirmations" is OFF in Supabase Auth settings for easier dev,
+-- otherwise this step can fail until email is confirmed.
 CREATE POLICY "Authenticated users can insert their own user record"
   ON public.users FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = NEW.id); 
+  WITH CHECK (auth.uid() = NEW.id);
 
 CREATE POLICY "Users can view their own user record"
   ON public.users FOR SELECT
   TO authenticated
   USING (auth.uid() = id);
 
-CREATE POLICY "Authenticated users can read basic user info for selection" 
+CREATE POLICY "Authenticated users can read basic user info for selection"
   ON public.users FOR SELECT
   TO authenticated
-  USING (true); 
+  USING (true);
 
 CREATE POLICY "CHR can view all user records"
   ON public.users FOR SELECT
@@ -171,7 +179,7 @@ CREATE POLICY "Users can update their own user record"
   USING (auth.uid() = id)
   WITH CHECK (
     auth.uid() = id AND
-    NEW.email IS NOT DISTINCT FROM OLD.email AND 
+    NEW.email IS NOT DISTINCT FROM OLD.email AND
     NEW.role IS NOT DISTINCT FROM OLD.role AND
     NEW.reports_to IS NOT DISTINCT FROM OLD.reports_to
   );
@@ -251,11 +259,11 @@ CREATE POLICY "CHR can view all assignments"
 CREATE POLICY "ZHRs can manage assignments for their BHRs"
   ON public.assignments FOR ALL
   TO authenticated
-  USING ( 
+  USING (
     public.get_my_role() = 'ZHR' AND
     bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR')
   )
-  WITH CHECK ( 
+  WITH CHECK (
     public.get_my_role() = 'ZHR' AND
     bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR')
   );
@@ -271,22 +279,18 @@ CREATE POLICY "CHR can manage all assignments"
 ALTER TABLE public.visits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.visits FORCE ROW LEVEL SECURITY;
 
--- Drop existing policies for visits table to apply new ones cleanly
 DROP POLICY IF EXISTS "BHRs can insert their own visits" ON public.visits;
 DROP POLICY IF EXISTS "BHRs can select their own visits" ON public.visits;
 DROP POLICY IF EXISTS "BHRs can update their own draft/submitted visits" ON public.visits;
 DROP POLICY IF EXISTS "BHRs can delete their draft visits" ON public.visits;
 
 DROP POLICY IF EXISTS "ZHRs can select visits of their BHRs" ON public.visits;
--- ZHRs will no longer update status. They can only view.
 DROP POLICY IF EXISTS "ZHRs can update status of submitted visits by their BHRs" ON public.visits;
 
 DROP POLICY IF EXISTS "VHRs can select visits in their vertical" ON public.visits;
--- VHRs will no longer update status. They can only view.
 DROP POLICY IF EXISTS "VHRs can update status of visits in their vertical" ON public.visits;
 
 DROP POLICY IF EXISTS "CHR can manage all visits" ON public.visits;
-
 
 -- BHR Policies for 'visits' table
 CREATE POLICY "BHRs can insert their own visits"
@@ -313,8 +317,9 @@ CREATE POLICY "BHRs can update their own draft/submitted visits"
     NEW.branch_id IS NOT DISTINCT FROM OLD.branch_id AND
     (
       (OLD.status = 'draft' AND NEW.status IN ('draft', 'submitted')) OR
-      (OLD.status = 'submitted' AND NEW.status = 'submitted') 
-    )
+      (OLD.status = 'submitted' AND NEW.status = 'submitted')
+    ) AND
+    NOT (NEW.status IN ('approved', 'rejected'))
   );
 
 CREATE POLICY "BHRs can delete their draft visits"
@@ -326,7 +331,6 @@ CREATE POLICY "BHRs can delete their draft visits"
     status = 'draft'
   );
 
-
 -- ZHR Policies for 'visits' table
 CREATE POLICY "ZHRs can select visits of their BHRs"
   ON public.visits FOR SELECT
@@ -334,6 +338,22 @@ CREATE POLICY "ZHRs can select visits of their BHRs"
   USING (
     public.get_my_role() = 'ZHR' AND
     bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR')
+  );
+
+CREATE POLICY "ZHRs can update status of submitted visits by their BHRs"
+  ON public.visits FOR UPDATE
+  TO authenticated
+  USING (
+    public.get_my_role() = 'ZHR' AND
+    bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR') AND
+    OLD.status = 'submitted'
+  )
+  WITH CHECK (
+    public.get_my_role() = 'ZHR' AND
+    NEW.status IN ('approved', 'rejected') AND OLD.status = 'submitted' AND
+    NEW.bhr_id IS NOT DISTINCT FROM OLD.bhr_id AND
+    NEW.branch_id IS NOT DISTINCT FROM OLD.branch_id AND
+    NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
   );
 
 -- VHR Policies for 'visits' table
@@ -347,6 +367,26 @@ CREATE POLICY "VHRs can select visits in their vertical"
       JOIN public.users zhr ON bhr.reports_to = zhr.id
       WHERE zhr.reports_to = auth.uid() AND bhr.role = 'BHR' AND zhr.role = 'ZHR'
     )
+  );
+
+CREATE POLICY "VHRs can update status of visits in their vertical"
+  ON public.visits FOR UPDATE
+  TO authenticated
+  USING (
+    public.get_my_role() = 'VHR' AND
+    bhr_id IN (
+      SELECT bhr.id FROM public.users bhr
+      JOIN public.users zhr ON bhr.reports_to = zhr.id
+      WHERE zhr.reports_to = auth.uid() AND bhr.role = 'BHR' AND zhr.role = 'ZHR'
+    ) AND
+    OLD.status IN ('submitted', 'approved')
+  )
+  WITH CHECK (
+    public.get_my_role() = 'VHR' AND
+    NEW.status IN ('approved', 'rejected') AND OLD.status IN ('submitted', 'approved') AND
+    NEW.bhr_id IS NOT DISTINCT FROM OLD.bhr_id AND
+    NEW.branch_id IS NOT DISTINCT FROM OLD.branch_id AND
+    NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
   );
 
 -- CHR Policy for 'visits' table
@@ -378,4 +418,4 @@ INSERT INTO public.branches (name, location, category, code) VALUES
 ('West End Branch', 'Houston', 'Urban Tier A', 'HO001'),
 ('Central Hub', 'Phoenix', 'Urban Tier B', 'PH001'),
 ('Metro Point', 'Philadelphia', 'Metro Tier B', 'PL001')
-ON CONFLICT (code) DO NOTHING;
+ON CONFLICT (code) DO NOTHING; -- Avoid errors if run multiple times
