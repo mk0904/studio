@@ -32,14 +32,17 @@ export interface Assignment {
   branch_id: string;
 }
 
+export type VisitStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+
 export interface Visit {
   id: string;
   bhr_id: string;
-  bhr_name: string; 
+  bhr_name: string;
   branch_id: string;
-  branch_name: string; 
+  branch_name: string;
   visit_date: string; // ISO string
-  
+  status?: VisitStatus; // Added status
+
   // New Basic Info
   branch_category?: string;
   branch_code?: string;
@@ -66,7 +69,7 @@ export interface Visit {
   qual_abusive_language?: 'yes' | 'no'; // Note: Question is "Do leaders USE abusive lang", so 'yes' is bad.
   qual_comfortable_escalate?: 'yes' | 'no';
   qual_inclusive_culture?: 'yes' | 'no';
-  
+
   additional_remarks?: string; // Renamed from 'notes'
   notes?: string; // Keep for backward compatibility if needed, or remove if new visits always use additional_remarks
 }

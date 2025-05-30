@@ -1,5 +1,5 @@
 
-import type { User, Branch, Visit, Assignment, UserRole, VisitReportInput } from '@/types';
+import type { User, Branch, Visit, Assignment, UserRole, VisitReportInput, VisitStatus } from '@/types';
 import { addDays, formatISO, subDays } from 'date-fns';
 
 export const mockUsers: User[] = [
@@ -35,50 +35,65 @@ export const mockAssignments: Assignment[] = [
 
 const today = new Date();
 export const mockVisits: Visit[] = [
-  { 
+  {
     id: 'visit-1', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-1', branch_name: 'North Star Branch',
-    visit_date: formatISO(subDays(today, 5)), 
+    visit_date: formatISO(subDays(today, 5)),
     additional_remarks: 'Productive visit. Discussed Q3 targets and employee morale. Some concerns about new software rollout.',
     hr_connect_conducted: true,
     manning_percentage: 95,
     attrition_percentage: 5,
     performance_level: 'Good',
+    status: 'approved',
   },
-  { 
+  {
     id: 'visit-2', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-2', branch_name: 'Southern Cross Branch',
-    visit_date: formatISO(subDays(today, 12)), 
+    visit_date: formatISO(subDays(today, 12)),
     additional_remarks: 'Routine check-in. Staff engagement seems high. Followed up on training completion.',
     hr_connect_conducted: false,
     manning_percentage: 98,
     attrition_percentage: 3,
     performance_level: 'Excellent',
+    status: 'submitted',
   },
-  { 
+  {
     id: 'visit-3', bhr_id: 'bhr-2', bhr_name: 'Hank Pym', branch_id: 'branch-3', branch_name: 'East Gate Branch',
-    visit_date: formatISO(subDays(today, 2)), 
+    visit_date: formatISO(subDays(today, 2)),
     additional_remarks: 'Addressed some minor operational issues. Branch manager is proactive. Overall positive.',
     hr_connect_conducted: true,
     manning_percentage: 90,
     attrition_percentage: 7,
     performance_level: 'Average',
+    status: 'draft',
   },
-  { 
+  {
     id: 'visit-4', bhr_id: 'bhr-3', bhr_name: 'Ivy Pepper', branch_id: 'branch-4', branch_name: 'West End Branch',
-    visit_date: formatISO(subDays(today, 20)), 
+    visit_date: formatISO(subDays(today, 20)),
     additional_remarks: 'Met with new hires. Onboarding process seems smooth. Identified need for more team-building activities.',
     hr_connect_conducted: true,
     manning_percentage: 100,
     attrition_percentage: 2,
     performance_level: 'Good',
+    status: 'approved',
   },
-  { 
+  {
     id: 'visit-5', bhr_id: 'bhr-4', bhr_name: 'Jack Sparrow', branch_id: 'branch-6', branch_name: 'Metro Point',
-    visit_date: formatISO(subDays(today, 7)), 
+    visit_date: formatISO(subDays(today, 7)),
     additional_remarks: 'Investigated a reported conflict. Resolution plan in place. Will monitor.',
     hr_connect_conducted: false,
     manning_percentage: 92,
     attrition_percentage: 6,
     performance_level: 'Needs Improvement',
+    status: 'rejected',
+  },
+  {
+    id: 'visit-6', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-1', branch_name: 'North Star Branch',
+    visit_date: formatISO(subDays(today, 35)),
+    additional_remarks: 'Follow-up on software rollout. Most issues resolved. Training materials updated.',
+    hr_connect_conducted: true,
+    manning_percentage: 96,
+    attrition_percentage: 4,
+    performance_level: 'Good',
+    status: 'approved',
   },
 ];
 
