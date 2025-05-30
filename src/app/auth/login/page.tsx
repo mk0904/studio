@@ -1,28 +1,44 @@
 
+'use client';
+
+import React, { useState } from 'react';
 import { LoginForm } from '@/components/auth/login-form';
 import { SignupForm } from '@/components/auth/signup-form';
 import { Logo } from '@/components/logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 
 export default function AuthPage() {
+  const [activeTab, setActiveTab] = useState('login');
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
       <div className="mb-8">
-        <Logo className="text-3xl" />
+        <Logo className="text-3xl text-blue-600" />
       </div>
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Access Your Account</CardTitle>
-          <CardDescription>
-            Log in or create an account to continue to HR View.
+      <Card className="w-full max-w-md shadow-xl rounded-lg">
+        <CardHeader className="text-center pt-8 pb-4">
+          <CardTitle className="text-3xl font-bold text-blue-700">Welcome back</CardTitle>
+          <CardDescription className="text-gray-600 mt-1">
+            Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+        <CardContent className="px-6 pb-8 pt-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-md">
+              <TabsTrigger 
+                value="login" 
+                className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-sm"
+              >
+                Login
+              </TabsTrigger>
+              <TabsTrigger 
+                value="signup"
+                className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-sm"
+              >
+                Sign Up
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="login" className="pt-6">
               <LoginForm />
@@ -33,9 +49,26 @@ export default function AuthPage() {
           </Tabs>
         </CardContent>
       </Card>
-      <p className="mt-8 text-center text-sm text-muted-foreground">
+      {activeTab === 'login' && (
+        <p className="mt-8 text-center text-sm text-gray-600">
+          Don&apos;t have an account?{' '}
+          <Button variant="link" className="p-0 h-auto font-semibold text-blue-600" onClick={() => setActiveTab('signup')}>
+            Sign up
+          </Button>
+        </p>
+      )}
+       {activeTab === 'signup' && (
+        <p className="mt-8 text-center text-sm text-gray-600">
+          Already have an account?{' '}
+          <Button variant="link" className="p-0 h-auto font-semibold text-blue-600" onClick={() => setActiveTab('login')}>
+            Login
+          </Button>
+        </p>
+      )}
+      <p className="mt-4 text-center text-xs text-gray-500">
         &copy; {new Date().getFullYear()} HR View. All rights reserved.
       </p>
     </div>
   );
 }
+

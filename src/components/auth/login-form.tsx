@@ -15,40 +15,33 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
-import type { UserRole } from '@/types';
-import { Loader2 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Loader2, LogIn, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
+import React from 'react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  // Password validation can be added if needed for a real backend
-  // password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-  role: z.enum(['BHR', 'ZHR', 'VHR', 'CHR'], { required_error: "Please select a role." }),
+  password: z.string().optional(), // Password is for UI purposes in mock, not validated
 });
 
 export function LoginForm() {
   const { login, isLoading } = useAuth();
   const { toast } = useToast();
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
-      // password: '',
-      role: undefined,
+      password: '',
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await login(values.email, values.role as UserRole);
+      // Pass email; password is not used by mock login but is in form
+      await login(values.email, values.password);
       // successful login will redirect via AuthContext
     } catch (error) {
       toast({
@@ -69,54 +62,56 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="your.email@example.com" {...field} />
+                <Input placeholder="youremail@example.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        {/* Password field can be added here if connecting to a real auth system
         <FormField
           control={form.control}
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Password</FormLabel>
+                <Link href="#" className="text-sm font-medium text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
+                <div className="relative">
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Enter your password" 
+                    {...field} 
+                  />
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="icon" 
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
-        /> */}
-        <FormField
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Role</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="BHR">BHR (Branch HR)</SelectItem>
-                  <SelectItem value="ZHR">ZHR (Zonal HR)</SelectItem>
-                  <SelectItem value="VHR">VHR (Vertical HR)</SelectItem>
-                  <SelectItem value="CHR">CHR (Chief HR)</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Sign In
+        <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={isLoading}>
+          {isLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <LogIn className="mr-2 h-4 w-4" />
+          )}
+          Login
         </Button>
       </form>
     </Form>
   );
 }
+

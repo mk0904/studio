@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, role: UserRole) => Promise<void>;
+  login: (email: string, password?: string) => Promise<void>; // Password ignored for mock
   signup: (name: string, email: string, role: UserRole) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -52,32 +52,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       case 'ZHR': router.push('/zhr/dashboard'); break;
       case 'VHR': router.push('/vhr/dashboard'); break;
       case 'CHR': router.push('/chr/dashboard'); break;
-      default: router.push('/auth/login'); // Should not happen
+      default: router.push('/auth/login'); 
     }
   };
 
-  const login = async (email: string, role: UserRole) => {
+  // Password parameter is present for form compatibility but ignored in mock logic
+  const login = async (email: string, password?: string) => {
     setIsLoading(true);
-    const foundUser = sessionMockUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role === role);
+    const foundUser = sessionMockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (foundUser) {
       setUser(foundUser);
       localStorage.setItem('hr-view-user', JSON.stringify(foundUser));
       navigateToDashboard(foundUser.role);
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${foundUser.name}!`,
+      });
     } else {
+      const defaultRole: UserRole = 'BHR'; // Default role for new demo users
       toast({
         title: "Demo Session",
-        description: `User '${email}' with role '${role}' not found. Starting a demo session.`,
+        description: `User with email '${email}' not found. Starting a demo session as ${defaultRole}.`,
         variant: "default",
       });
-      const demoUser: User = { id: `demo-${Date.now()}`, email, name: email.split('@')[0] || 'Demo User', role };
+      const demoUser: User = { 
+        id: `demo-${Date.now()}`, 
+        email, 
+        name: email.split('@')[0] || 'Demo User', 
+        role: defaultRole 
+      };
       setUser(demoUser);
       localStorage.setItem('hr-view-user', JSON.stringify(demoUser));
-      // Add demo user to sessionMockUsers so they can "log out and log back in" during the session
       if (!sessionMockUsers.find(u => u.id === demoUser.id)) {
         sessionMockUsers.push(demoUser);
       }
-      navigateToDashboard(role);
+      navigateToDashboard(defaultRole);
     }
     setIsLoading(false);
   };
@@ -91,17 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const newUser: User = {
-      id: `user-${Date.now()}`, // Simple unique ID for mock
+      id: `user-${Date.now()}`, 
       name,
       email,
       role,
     };
 
-    sessionMockUsers.push(newUser); // Add to our in-session mock users
+    sessionMockUsers.push(newUser); 
     setUser(newUser);
     localStorage.setItem('hr-view-user', JSON.stringify(newUser));
     
-    // toast is handled by the form for success/failure
     navigateToDashboard(newUser.role);
     setIsLoading(false);
   };
@@ -126,3 +135,4 @@ export function useAuth() {
   }
   return context;
 }
+
