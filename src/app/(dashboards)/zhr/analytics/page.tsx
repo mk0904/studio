@@ -6,12 +6,12 @@ import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit, User as AppUser, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, TrendingUp, CalendarDays } from 'lucide-react';
+import { Loader2, TrendingUp, CalendarDays, ShieldQuestion, Target } from 'lucide-react';
 import {
   format,
   parseISO,
@@ -30,7 +30,7 @@ interface MetricConfig {
   key: keyof Visit;
   label: string;
   color: string;
-  yAxisId?: string; // For potential multi-axis charts
+  yAxisId?: string; 
 }
 
 const METRIC_CONFIGS: MetricConfig[] = [
@@ -38,7 +38,7 @@ const METRIC_CONFIGS: MetricConfig[] = [
   { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left' },
   { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left' },
   { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left' },
-  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' }, // Potentially different scale
+  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' }, 
 ];
 
 type TimeframeKey = 'past_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
@@ -58,9 +58,31 @@ const TIMEFRAME_OPTIONS: TimeframeOption[] = [
 ];
 
 type ChartDataPoint = {
-  date: string; // 'YYYY-MM-DD'
-  [key: string]: any; // For dynamic metrics
+  date: string; 
+  [key: string]: any; 
 };
+
+interface QualitativeQuestionConfig {
+    key: keyof Visit;
+    label: string;
+    positiveIsYes: boolean; // If true, 'yes' = 5, 'no' = 0. If false, 'yes' = 0, 'no' = 5.
+}
+
+const QUALITATIVE_QUESTIONS_CONFIG: QualitativeQuestionConfig[] = [
+    { key: 'qual_aligned_conduct', label: 'Leaders Aligned with Code', positiveIsYes: true },
+    { key: 'qual_safe_secure', label: 'Employees Feel Safe', positiveIsYes: true },
+    { key: 'qual_motivated', label: 'Employees Feel Motivated', positiveIsYes: true },
+    { key: 'qual_abusive_language', label: 'Leaders Use Abusive Language', positiveIsYes: false }, // 'no' is good
+    { key: 'qual_comfortable_escalate', label: 'Comfortable with Escalation', positiveIsYes: true },
+    { key: 'qual_inclusive_culture', label: 'Inclusive Culture', positiveIsYes: true },
+];
+
+type SpiderChartDataPoint = {
+    subject: string;
+    score: number;
+    fullMark: number;
+};
+
 
 export default function ZHRAnalyticsPage() {
   const { user } = useAuth();
@@ -68,13 +90,16 @@ export default function ZHRAnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [allZoneVisits, setAllZoneVisits] = useState<Visit[]>([]);
   const [activeMetrics, setActiveMetrics] = useState<Record<string, boolean>>(
-    METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {}) // Default 'Manning %' to true
+    METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {}) 
   );
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeKey>('past_month');
+  const [qualitativeSpiderData, setQualitativeSpiderData] = useState<SpiderChartDataPoint[]>([]);
+
 
   useEffect(() => {
     if (user && user.role === 'ZHR') {
       const fetchData = async () => {
+        console.log("ZHR Analytics: fetchData initiated");
         setIsLoading(true);
         try {
           const { data: bhrUsersData, error: bhrError } = await supabase
@@ -89,23 +114,28 @@ export default function ZHRAnalyticsPage() {
           if (bhrIds.length === 0) {
             setAllZoneVisits([]);
             setIsLoading(false);
+            console.log("ZHR Analytics: No BHRs found for this ZHR.");
             return;
           }
 
           const { data: visitsData, error: visitsError } = await supabase
             .from('visits')
-            .select('visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases')
+            .select('visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture')
             .in('bhr_id', bhrIds)
             .eq('status', 'submitted');
 
           if (visitsError) throw visitsError;
+          
+          console.log("ZHR Analytics: Raw visitsData fetched from Supabase:", visitsData); // <-- ADDED CONSOLE LOG
           setAllZoneVisits(visitsData || []);
+          console.log("ZHR Analytics: allZoneVisits set with", (visitsData || []).length, "records.");
         } catch (error: any) {
-          console.error("Error fetching ZHR analytics data:", error);
+          console.error("ZHR Analytics: Error fetching data:", error);
           toast({ title: "Error", description: `Failed to load analytics data: ${error.message}`, variant: "destructive" });
           setAllZoneVisits([]);
         } finally {
           setIsLoading(false);
+          console.log("ZHR Analytics: fetchData finished");
         }
       };
       fetchData();
@@ -116,36 +146,37 @@ export default function ZHRAnalyticsPage() {
 
   const chartDisplayData = useMemo(() => {
     if (allZoneVisits.length === 0) return [];
+    console.log("ZHR Analytics - Trend Data: Processing allZoneVisits for trend chart. Count:", allZoneVisits.length, "Selected Timeframe:", selectedTimeframe);
 
-    const today = new Date();
+    const now = new Date();
     let startDateFilter: Date;
-    const endDateFilter: Date = endOfDay(today);
+    const endDateFilter: Date = endOfDay(now);
 
     switch (selectedTimeframe) {
       case 'past_week':
-        startDateFilter = startOfDay(subDays(today, 6));
+        startDateFilter = startOfDay(subDays(now, 6));
         break;
       case 'past_month':
-        startDateFilter = startOfDay(subMonths(today, 1));
+        startDateFilter = startOfDay(subMonths(now, 1));
         break;
       case 'last_3_months':
-        startDateFilter = startOfDay(subMonths(today, 3));
+        startDateFilter = startOfDay(subMonths(now, 3));
         break;
       case 'last_6_months':
-        startDateFilter = startOfDay(subMonths(today, 6));
+        startDateFilter = startOfDay(subMonths(now, 6));
         break;
       case 'last_year':
-        startDateFilter = startOfDay(subYears(today, 1));
+        startDateFilter = startOfDay(subYears(now, 1));
         break;
       case 'last_3_years':
-        startDateFilter = startOfDay(subYears(today, 3));
+        startDateFilter = startOfDay(subYears(now, 3));
         break;
-      default: // Should not happen with typed TimeframeKey
-        startDateFilter = startOfDay(subMonths(today, 1)); 
+      default: 
+        startDateFilter = startOfDay(subMonths(now, 1)); 
     }
     
     if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) {
-        console.warn("Invalid date range for filtering:", {startDateFilter, endDateFilter});
+        console.warn("ZHR Analytics - Trend Data: Invalid date range for filtering.", {startDateFilter, endDateFilter});
         return [];
     }
 
@@ -153,6 +184,7 @@ export default function ZHRAnalyticsPage() {
       const visitDate = parseISO(visit.visit_date);
       return isValid(visitDate) && isWithinInterval(visitDate, { start: startDateFilter, end: endDateFilter });
     });
+    console.log("ZHR Analytics - Trend Data: Filtered visits for trend chart. Count:", filteredVisits.length);
 
     if (filteredVisits.length === 0) return [];
     
@@ -180,30 +212,107 @@ export default function ZHRAnalyticsPage() {
     try {
         dateRangeForChart = eachDayOfInterval({ start: startDateFilter, end: endDateFilter });
     } catch (e) {
-        console.error("Error creating date interval for chart:", e, {startDateFilter, endDateFilter});
-        return []; // Prevent crash if interval is invalid
+        console.error("ZHR Analytics - Trend Data: Error creating date interval for chart:", e, {startDateFilter, endDateFilter});
+        return []; 
     }
 
-    return dateRangeForChart.map(dayDate => {
+    const trendChartData = dateRangeForChart.map(dayDate => {
       const dayKey = format(dayDate, 'yyyy-MM-dd');
       const dayData = aggregatedData[dayKey];
       const point: ChartDataPoint = { date: dayKey };
 
       METRIC_CONFIGS.forEach(m => {
         if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
-          if (m.key === 'cwt_cases') { // Sum for CWT cases
+          if (m.key === 'cwt_cases') { 
             point[m.key] = dayData[m.key].sum;
-          } else { // Average for percentages
+          } else { 
             point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
           }
         } else {
-          // point[m.key] = undefined; // Or null if Recharts handles it better for gaps
+          // point[m.key] = undefined; // Let Recharts handle gaps
         }
       });
       return point;
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    console.log("ZHR Analytics - Trend Data: Final trendChartData. Count:", trendChartData.length, "First item:", trendChartData[0]);
+    return trendChartData;
 
   }, [allZoneVisits, selectedTimeframe]);
+
+
+  const qualitativeDataForSpiderChart = useMemo(() => {
+    if (allZoneVisits.length === 0) {
+        console.log("ZHR Analytics - Spider Data: allZoneVisits is empty, returning empty spider data.");
+        return [];
+    }
+    console.log("ZHR Analytics - Spider Data: Processing allZoneVisits for spider chart. Count:", allZoneVisits.length, "Selected Timeframe:", selectedTimeframe);
+
+    const now = new Date();
+    let startDateFilter: Date;
+    const endDateFilter: Date = endOfDay(now);
+
+    switch (selectedTimeframe) {
+        case 'past_week': startDateFilter = startOfDay(subDays(now, 6)); break;
+        case 'past_month': startDateFilter = startOfDay(subMonths(now, 1)); break;
+        case 'last_3_months': startDateFilter = startOfDay(subMonths(now, 3)); break;
+        case 'last_6_months': startDateFilter = startOfDay(subMonths(now, 6)); break;
+        case 'last_year': startDateFilter = startOfDay(subYears(now, 1)); break;
+        case 'last_3_years': startDateFilter = startOfDay(subYears(now, 3)); break;
+        default: startDateFilter = startOfDay(subMonths(now, 1));
+    }
+
+    if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) {
+      console.warn("ZHR Analytics - Spider Data: Invalid date range for qualitative filtering.", {startDateFilter, endDateFilter});
+      return [];
+    }
+
+    const filteredVisitsForQualitative = allZoneVisits.filter(visit => {
+        const visitDate = parseISO(visit.visit_date);
+        return isValid(visitDate) && isWithinInterval(visitDate, { start: startDateFilter, end: endDateFilter });
+    });
+    console.log("ZHR Analytics - Spider Data: filteredVisitsForQualitative. Count:", filteredVisitsForQualitative.length);
+
+
+    if (filteredVisitsForQualitative.length === 0) {
+        console.log("ZHR Analytics - Spider Data: No visits after timeframe filtering for qualitative data.");
+        return QUALITATIVE_QUESTIONS_CONFIG.map(q => ({ subject: q.label, score: 0, fullMark: 5 }));
+    }
+
+    const scores: Record<string, { totalScore: number; count: number }> = {};
+    QUALITATIVE_QUESTIONS_CONFIG.forEach(q => {
+        scores[q.key] = { totalScore: 0, count: 0 };
+    });
+
+    filteredVisitsForQualitative.forEach(visit => {
+        QUALITATIVE_QUESTIONS_CONFIG.forEach(qConfig => {
+            const value = visit[qConfig.key] as 'yes' | 'no' | undefined;
+            if (value === 'yes' || value === 'no') {
+                const scoreValue = value === 'yes' ? (qConfig.positiveIsYes ? 5 : 0) : (qConfig.positiveIsYes ? 0 : 5);
+                scores[qConfig.key].totalScore += scoreValue;
+                scores[qConfig.key].count += 1;
+            }
+        });
+    });
+    console.log("ZHR Analytics - Spider Data: aggregated scores", scores);
+
+    const spiderChartFormattedData = QUALITATIVE_QUESTIONS_CONFIG.map(qConfig => {
+        const aggregate = scores[qConfig.key];
+        const averageScore = aggregate.count > 0 ? parseFloat((aggregate.totalScore / aggregate.count).toFixed(2)) : 0;
+        return {
+            subject: qConfig.label,
+            score: averageScore,
+            fullMark: 5,
+        };
+    });
+    console.log("ZHR Analytics - Spider Data: spiderChartFormattedData", spiderChartFormattedData);
+    return spiderChartFormattedData;
+
+  }, [allZoneVisits, selectedTimeframe]);
+
+  useEffect(() => {
+    setQualitativeSpiderData(qualitativeDataForSpiderChart);
+  }, [qualitativeDataForSpiderChart]);
+
 
   const handleMetricToggle = (metricKey: string) => {
     setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
@@ -221,10 +330,11 @@ export default function ZHRAnalyticsPage() {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
 
+  console.log("ZHR Analytics: qualitativeSpiderData before render", qualitativeSpiderData);
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Zonal Performance Trends" description="Analyze key metrics from submitted visits in your zone over time." />
+      <PageTitle title="Zonal Performance Trends" description="Analyze key metrics and qualitative assessments from submitted visits in your zone over time." />
 
       <Card className="shadow-lg">
         <CardHeader>
@@ -245,7 +355,7 @@ export default function ZHRAnalyticsPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Select Metrics to Display</CardTitle>
+          <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Select Metrics for Trendline</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
           {METRIC_CONFIGS.map(metric => (
@@ -324,6 +434,39 @@ export default function ZHRAnalyticsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="shadow-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary"/>Qualitative Assessment Overview</CardTitle>
+          <CardDescription>Average scores for qualitative questions from visits in the selected timeframe (0-5 scale).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {qualitativeSpiderData.length > 0 && qualitativeSpiderData.some(d => d.score > 0) ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderData}>
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                <Radar name="Average Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} />
+                <Tooltip 
+                    contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: 'var(--radius)',
+                    }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-96 text-center p-4">
+              <ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground font-semibold">No qualitative assessment data available.</p>
+              <p className="text-xs text-muted-foreground">Ensure BHRs have submitted visits with qualitative answers within the selected timeframe.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
