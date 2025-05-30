@@ -16,12 +16,12 @@ export const mockUsers: User[] = [
 ];
 
 export const mockBranches: Branch[] = [
-  { id: 'branch-1', name: 'North Star Branch', location: 'New York' },
-  { id: 'branch-2', name: 'Southern Cross Branch', location: 'Los Angeles' },
-  { id: 'branch-3', name: 'East Gate Branch', location: 'Chicago' },
-  { id: 'branch-4', name: 'West End Branch', location: 'Houston' },
-  { id: 'branch-5', name: 'Central Hub', location: 'Phoenix' },
-  { id: 'branch-6', name: 'Metro Point', location: 'Philadelphia' },
+  { id: 'branch-1', name: 'North Star Branch', location: 'New York', category: 'Metro Tier A', code: 'NY001' },
+  { id: 'branch-2', name: 'Southern Cross Branch', location: 'Los Angeles', category: 'Metro Tier A', code: 'LA001' },
+  { id: 'branch-3', name: 'East Gate Branch', location: 'Chicago', category: 'Metro Tier B', code: 'CH001' },
+  { id: 'branch-4', name: 'West End Branch', location: 'Houston', category: 'Urban Tier A', code: 'HO001' },
+  { id: 'branch-5', name: 'Central Hub', location: 'Phoenix', category: 'Urban Tier B', code: 'PH001' },
+  { id: 'branch-6', name: 'Metro Point', location: 'Philadelphia', category: 'Metro Tier B', code: 'PL001' },
 ];
 
 export const mockAssignments: Assignment[] = [
@@ -38,27 +38,47 @@ export const mockVisits: Visit[] = [
   { 
     id: 'visit-1', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-1', branch_name: 'North Star Branch',
     visit_date: formatISO(subDays(today, 5)), 
-    notes: 'Productive visit. Discussed Q3 targets and employee morale. Some concerns about new software rollout.' 
+    additional_remarks: 'Productive visit. Discussed Q3 targets and employee morale. Some concerns about new software rollout.',
+    hr_connect_conducted: true,
+    manning_percentage: 95,
+    attrition_percentage: 5,
+    performance_level: 'Good',
   },
   { 
     id: 'visit-2', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-2', branch_name: 'Southern Cross Branch',
     visit_date: formatISO(subDays(today, 12)), 
-    notes: 'Routine check-in. Staff engagement seems high. Followed up on training completion.' 
+    additional_remarks: 'Routine check-in. Staff engagement seems high. Followed up on training completion.',
+    hr_connect_conducted: false,
+    manning_percentage: 98,
+    attrition_percentage: 3,
+    performance_level: 'Excellent',
   },
   { 
     id: 'visit-3', bhr_id: 'bhr-2', bhr_name: 'Hank Pym', branch_id: 'branch-3', branch_name: 'East Gate Branch',
     visit_date: formatISO(subDays(today, 2)), 
-    notes: 'Addressed some minor operational issues. Branch manager is proactive. Overall positive.' 
+    additional_remarks: 'Addressed some minor operational issues. Branch manager is proactive. Overall positive.',
+    hr_connect_conducted: true,
+    manning_percentage: 90,
+    attrition_percentage: 7,
+    performance_level: 'Average',
   },
   { 
     id: 'visit-4', bhr_id: 'bhr-3', bhr_name: 'Ivy Pepper', branch_id: 'branch-4', branch_name: 'West End Branch',
     visit_date: formatISO(subDays(today, 20)), 
-    notes: 'Met with new hires. Onboarding process seems smooth. Identified need for more team-building activities.' 
+    additional_remarks: 'Met with new hires. Onboarding process seems smooth. Identified need for more team-building activities.',
+    hr_connect_conducted: true,
+    manning_percentage: 100,
+    attrition_percentage: 2,
+    performance_level: 'Good',
   },
   { 
     id: 'visit-5', bhr_id: 'bhr-4', bhr_name: 'Jack Sparrow', branch_id: 'branch-6', branch_name: 'Metro Point',
     visit_date: formatISO(subDays(today, 7)), 
-    notes: 'Investigated a reported conflict. Resolution plan in place. Will monitor.' 
+    additional_remarks: 'Investigated a reported conflict. Resolution plan in place. Will monitor.',
+    hr_connect_conducted: false,
+    manning_percentage: 92,
+    attrition_percentage: 6,
+    performance_level: 'Needs Improvement',
   },
 ];
 
@@ -66,7 +86,7 @@ export const mockVisits: Visit[] = [
 export const mockVisitReportInputs: VisitReportInput[] = mockVisits.map(v => ({
   branch: v.branch_name,
   visitDate: v.visit_date,
-  notes: v.notes,
+  notes: v.additional_remarks || '', // Use additional_remarks for AI summary
   bhr: v.bhr_name,
 }));
 
