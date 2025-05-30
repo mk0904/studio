@@ -6,19 +6,12 @@ import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit, Branch, User } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart, BarChart, Bar } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, TrendingUp, ShieldQuestion, Target, PieChart as PieChartIcon, BarChartBig, Users as UsersIcon, Filter } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Loader2, TrendingUp, ShieldQuestion, Target, PieChart as PieChartIcon, BarChartBig, Users as UsersIcon } from 'lucide-react';
 import {
   format,
   parseISO,
@@ -34,7 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
-import type { ChartData } from '@/types';
+import { useChrFilter } from '@/contexts/chr-filter-context'; // Import the context hook
 
 interface MetricConfig {
   key: keyof Visit;
@@ -112,8 +105,10 @@ export default function CHRAnalyticsPage() {
   const [categoryPieTimeframe, setCategoryPieTimeframe] = useState<TimeframeKey>('past_month');
   const [topBranchesTimeframe, setTopBranchesTimeframe] = useState<TimeframeKey>('past_month');
 
-  const [selectedVhrId, setSelectedVhrId] = useState<string>('all');
-  const [vhrFilterOptions, setVhrFilterOptions] = useState<{ value: string; label: string }[]>([]);
+  // Consume the global filter from context
+  const { selectedVhrId } = useChrFilter();
+  console.log('CHR Analytics - Selected VHR ID from context:', selectedVhrId);
+
 
   useEffect(() => {
     if (user && user.role === 'CHR') {
@@ -121,23 +116,18 @@ export default function CHRAnalyticsPage() {
         setIsLoading(true);
         console.log("CHR Analytics: Fetching global data");
         try {
-          // 1. Fetch all users for hierarchy mapping & VHR filter
           const { data: usersData, error: usersError } = await supabase
             .from('users')
             .select('id, name, role, reports_to');
           if (usersError) throw usersError;
           setAllUsers(usersData || []);
-          const vhrs = (usersData || []).filter(u => u.role === 'VHR').map(vhr => ({ value: vhr.id, label: vhr.name }));
-          setVhrFilterOptions([{ value: 'all', label: 'All VHR Verticals' }, ...vhrs]);
 
-          // 2. Fetch all branches for lookups
           const { data: branchesData, error: branchesError } = await supabase
             .from('branches')
             .select('id, name, category, location');
           if (branchesError) throw branchesError;
           setAllBranches(branchesData || []);
 
-          // 3. Fetch all submitted visits globally
           const { data: visitsData, error: visitsError } = await supabase
             .from('visits')
             .select('bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture')
@@ -151,7 +141,6 @@ export default function CHRAnalyticsPage() {
           setAllSubmittedVisits([]);
           setAllUsers([]);
           setAllBranches([]);
-          setVhrFilterOptions([{ value: 'all', label: 'All VHR Verticals' }]);
         } finally {
           setIsLoading(false);
         }
@@ -161,6 +150,12 @@ export default function CHRAnalyticsPage() {
       setIsLoading(false);
     }
   }, [user, toast]);
+
+  const selectedVhrName = useMemo(() => {
+    if (selectedVhrId === 'all' || !allUsers.length) return "Global";
+    const vhr = allUsers.find(u => u.id === selectedVhrId && u.role === 'VHR');
+    return vhr ? `${vhr.name}'s Vertical` : "Selected Vertical";
+  }, [selectedVhrId, allUsers]);
 
   const visitsForSelectedVHR = useMemo(() => {
     if (selectedVhrId === 'all') {
@@ -194,7 +189,7 @@ export default function CHRAnalyticsPage() {
       case 'last_6_months': startDateFilter = startOfDay(subMonths(now, 6)); break;
       case 'last_year': startDateFilter = startOfDay(subYears(now, 1)); break;
       case 'last_3_years': startDateFilter = startOfDay(subYears(now, 3)); break;
-      default: startDateFilter = startOfDay(subMonths(now, 1)); // Default to past month
+      default: startDateFilter = startOfDay(subMonths(now, 1)); 
     }
     if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) return [];
     
@@ -249,7 +244,7 @@ export default function CHRAnalyticsPage() {
       });
       return point;
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [visitsForSelectedVHR, trendlineTimeframe]);
+  }, [visitsForSelectedVHR, trendlineTimeframe, selectedVhrId]); // Added selectedVhrId to dependencies
 
   const qualitativeSpiderChartData = useMemo(() => {
     const filtered = filterVisitsByTimeframe(visitsForSelectedVHR, qualitativeTimeframe);
@@ -270,7 +265,7 @@ export default function CHRAnalyticsPage() {
         const aggregate = scores[qConfig.key];
         return { subject: qConfig.label, score: aggregate.count > 0 ? parseFloat((aggregate.totalScore / aggregate.count).toFixed(2)) : 0, fullMark: 5 };
     });
-  }, [visitsForSelectedVHR, qualitativeTimeframe]);
+  }, [visitsForSelectedVHR, qualitativeTimeframe, selectedVhrId]); // Added selectedVhrId
 
   const branchCategoryPieChartData = useMemo(() => {
     const filtered = filterVisitsByTimeframe(visitsForSelectedVHR, categoryPieTimeframe);
@@ -282,7 +277,7 @@ export default function CHRAnalyticsPage() {
         if (category) { categoryCounts[category] = (categoryCounts[category] || 0) + 1; }
     });
     return Object.entries(categoryCounts).map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` })).sort((a, b) => b.value - a.value);
-  }, [visitsForSelectedVHR, categoryPieTimeframe, allBranches]);
+  }, [visitsForSelectedVHR, categoryPieTimeframe, allBranches, selectedVhrId]); // Added selectedVhrId
 
   const topPerformingBranchesChartData = useMemo(() => {
     const filtered = filterVisitsByTimeframe(visitsForSelectedVHR, topBranchesTimeframe);
@@ -297,7 +292,7 @@ export default function CHRAnalyticsPage() {
       .map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
-  }, [visitsForSelectedVHR, topBranchesTimeframe, allBranches]);
+  }, [visitsForSelectedVHR, topBranchesTimeframe, allBranches, selectedVhrId]); // Added selectedVhrId
   
   const handleMetricToggle = (metricKey: string) => {
     setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
@@ -314,34 +309,16 @@ export default function CHRAnalyticsPage() {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
 
+  const cardDescSuffix = `for ${selectedVhrName}`;
+
   return (
     <div className="space-y-8">
-      <PageTitle title="CHR Global Analytics" description="Analyze key metrics, qualitative assessments, and visit distributions. Filter by VHR vertical." />
-
-      <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary" />Filter by VHR Vertical</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedVhrId} onValueChange={setSelectedVhrId}>
-            <SelectTrigger className="w-full md:w-1/3">
-              <SelectValue placeholder="Select VHR Vertical..." />
-            </SelectTrigger>
-            <SelectContent>
-              {vhrFilterOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      <PageTitle title={`CHR Analytics (${selectedVhrName})`} description="Analyze key metrics, qualitative assessments, and visit distributions. Filtered by selection in header." />
 
       <Card className="shadow-xl">
         <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Metric Trends</CardTitle>
-            <CardDescription>Trendlines for selected metrics from {selectedVhrId === 'all' ? 'all submitted visits' : `${vhrFilterOptions.find(v=>v.value === selectedVhrId)?.label || 'selected vertical'}`}.</CardDescription>
+            <CardDescription>Trendlines for selected metrics {cardDescSuffix}.</CardDescription>
         </CardHeader>
         <CardContent>
           <TimeframeButtons selectedTimeframe={trendlineTimeframe} onTimeframeChange={setTrendlineTimeframe} />
@@ -367,7 +344,7 @@ export default function CHRAnalyticsPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          ) : ( <div className="flex flex-col items-center justify-center h-96 text-center p-4"><TrendingUp className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No metric data available.</p></div> )}
+          ) : ( <div className="flex flex-col items-center justify-center h-96 text-center p-4"><TrendingUp className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No metric data available {cardDescSuffix.toLowerCase()}.</p></div> )}
         </CardContent>
       </Card>
 
@@ -375,7 +352,7 @@ export default function CHRAnalyticsPage() {
         <Card className="shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary"/>Qualitative Assessment</CardTitle>
-            <CardDescription>Average scores for qualitative questions from {selectedVhrId === 'all' ? 'all visits' : 'selected vertical'} (0-5 scale).</CardDescription>
+            <CardDescription>Average scores for qualitative questions {cardDescSuffix.toLowerCase()} (0-5 scale).</CardDescription>
           </CardHeader>
           <CardContent>
             <TimeframeButtons selectedTimeframe={qualitativeTimeframe} onTimeframeChange={setQualitativeTimeframe} />
@@ -389,35 +366,35 @@ export default function CHRAnalyticsPage() {
                   <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
                 </RadarChart>
               </ResponsiveContainer>
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No qualitative data.</p></div>)}
+            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No qualitative data {cardDescSuffix.toLowerCase()}.</p></div>)}
           </CardContent>
         </Card>
 
         <Card className="shadow-xl">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary"/>Branch Category Visits</CardTitle>
-                <CardDescription>Distribution of submitted visits by branch category for {selectedVhrId === 'all' ? 'all branches' : 'selected vertical'}.</CardDescription>
+                <CardDescription>Distribution of submitted visits by branch category {cardDescSuffix.toLowerCase()}.</CardDescription>
             </CardHeader>
             <CardContent>
                 <TimeframeButtons selectedTimeframe={categoryPieTimeframe} onTimeframeChange={setCategoryPieTimeframe} />
                 {branchCategoryPieChartData.length > 0 ? (
                     <PlaceholderPieChart data={branchCategoryPieChartData} title="" dataKey="value" nameKey="name"/>
-                ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No category data.</p></div>)}
+                ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No category data {cardDescSuffix.toLowerCase()}.</p></div>)}
             </CardContent>
         </Card>
       </div>
 
-       <div className="grid grid-cols-1 gap-8"> {/* Changed to full width for this single chart */}
+       <div className="grid grid-cols-1 gap-8">
         <Card className="shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><BarChartBig className="h-5 w-5 text-primary"/>Top Branches by Visits</CardTitle>
-            <CardDescription>Branches with the most submitted HR visits for {selectedVhrId === 'all' ? 'global view' : 'selected vertical'}.</CardDescription>
+            <CardDescription>Branches with the most submitted HR visits {cardDescSuffix.toLowerCase()}.</CardDescription>
           </CardHeader>
           <CardContent>
             <TimeframeButtons selectedTimeframe={topBranchesTimeframe} onTimeframeChange={setTopBranchesTimeframe} />
             {topPerformingBranchesChartData.length > 0 ? (
                 <PlaceholderBarChart data={topPerformingBranchesChartData} title="" xAxisKey="name" dataKey="value" />
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><BarChartBig className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No branch visit data.</p></div>)}
+            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><BarChartBig className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No branch visit data {cardDescSuffix.toLowerCase()}.</p></div>)}
           </CardContent>
         </Card>
       </div>
