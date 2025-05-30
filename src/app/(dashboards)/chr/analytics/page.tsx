@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit, Branch, User } from '@/types';
-import { getVisibleVisits, getVisibleUsers, mockBranches, mockUsers } from '@/lib/mock-data'; // CHR sees all
+import { getVisibleVisits, getVisibleUsers, mockBranches, mockUsers, mockVisits } from '@/lib/mock-data'; // CHR sees all
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/shared/date-range-picker';
@@ -25,9 +25,9 @@ const visitColumns: ColumnConfig<Visit>[] = [
     cell: (row) => format(new Date(row.visit_date), 'PPP')
   },
   { 
-    accessorKey: 'notes', 
+    accessorKey: 'additional_remarks', // Changed from 'notes' to reflect Visit type
     header: 'Summary',
-    cell: (row) => <p className="truncate max-w-xs">{row.notes}</p>
+    cell: (row) => <p className="truncate max-w-xs">{row.additional_remarks || row.notes || 'N/A'}</p>
   },
 ];
 
@@ -68,7 +68,9 @@ export default function CHRAnalyticsPage() {
         setZhrOptions(mockUsers.filter(u => u.role === 'ZHR')); 
         setBhrOptions(mockUsers.filter(u => u.role === 'BHR'));
     }
-    setZhrFilter(''); 
+    if (vhrFilter === 'all' || !vhrFilter) { // if VHR is all or cleared, reset ZHR filter
+      setZhrFilter('');
+    }
   }, [vhrFilter]);
 
   useEffect(() => {
@@ -80,7 +82,9 @@ export default function CHRAnalyticsPage() {
     } else {
         setBhrOptions(mockUsers.filter(u => u.role === 'BHR')); 
     }
-    setBhrFilter(''); 
+    if (zhrFilter === 'all' || !zhrFilter) { // if ZHR is all or cleared, reset BHR filter
+      setBhrFilter('');
+    }
   }, [zhrFilter, vhrFilter]);
 
 
@@ -114,19 +118,22 @@ export default function CHRAnalyticsPage() {
 
   useEffect(() => {
     const visitsPerSelectedHierarchy = filteredVisits.reduce((acc, visit) => {
-      let key = 'Overall';
+      let key = 'Overall'; // Default key if no specific filter is active at that level
       const bhrUser = mockUsers.find(u=>u.id === visit.bhr_id);
-      if (bhrUser) {
-        if (bhrFilter && bhrFilter !== 'all') {
-            key = bhrUser.name;
-        } else if (zhrFilter && zhrFilter !== 'all') {
-            const zhrUser = mockUsers.find(u=>u.id === bhrUser.reports_to && u.id === zhrFilter);
-            key = zhrUser ? zhrUser.name : 'Other ZHRs';
-        } else if (vhrFilter && vhrFilter !== 'all') {
-            const zhrUser = mockUsers.find(u=>u.id === bhrUser.reports_to);
-            const vhrUser = zhrUser && mockUsers.find(u=>u.id === zhrUser.reports_to && u.id === vhrFilter);
-            key = vhrUser ? vhrUser.name : 'Other VHRs';
-        }
+
+      if (bhrFilter && bhrFilter !== 'all' && bhrUser?.id === bhrFilter) {
+          key = bhrUser.name;
+      } else if (zhrFilter && zhrFilter !== 'all' && bhrUser?.reports_to === zhrFilter) {
+          const zhrUser = mockUsers.find(u=>u.id === zhrFilter);
+          key = zhrUser ? zhrUser.name : `BHRs under ZHR ${zhrFilter}`;
+      } else if (vhrFilter && vhrFilter !== 'all') {
+          const zhrUser = mockUsers.find(u=>u.id === bhrUser?.reports_to);
+          if (zhrUser?.reports_to === vhrFilter) {
+            const vhrUser = mockUsers.find(u=>u.id === vhrFilter);
+            key = vhrUser ? vhrUser.name : `ZHRs under VHR ${vhrFilter}`;
+          } else {
+            key = "Other Verticals"; // Belongs to a ZHR not under the selected VHR
+          }
       }
       
       acc[key] = (acc[key] || 0) + 1;
@@ -160,11 +167,11 @@ export default function CHRAnalyticsPage() {
                     <SelectTrigger><SelectValue placeholder="Filter by VHR..." /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All VHRs</SelectItem>{vhrOptions.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
                 </Select>
-                <Select value={zhrFilter} onValueChange={setZhrFilter} disabled={zhrOptions.length === 0 && !!vhrFilter && vhrFilter !== 'all'}>
+                <Select value={zhrFilter} onValueChange={setZhrFilter} disabled={vhrFilter && vhrFilter !== 'all' && zhrOptions.length === 0}>
                     <SelectTrigger><SelectValue placeholder="Filter by ZHR..." /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All ZHRs</SelectItem>{zhrOptions.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent>
                 </Select>
-                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0 && ((!!zhrFilter && zhrFilter !== 'all') || (!!vhrFilter && vhrFilter !== 'all'))}>
+                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={(vhrFilter && vhrFilter !== 'all' || zhrFilter && zhrFilter !== 'all') && bhrOptions.length === 0}>
                     <SelectTrigger><SelectValue placeholder="Filter by BHR..." /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All BHRs</SelectItem>{bhrOptions.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
                 </Select>
@@ -194,3 +201,4 @@ export default function CHRAnalyticsPage() {
     </div>
   );
 }
+
