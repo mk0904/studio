@@ -25,6 +25,7 @@ export function DatePickerWithRange({
   date,
   onDateChange
 }: DatePickerWithRangeProps) {
+  const currentYear = new Date().getFullYear();
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -61,6 +62,9 @@ export function DatePickerWithRange({
             selected={date}
             onSelect={onDateChange}
             numberOfMonths={2}
+            captionLayout="dropdown" // Use dropdowns for month/year
+            fromYear={currentYear - 100}
+            toYear={currentYear + 10} // Allow selection up to 10 years in the future
           />
         </PopoverContent>
       </Popover>
