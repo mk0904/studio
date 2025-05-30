@@ -53,54 +53,56 @@ export default function CHRAnalyticsPage() {
   useEffect(() => {
     if (user && user.role === 'CHR') {
       setVhrOptions(mockUsers.filter(u => u.role === 'VHR'));
-      setZhrOptions(mockUsers.filter(u => u.role === 'ZHR')); // Initially all ZHRs
-      setBhrOptions(mockUsers.filter(u => u.role === 'BHR')); // Initially all BHRs
+      setZhrOptions(mockUsers.filter(u => u.role === 'ZHR')); 
+      setBhrOptions(mockUsers.filter(u => u.role === 'BHR')); 
       setBranchOptions(mockBranches);
     }
   }, [user]);
 
   useEffect(() => {
-    if (vhrFilter) {
+    if (vhrFilter && vhrFilter !== 'all') {
         setZhrOptions(mockUsers.filter(u => u.role === 'ZHR' && u.reports_to === vhrFilter));
-        setBhrOptions([]); // Clear BHRs when VHR changes
+        setBhrOptions([]); 
         setBhrFilter(''); 
     } else {
-        setZhrOptions(mockUsers.filter(u => u.role === 'ZHR')); // All ZHRs if no VHR selected
+        setZhrOptions(mockUsers.filter(u => u.role === 'ZHR')); 
+        setBhrOptions(mockUsers.filter(u => u.role === 'BHR'));
     }
-    setZhrFilter(''); // Clear ZHR filter when VHR changes
+    setZhrFilter(''); 
   }, [vhrFilter]);
 
   useEffect(() => {
-    if (zhrFilter) {
+    if (zhrFilter && zhrFilter !== 'all') {
         setBhrOptions(mockUsers.filter(u => u.role === 'BHR' && u.reports_to === zhrFilter));
-    } else if (vhrFilter) { // if VHR is selected but ZHR is not, show all BHRs under that VHR
+    } else if (vhrFilter && vhrFilter !== 'all') { 
         const zhrIdsUnderVhr = mockUsers.filter(u=>u.role === 'ZHR' && u.reports_to === vhrFilter).map(u=>u.id);
         setBhrOptions(mockUsers.filter(u => u.role === 'BHR' && zhrIdsUnderVhr.includes(u.reports_to || '')));
     } else {
-        setBhrOptions(mockUsers.filter(u => u.role === 'BHR')); // All BHRs if no ZHR/VHR selected
+        setBhrOptions(mockUsers.filter(u => u.role === 'BHR')); 
     }
-    setBhrFilter(''); // Clear BHR filter when ZHR changes
+    setBhrFilter(''); 
   }, [zhrFilter, vhrFilter]);
 
 
   const filteredVisits = useMemo(() => {
     if (!user) return [];
-    let visits = mockVisits; // CHR sees all visits initially
+    let visits = mockVisits; 
 
-    if (bhrFilter) {
+    if (bhrFilter && bhrFilter !== 'all') {
       visits = visits.filter(v => v.bhr_id === bhrFilter);
-    } else if (zhrFilter) {
+    } else if (zhrFilter && zhrFilter !== 'all') {
       const bhrIdsUnderZhr = mockUsers.filter(u => u.role === 'BHR' && u.reports_to === zhrFilter).map(u => u.id);
       visits = visits.filter(v => bhrIdsUnderZhr.includes(v.bhr_id));
-    } else if (vhrFilter) {
+    } else if (vhrFilter && vhrFilter !== 'all') {
       const zhrIdsUnderVhr = mockUsers.filter(u => u.role === 'ZHR' && u.reports_to === vhrFilter).map(u => u.id);
       const bhrIdsUnderVhrSourcedZhrs = mockUsers.filter(u => u.role === 'BHR' && zhrIdsUnderVhr.includes(u.reports_to || '')).map(u => u.id);
       visits = visits.filter(v => bhrIdsUnderVhrSourcedZhrs.includes(v.bhr_id));
     }
 
-    if (branchFilter) {
+    if (branchFilter && branchFilter !== 'all') {
       visits = visits.filter(v => v.branch_id === branchFilter);
     }
+
     if (dateRange?.from && dateRange?.to) {
       visits = visits.filter(v => isWithinInterval(parseISO(v.visit_date), { start: dateRange.from!, end: dateRange.to! }));
     } else if (dateRange?.from) {
@@ -111,12 +113,21 @@ export default function CHRAnalyticsPage() {
 
 
   useEffect(() => {
-    // Update chart data based on filteredVisits
     const visitsPerSelectedHierarchy = filteredVisits.reduce((acc, visit) => {
       let key = 'Overall';
-      if (bhrFilter) key = mockUsers.find(u=>u.id === visit.bhr_id)?.name || 'Unknown BHR';
-      else if (zhrFilter) key = mockUsers.find(u=>u.id === visit.bhr_id)?.reports_to === zhrFilter ? mockUsers.find(u=>u.id === zhrFilter)?.name || 'Unknown ZHR' : 'Other'; // simplified
-      else if (vhrFilter) key = mockUsers.find(u=>u.id === visit.bhr_id && u.reports_to && mockUsers.find(z=>z.id === u.reports_to)?.reports_to === vhrFilter) ? mockUsers.find(u=>u.id === vhrFilter)?.name || 'Unknown VHR': 'Other'; // simplified
+      const bhrUser = mockUsers.find(u=>u.id === visit.bhr_id);
+      if (bhrUser) {
+        if (bhrFilter && bhrFilter !== 'all') {
+            key = bhrUser.name;
+        } else if (zhrFilter && zhrFilter !== 'all') {
+            const zhrUser = mockUsers.find(u=>u.id === bhrUser.reports_to && u.id === zhrFilter);
+            key = zhrUser ? zhrUser.name : 'Other ZHRs';
+        } else if (vhrFilter && vhrFilter !== 'all') {
+            const zhrUser = mockUsers.find(u=>u.id === bhrUser.reports_to);
+            const vhrUser = zhrUser && mockUsers.find(u=>u.id === zhrUser.reports_to && u.id === vhrFilter);
+            key = vhrUser ? vhrUser.name : 'Other VHRs';
+        }
+      }
       
       acc[key] = (acc[key] || 0) + 1;
       return acc;
@@ -147,19 +158,19 @@ export default function CHRAnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                 <Select value={vhrFilter} onValueChange={setVhrFilter}>
                     <SelectTrigger><SelectValue placeholder="Filter by VHR..." /></SelectTrigger>
-                    <SelectContent><SelectItem value="">All VHRs</SelectItem>{vhrOptions.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
+                    <SelectContent><SelectItem value="all">All VHRs</SelectItem>{vhrOptions.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
                 </Select>
-                <Select value={zhrFilter} onValueChange={setZhrFilter} disabled={zhrOptions.length === 0 && !!vhrFilter}>
+                <Select value={zhrFilter} onValueChange={setZhrFilter} disabled={zhrOptions.length === 0 && !!vhrFilter && vhrFilter !== 'all'}>
                     <SelectTrigger><SelectValue placeholder="Filter by ZHR..." /></SelectTrigger>
-                    <SelectContent><SelectItem value="">All ZHRs</SelectItem>{zhrOptions.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent>
+                    <SelectContent><SelectItem value="all">All ZHRs</SelectItem>{zhrOptions.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}</SelectContent>
                 </Select>
-                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0 && (!!zhrFilter || !!vhrFilter)}>
+                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0 && ((!!zhrFilter && zhrFilter !== 'all') || (!!vhrFilter && vhrFilter !== 'all'))}>
                     <SelectTrigger><SelectValue placeholder="Filter by BHR..." /></SelectTrigger>
-                    <SelectContent><SelectItem value="">All BHRs</SelectItem>{bhrOptions.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+                    <SelectContent><SelectItem value="all">All BHRs</SelectItem>{bhrOptions.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
                 </Select>
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
                     <SelectTrigger><SelectValue placeholder="Filter by Branch..." /></SelectTrigger>
-                    <SelectContent><SelectItem value="">All Branches</SelectItem>{branchOptions.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+                    <SelectContent><SelectItem value="all">All Branches</SelectItem>{branchOptions.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
                 </Select>
                 <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full"/>
                 <Button onClick={() => { setVhrFilter(''); setZhrFilter(''); setBhrFilter(''); setBranchFilter(''); setDateRange(undefined); }} variant="outline" className="w-full">
@@ -183,4 +194,3 @@ export default function CHRAnalyticsPage() {
     </div>
   );
 }
-

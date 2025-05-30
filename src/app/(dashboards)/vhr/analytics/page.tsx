@@ -8,7 +8,7 @@ import type { Visit, Branch, User } from '@/types';
 import { getVisibleVisits, getVisibleUsers, mockBranches } from '@/lib/mock-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { DatePickerWithRange } from '@/components/shared/date-range-picker'; // Assuming this component exists
+import { DatePickerWithRange } from '@/components/shared/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
@@ -18,18 +18,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function VHRAnalyticsPage() {
   const { user } = useAuth();
   
-  // State for filters
   const [zhrFilter, setZhrFilter] = useState<string>('');
-  const [bhrFilter, setBhrFilter] = useState<string>(''); // This would be dependent on selected ZHR
+  const [bhrFilter, setBhrFilter] = useState<string>('');
   const [branchFilter, setBranchFilter] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  // Options for filters
   const [zhrOptions, setZhrOptions] = useState<User[]>([]);
-  const [bhrOptions, setBhrOptions] = useState<User[]>([]); // Populated based on ZHR selection
+  const [bhrOptions, setBhrOptions] = useState<User[]>([]);
   const [branchOptions, setBranchOptions] = useState<Branch[]>([]);
 
-  // Data for charts
   const [visitsByBranchData, setVisitsByBranchData] = useState<{ name: string; value: number }[]>([]);
   const [visitTrendsData, setVisitTrendsData] = useState<{ name: string; value: number }[]>([]);
 
@@ -40,29 +37,47 @@ export default function VHRAnalyticsPage() {
       const zhrs = usersInVertical.filter(u => u.role === 'ZHR' && u.reports_to === user.id);
       setZhrOptions(zhrs);
       
-      // For now, show all BHRs in vertical. Ideally, filter by selected ZHR.
-      const bhrs = usersInVertical.filter(u => u.role === 'BHR');
-      setBhrOptions(bhrs);
-
-      // Branches - for simplicity, all branches for now. Could be filtered by ZHR/BHR assignments.
-      setBranchOptions(mockBranches); 
+      // Populate BHR options based on initial ZHR filter (which is empty or 'all')
+      if (zhrFilter && zhrFilter !== 'all') {
+        setBhrOptions(usersInVertical.filter(u => u.role === 'BHR' && u.reports_to === zhrFilter));
+      } else {
+        setBhrOptions(usersInVertical.filter(u => u.role === 'BHR'));
+      }
+      setBranchOptions(mockBranches); // For simplicity, all branches. Could be filtered by ZHR/BHR assignments.
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && user.role === 'VHR') {
+      const usersInVertical = getVisibleUsers(user);
+      if (zhrFilter && zhrFilter !== 'all') {
+        setBhrOptions(usersInVertical.filter(u => u.role === 'BHR' && u.reports_to === zhrFilter));
+      } else {
+        // If ZHR is "All" or not set, show all BHRs in the VHR's vertical
+        setBhrOptions(usersInVertical.filter(u => u.role === 'BHR'));
+      }
+    }
+  }, [user, zhrFilter]);
+
 
   const filteredVisits = useMemo(() => {
     if (!user) return [];
     let visits = getVisibleVisits(user);
 
-    if (zhrFilter) {
-      const bhrIdsUnderSelectedZhr = getVisibleUsers(user).filter(u => u.role === 'BHR' && u.reports_to === zhrFilter).map(u=>u.id);
+    if (bhrFilter && bhrFilter !== 'all') {
+      visits = visits.filter(v => v.bhr_id === bhrFilter);
+    } else if (zhrFilter && zhrFilter !== 'all') {
+      // Filter by BHRs under the selected ZHR if no specific BHR is chosen
+      const bhrIdsUnderSelectedZhr = getVisibleUsers(user).filter(u => u.role === 'BHR' && u.reports_to === zhrFilter).map(u => u.id);
       visits = visits.filter(v => bhrIdsUnderSelectedZhr.includes(v.bhr_id));
     }
-    if (bhrFilter) {
-      visits = visits.filter(v => v.bhr_id === bhrFilter);
-    }
-    if (branchFilter) {
+    // If bhrFilter is 'all' or empty, and zhrFilter is 'all' or empty, no user-based filtering is done here,
+    // as getVisibleVisits(user) already scopes to the VHR's vertical.
+
+    if (branchFilter && branchFilter !== 'all') {
       visits = visits.filter(v => v.branch_id === branchFilter);
     }
+
     if (dateRange?.from && dateRange?.to) {
       visits = visits.filter(v => isWithinInterval(parseISO(v.visit_date), { start: dateRange.from!, end: dateRange.to! }));
     } else if (dateRange?.from) {
@@ -73,7 +88,6 @@ export default function VHRAnalyticsPage() {
 
 
   useEffect(() => {
-    // Recalculate chart data based on filteredVisits
     const visitsPerBranch = filteredVisits.reduce((acc, visit) => {
       acc[visit.branch_name] = (acc[visit.branch_name] || 0) + 1;
       return acc;
@@ -87,7 +101,6 @@ export default function VHRAnalyticsPage() {
       acc[monthYear] = (acc[monthYear] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    // Simple sort for trend - needs better handling for chronological order
     setVisitTrendsData(
       Object.entries(visitsPerMonth).map(([name, value]) => ({ name, value, fill: `hsl(var(--chart-${(Math.floor(Math.random()*5)+1)}))` })).sort((a,b)=> new Date(a.name).getTime() - new Date(b.name).getTime())
     );
@@ -107,27 +120,26 @@ export default function VHRAnalyticsPage() {
         </CardHeader>
         <CardContent className="pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-                <Select value={zhrFilter} onValueChange={(value) => {setZhrFilter(value); setBhrFilter(''); /* Logic to update BHR options */}}>
+                <Select value={zhrFilter} onValueChange={(value) => {setZhrFilter(value); setBhrFilter('');}}>
                     <SelectTrigger><SelectValue placeholder="Filter by ZHR..." /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">All ZHRs</SelectItem>
+                        <SelectItem value="all">All ZHRs</SelectItem>
                         {zhrOptions.map(z => <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
 
-                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={!zhrFilter && bhrOptions.length === 0}>
+                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0 && (!!zhrFilter && zhrFilter !== 'all') }>
                     <SelectTrigger><SelectValue placeholder="Filter by BHR..." /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">All BHRs</SelectItem>
-                        {/* BHR options should be filtered by selected ZHR */}
-                        {bhrOptions.filter(b=> zhrFilter ? b.reports_to === zhrFilter : true).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                        <SelectItem value="all">All BHRs</SelectItem>
+                        {bhrOptions.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
 
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
                     <SelectTrigger><SelectValue placeholder="Filter by Branch..." /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">All Branches</SelectItem>
+                        <SelectItem value="all">All Branches</SelectItem>
                         {branchOptions.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
@@ -158,8 +170,6 @@ export default function VHRAnalyticsPage() {
           nameKey="name"
         />
       </div>
-      {/* More charts and data tables can be added here */}
     </div>
   );
 }
-

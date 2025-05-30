@@ -10,7 +10,7 @@ import { getVisibleVisits, getVisibleUsers, mockBranches, getVisibleBranchesForZ
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { DatePickerWithRange } from '@/components/shared/date-range-picker'; // Assuming this component exists or will be created
+import { DatePickerWithRange } from '@/components/shared/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -33,8 +33,8 @@ const columns: ColumnConfig<Visit>[] = [
 export default function ZHRVisitsMadePage() {
   const { user } = useAuth();
   const [allVisits, setAllVisits] = useState<Visit[]>([]);
-  const [bhrFilter, setBhrFilter] = useState<string>('');
-  const [branchFilter, setBranchFilter] = useState<string>('');
+  const [bhrFilter, setBhrFilter] = useState<string>(''); // Initial empty string for placeholder
+  const [branchFilter, setBranchFilter] = useState<string>(''); // Initial empty string for placeholder
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   const [bhrOptions, setBhrOptions] = useState<User[]>([]);
@@ -56,13 +56,14 @@ export default function ZHRVisitsMadePage() {
   const filteredVisits = useMemo(() => {
     return allVisits.filter(visit => {
       const visitDate = parseISO(visit.visit_date);
-      const dateMatch = !dateRange || (dateRange.from && dateRange.to && isWithinInterval(visitDate, { start: dateRange.from, end: dateRange.to })) || (dateRange.from && !dateRange.to && visitDate >= dateRange.from) ;
+      const dateMatch = !dateRange || 
+                        (dateRange.from && !dateRange.to && visitDate >= dateRange.from) ||
+                        (dateRange.from && dateRange.to && isWithinInterval(visitDate, { start: dateRange.from, end: dateRange.to }));
 
-      return (
-        (bhrFilter === '' || visit.bhr_id === bhrFilter) &&
-        (branchFilter === '' || visit.branch_id === branchFilter) &&
-        dateMatch
-      );
+      const bhrMatch = (bhrFilter === '' || bhrFilter === 'all' || visit.bhr_id === bhrFilter);
+      const branchMatch = (branchFilter === '' || branchFilter === 'all' || visit.branch_id === branchFilter);
+
+      return bhrMatch && branchMatch && dateMatch;
     });
   }, [allVisits, bhrFilter, branchFilter, dateRange]);
 
@@ -81,7 +82,7 @@ export default function ZHRVisitsMadePage() {
                 <Select value={bhrFilter} onValueChange={setBhrFilter}>
                 <SelectTrigger><SelectValue placeholder="Filter by BHR..." /></SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="">All BHRs</SelectItem>
+                    <SelectItem value="all">All BHRs</SelectItem>
                     {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
                 </SelectContent>
                 </Select>
@@ -89,7 +90,7 @@ export default function ZHRVisitsMadePage() {
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
                 <SelectTrigger><SelectValue placeholder="Filter by Branch..." /></SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="">All Branches</SelectItem>
+                    <SelectItem value="all">All Branches</SelectItem>
                     {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
                 </SelectContent>
                 </Select>
