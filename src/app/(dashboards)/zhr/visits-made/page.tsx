@@ -14,8 +14,10 @@ import type { DateRange } from 'react-day-picker';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Eye } from 'lucide-react';
+import { Loader2, Eye, Search, XCircle } from 'lucide-react'; // Added Search, XCircle
 import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
+import { Input } from '@/components/ui/input'; // Added Input
+import { Label } from '@/components/ui/label'; // Added Label
 
 export default function ZHRVisitsMadePage() {
   const { user } = useAuth();
@@ -24,6 +26,7 @@ export default function ZHRVisitsMadePage() {
   const [bhrFilter, setBhrFilter] = useState<string>('all'); 
   const [branchFilter, setBranchFilter] = useState<string>('all'); 
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [searchTerm, setSearchTerm] = useState(''); // Added searchTerm state
   
   const [bhrOptions, setBhrOptions] = useState<User[]>([]);
   const [branchOptions, setBranchOptions] = useState<Branch[]>([]);
@@ -93,10 +96,10 @@ export default function ZHRVisitsMadePage() {
     console.log("ZHRVisitsMadePage: Fetching data for ZHR:", user.id);
 
     try {
-      // 1. Fetch BHRs that report to the current ZHR
+      // 1. Fetch BHRs that report to the current ZHR (including e_code)
       const { data: bhrsData, error: bhrsError } = await supabase
         .from('users')
-        .select('id, name')
+        .select('id, name, e_code') // Added e_code
         .eq('role', 'BHR')
         .eq('reports_to', user.id);
 
@@ -109,7 +112,7 @@ export default function ZHRVisitsMadePage() {
         console.log("ZHRVisitsMadePage: Fetched BHRs:", bhrsData);
       }
 
-      // 2. Fetch all branches for filter and name lookup (including category and code for modal)
+      // 2. Fetch all branches for filter and name lookup (including category, code, location)
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
         .select('id, name, location, category, code'); 
@@ -130,7 +133,7 @@ export default function ZHRVisitsMadePage() {
           .from('visits')
           .select('*')
           .in('bhr_id', bhrIds)
-          .eq('status', 'submitted') // Only fetch 'submitted' visits
+          .eq('status', 'submitted') 
           .order('visit_date', { ascending: false });
 
         if (visitsError) {
@@ -142,7 +145,7 @@ export default function ZHRVisitsMadePage() {
           console.log("ZHRVisitsMadePage: Fetched Visits:", visitsData);
         }
       } else {
-        setAllVisits([]); // No BHRs, so no visits
+        setAllVisits([]); 
         console.log("ZHRVisitsMadePage: No BHRs found for this ZHR, so no visits fetched.");
       }
 
@@ -163,6 +166,8 @@ export default function ZHRVisitsMadePage() {
   }, [fetchData]);
 
   const filteredVisits = useMemo(() => {
+    const lowerSearchTerm = searchTerm.toLowerCase();
+
     return allVisits.filter(visit => {
       const visitDate = parseISO(visit.visit_date);
       const dateMatch = !dateRange || 
@@ -172,9 +177,26 @@ export default function ZHRVisitsMadePage() {
       const bhrMatch = (bhrFilter === 'all' || visit.bhr_id === bhrFilter);
       const branchMatch = (branchFilter === 'all' || visit.branch_id === branchFilter);
 
-      return bhrMatch && branchMatch && dateMatch;
+      let searchCriteriaMatch = true;
+      if (lowerSearchTerm) {
+        const bhr = bhrOptions.find(b => b.id === visit.bhr_id);
+        const branch = branchOptions.find(b => b.id === visit.branch_id);
+        searchCriteriaMatch = (bhr?.name?.toLowerCase().includes(lowerSearchTerm) ||
+                               branch?.name?.toLowerCase().includes(lowerSearchTerm) ||
+                               (bhr?.e_code && bhr.e_code.toLowerCase().includes(lowerSearchTerm)) ||
+                               (branch?.location && branch.location.toLowerCase().includes(lowerSearchTerm)));
+      }
+
+      return bhrMatch && branchMatch && dateMatch && searchCriteriaMatch;
     });
-  }, [allVisits, bhrFilter, branchFilter, dateRange]);
+  }, [allVisits, bhrFilter, branchFilter, dateRange, searchTerm, bhrOptions, branchOptions]);
+
+  const handleClearFilters = () => {
+    setBhrFilter('all');
+    setBranchFilter('all');
+    setDateRange(undefined);
+    setSearchTerm('');
+  };
 
   if (!user) return null;
 
@@ -187,7 +209,6 @@ export default function ZHRVisitsMadePage() {
     );
   }
 
-
   return (
     <div className="space-y-8">
       <PageTitle title="Submitted Visits in Zone" description="Browse and filter all submitted visits conducted by BHRs in your zone." />
@@ -197,28 +218,36 @@ export default function ZHRVisitsMadePage() {
             <h3 className="text-lg font-semibold">Filters</h3>
         </CardHeader>
         <CardContent className="pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              <div className="relative">
+                <Label htmlFor="search-visits" className="sr-only">Search</Label>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search-visits"
+                  placeholder="Search by BHR, Branch, E-Code, Location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
                 <SelectTrigger><SelectValue placeholder="Filter by BHR..." /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All BHRs</SelectItem>
                     {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
                 </SelectContent>
-                </Select>
-
-                <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
+              </Select>
+              <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
                 <SelectTrigger><SelectValue placeholder="Filter by Branch..." /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Branches</SelectItem>
                     {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
                 </SelectContent>
-                </Select>
-                
-                <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full"/>
-
-                <Button onClick={() => { setBhrFilter('all'); setBranchFilter('all'); setDateRange(undefined); }} variant="outline">
-                Clear Filters
-                </Button>
+              </Select>
+              <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full lg:col-span-1"/>
+              <Button onClick={handleClearFilters} variant="outline" className="w-full lg:col-span-2">
+                <XCircle className="mr-2 h-4 w-4" /> Clear All Filters
+              </Button>
             </div>
         </CardContent>
       </Card>
