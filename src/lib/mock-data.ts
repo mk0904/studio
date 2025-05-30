@@ -36,17 +36,19 @@ export const mockAssignments: Assignment[] = [
 const today = new Date();
 export const mockVisits: Visit[] = [
   {
-    id: 'visit-1', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-1', branch_name: 'North Star Branch',
+    id: 'visit-1', bhr_id: 'bhr-1', 
+    branch_id: 'branch-1',
     visit_date: formatISO(subDays(today, 5)),
     additional_remarks: 'Productive visit. Discussed Q3 targets and employee morale. Some concerns about new software rollout.',
     hr_connect_conducted: true,
     manning_percentage: 95,
     attrition_percentage: 5,
     performance_level: 'Good',
-    status: 'submitted', // Changed from 'approved'
+    status: 'submitted', 
   },
   {
-    id: 'visit-2', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-2', branch_name: 'Southern Cross Branch',
+    id: 'visit-2', bhr_id: 'bhr-1', 
+    branch_id: 'branch-2',
     visit_date: formatISO(subDays(today, 12)),
     additional_remarks: 'Routine check-in. Staff engagement seems high. Followed up on training completion.',
     hr_connect_conducted: false,
@@ -56,7 +58,8 @@ export const mockVisits: Visit[] = [
     status: 'submitted',
   },
   {
-    id: 'visit-3', bhr_id: 'bhr-2', bhr_name: 'Hank Pym', branch_id: 'branch-3', branch_name: 'East Gate Branch',
+    id: 'visit-3', bhr_id: 'bhr-2', 
+    branch_id: 'branch-3',
     visit_date: formatISO(subDays(today, 2)),
     additional_remarks: 'Addressed some minor operational issues. Branch manager is proactive. Overall positive.',
     hr_connect_conducted: true,
@@ -66,44 +69,53 @@ export const mockVisits: Visit[] = [
     status: 'draft',
   },
   {
-    id: 'visit-4', bhr_id: 'bhr-3', bhr_name: 'Ivy Pepper', branch_id: 'branch-4', branch_name: 'West End Branch',
+    id: 'visit-4', bhr_id: 'bhr-3', 
+    branch_id: 'branch-4',
     visit_date: formatISO(subDays(today, 20)),
     additional_remarks: 'Met with new hires. Onboarding process seems smooth. Identified need for more team-building activities.',
     hr_connect_conducted: true,
     manning_percentage: 100,
     attrition_percentage: 2,
     performance_level: 'Good',
-    status: 'submitted', // Changed from 'approved'
+    status: 'submitted', 
   },
   {
-    id: 'visit-5', bhr_id: 'bhr-4', bhr_name: 'Jack Sparrow', branch_id: 'branch-6', branch_name: 'Metro Point',
+    id: 'visit-5', bhr_id: 'bhr-4', 
+    branch_id: 'branch-6',
     visit_date: formatISO(subDays(today, 7)),
     additional_remarks: 'Investigated a reported conflict. Resolution plan in place. Will monitor.',
     hr_connect_conducted: false,
     manning_percentage: 92,
     attrition_percentage: 6,
     performance_level: 'Needs Improvement',
-    status: 'draft', // Changed from 'rejected'
+    status: 'draft', 
   },
   {
-    id: 'visit-6', bhr_id: 'bhr-1', bhr_name: 'Grace Hopper', branch_id: 'branch-1', branch_name: 'North Star Branch',
+    id: 'visit-6', bhr_id: 'bhr-1', 
+    branch_id: 'branch-1',
     visit_date: formatISO(subDays(today, 35)),
     additional_remarks: 'Follow-up on software rollout. Most issues resolved. Training materials updated.',
     hr_connect_conducted: true,
     manning_percentage: 96,
     attrition_percentage: 4,
     performance_level: 'Good',
-    status: 'submitted', // Changed from 'approved'
+    status: 'submitted', 
   },
 ];
 
 
-export const mockVisitReportInputs: VisitReportInput[] = mockVisits.map(v => ({
-  branch: v.branch_name,
-  visitDate: v.visit_date,
-  notes: v.additional_remarks || v.notes || '', 
-  bhr: v.bhr_name,
-}));
+export const mockVisitReportInputs: VisitReportInput[] = mockVisits
+  .filter(v => v.status === 'submitted') // Only include submitted visits for AI summary
+  .map(v => {
+    const bhr = mockUsers.find(u => u.id === v.bhr_id);
+    const branch = mockBranches.find(b => b.id === v.branch_id);
+    return {
+      branch: branch?.name || 'Unknown Branch',
+      visitDate: v.visit_date,
+      notes: v.additional_remarks || '', 
+      bhr: bhr?.name || 'Unknown BHR',
+    };
+});
 
 
 // Helper function to get data based on user role and hierarchy
@@ -128,15 +140,35 @@ export const getVisibleUsers = (currentUser: User): User[] => {
 
 export const getVisibleVisits = (currentUser: User): Visit[] => {
   if (!currentUser) return [];
+  let visitsToFilter = [...mockVisits]; // Create a copy to avoid mutating the original mockVisits
+
+  // BHRs see all their own visits, including drafts
+  if (currentUser.role === 'BHR') {
+    return visitsToFilter.filter(v => v.bhr_id === currentUser.id);
+  }
+
+  // Other roles (ZHR, VHR, CHR) only see 'submitted' visits
+  visitsToFilter = visitsToFilter.filter(v => v.status === 'submitted');
+  
+  // Further filter based on hierarchy for non-BHR roles
   const visibleUserIds = getVisibleUsers(currentUser).map(u => u.id);
+  
   switch (currentUser.role) {
-    case 'CHR':
-    case 'VHR':
-      return mockVisits.filter(v => visibleUserIds.includes(v.bhr_id));
-    case 'ZHR':
-      return mockVisits.filter(v => visibleUserIds.includes(v.bhr_id) && mockUsers.find(u => u.id === v.bhr_id)?.reports_to === currentUser.id);
-    case 'BHR':
-      return mockVisits.filter(v => v.bhr_id === currentUser.id);
+    case 'CHR': // CHR sees all submitted visits from all users
+      return visitsToFilter; 
+    case 'VHR': // VHR sees submitted visits from BHRs in their vertical
+      return visitsToFilter.filter(v => {
+        const bhr = mockUsers.find(u => u.id === v.bhr_id);
+        if (!bhr || bhr.role !== 'BHR') return false;
+        const zhr = mockUsers.find(u => u.id === bhr.reports_to);
+        if (!zhr || zhr.role !== 'ZHR') return false;
+        return zhr.reports_to === currentUser.id; // Check if ZHR reports to current VHR
+      });
+    case 'ZHR': // ZHR sees submitted visits from BHRs reporting directly to them
+      return visitsToFilter.filter(v => {
+        const bhr = mockUsers.find(u => u.id === v.bhr_id);
+        return bhr?.reports_to === currentUser.id;
+      });
     default:
       return [];
   }
@@ -153,4 +185,3 @@ export const getVisibleBranchesForZHR = (zhrId: string): Branch[] => {
   // Unique branch IDs
   return mockBranches.filter(b => Array.from(new Set(assignedBranchIds)).includes(b.id));
 };
-

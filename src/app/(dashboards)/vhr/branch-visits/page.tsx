@@ -6,41 +6,47 @@ import { PageTitle } from '@/components/shared/page-title';
 import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit } from '@/types';
-import { getVisibleVisits } from '@/lib/mock-data';
+import { getVisibleVisits, mockBranches, mockUsers } from '@/lib/mock-data'; 
 import { format } from 'date-fns';
-// Filters could be added here similar to ZHR's visits-made page if complex filtering is needed
 
 const columns: ColumnConfig<Visit>[] = [
   { 
-    accessorKey: 'bhr_name', 
+    accessorKey: 'bhr_id', 
     header: 'BHR Name',
     cell: (row) => {
-        // In a real app, you'd fetch the ZHR this BHR reports to.
-        // For mock, we can just display BHR name.
-        return row.bhr_name;
+        const bhr = mockUsers.find(u => u.id === row.bhr_id);
+        return bhr ? bhr.name : 'N/A';
     }
   },
-  { accessorKey: 'branch_name', header: 'Branch Name' },
+  { 
+    accessorKey: 'branch_id', 
+    header: 'Branch Name',
+    cell: (row) => {
+        const branch = mockBranches.find(b => b.id === row.branch_id);
+        return branch ? branch.name : 'N/A';
+    }
+  },
   { 
     accessorKey: 'visit_date', 
     header: 'Visit Date',
     cell: (row) => format(new Date(row.visit_date), 'PPP') 
   },
   { 
-    accessorKey: 'notes', 
-    header: 'Notes',
-    cell: (row) => <p className="max-w-md whitespace-pre-wrap break-words">{row.notes}</p>
+    accessorKey: 'additional_remarks', 
+    header: 'Remarks', 
+    cell: (row) => <p className="max-w-md whitespace-pre-wrap break-words">{row.additional_remarks}</p>
   },
 ];
 
 export default function VHRBranchVisitsPage() {
   const { user } = useAuth();
-  const [allVisits, setAllVisits] = useState<Visit[]>([]);
+  const [allSubmittedVisits, setAllSubmittedVisits] = useState<Visit[]>([]);
 
   useEffect(() => {
     if (user && user.role === 'VHR') {
+      // getVisibleVisits for VHR will now only return 'submitted' visits
       const visits = getVisibleVisits(user).sort((a,b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
-      setAllVisits(visits);
+      setAllSubmittedVisits(visits);
     }
   }, [user]);
 
@@ -49,12 +55,11 @@ export default function VHRBranchVisitsPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="All Branch Visits in Vertical" description="A comprehensive log of all visits within your vertical." />
-      {/* Add filter components here if needed */}
+      <PageTitle title="All Submitted Branch Visits in Vertical" description="A comprehensive log of all submitted visits within your vertical." />
       <DataTable
         columns={columns}
-        data={allVisits}
-        emptyStateMessage="No visits recorded in your vertical yet."
+        data={allSubmittedVisits}
+        emptyStateMessage="No submitted visits recorded in your vertical yet."
       />
     </div>
   );

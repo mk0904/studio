@@ -123,13 +123,14 @@ export default function ZHRVisitsMadePage() {
         console.log("ZHRVisitsMadePage: Fetched Branches:", branchesData);
       }
       
-      // 3. Fetch visits made by these BHRs
+      // 3. Fetch submitted visits made by these BHRs
       if (bhrsData && bhrsData.length > 0) {
         const bhrIds = bhrsData.map(bhr => bhr.id);
         const { data: visitsData, error: visitsError } = await supabase
           .from('visits')
           .select('*')
           .in('bhr_id', bhrIds)
+          .eq('status', 'submitted') // Only fetch 'submitted' visits
           .order('visit_date', { ascending: false });
 
         if (visitsError) {
@@ -177,11 +178,11 @@ export default function ZHRVisitsMadePage() {
 
   if (!user) return null;
 
-  if (isLoading && user.role === 'ZHR' && allVisits.length === 0) { // Added allVisits.length check for initial load
+  if (isLoading && user.role === 'ZHR' && allVisits.length === 0) { 
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading visits for your zone...</p>
+        <p className="ml-2 text-muted-foreground">Loading submitted visits for your zone...</p>
       </div>
     );
   }
@@ -189,7 +190,7 @@ export default function ZHRVisitsMadePage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Visits Made in Zone" description="Browse and filter all visits conducted by BHRs in your zone." />
+      <PageTitle title="Submitted Visits in Zone" description="Browse and filter all submitted visits conducted by BHRs in your zone." />
       
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between gap-4 !pb-4 border-b">
@@ -225,7 +226,7 @@ export default function ZHRVisitsMadePage() {
       <DataTable
         columns={columns}
         data={filteredVisits}
-        emptyStateMessage={isLoading ? "Loading visits..." : (allVisits.length === 0 ? "No visits found for BHRs in your zone." : "No visits match your current filters.")}
+        emptyStateMessage={isLoading ? "Loading visits..." : (allVisits.length === 0 ? "No submitted visits found for BHRs in your zone." : "No submitted visits match your current filters.")}
       />
       {selectedVisitForView && (
         <ViewVisitDetailsModal
@@ -240,4 +241,3 @@ export default function ZHRVisitsMadePage() {
     </div>
   );
 }
-

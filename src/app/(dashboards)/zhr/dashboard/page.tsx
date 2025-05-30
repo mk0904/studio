@@ -84,17 +84,17 @@ export default function ZHRDashboardPage() {
 
           let currentMonthVisitsCount = 0;
           let activeBHRsThisMonth = 0;
-          let recentVisitsData: Visit[] = [];
+          let latestSubmittedVisits: Visit[] = [];
           
           const bhrIds = (bhrUsersData || []).map(bhr => bhr.id);
 
           if (bhrIds.length > 0) {
             // 2. Fetch submitted visits for these BHRs
-            const { data: submittedVisits, error: visitsError } = await supabase
+            const { data: submittedVisitsData, error: visitsError } = await supabase
               .from('visits')
               .select('*') 
               .in('bhr_id', bhrIds)
-              .eq('status', 'submitted')
+              .eq('status', 'submitted') // Only fetch 'submitted' visits
               .order('visit_date', { ascending: false });
 
             if (visitsError) throw visitsError;
@@ -102,7 +102,7 @@ export default function ZHRDashboardPage() {
             const today = new Date();
             const currentMonthStart = startOfMonth(today);
 
-            const visitsThisMonth = (submittedVisits || []).filter(visit =>
+            const visitsThisMonth = (submittedVisitsData || []).filter(visit =>
               isSameMonth(parseISO(visit.visit_date), currentMonthStart)
             );
             currentMonthVisitsCount = visitsThisMonth.length;
@@ -110,7 +110,7 @@ export default function ZHRDashboardPage() {
             const uniqueBHRsThisMonth = new Set(visitsThisMonth.map(visit => visit.bhr_id));
             activeBHRsThisMonth = uniqueBHRsThisMonth.size;
             
-            recentVisitsData = (submittedVisits || []).slice(0, 5) as Visit[];
+            latestSubmittedVisits = (submittedVisitsData || []).slice(0, 5) as Visit[];
             
             // Fetch all branches for name lookup for recent visits
             const { data: branchesData, error: branchesErr } = await supabase
@@ -120,7 +120,7 @@ export default function ZHRDashboardPage() {
             setAllBranches(branchesData as Branch[] || []);
 
             // Enrich recent visits with branch and BHR names
-            const enrichedRecentVisits = recentVisitsData.map(v => {
+            const enrichedRecentVisits = latestSubmittedVisits.map(v => {
                 const branch = (branchesData || []).find(b => b.id === v.branch_id);
                 const bhr = (bhrUsersData || []).find(u => u.id === v.bhr_id);
                 return {

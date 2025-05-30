@@ -18,9 +18,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function VHRAnalyticsPage() {
   const { user } = useAuth();
   
-  const [zhrFilter, setZhrFilter] = useState<string>('');
-  const [bhrFilter, setBhrFilter] = useState<string>('');
-  const [branchFilter, setBranchFilter] = useState<string>('');
+  const [zhrFilter, setZhrFilter] = useState<string>('all'); // Default to 'all'
+  const [bhrFilter, setBhrFilter] = useState<string>('all'); // Default to 'all'
+  const [branchFilter, setBranchFilter] = useState<string>('all'); // Default to 'all'
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const [zhrOptions, setZhrOptions] = useState<User[]>([]);
@@ -37,42 +37,30 @@ export default function VHRAnalyticsPage() {
       const zhrs = usersInVertical.filter(u => u.role === 'ZHR' && u.reports_to === user.id);
       setZhrOptions(zhrs);
       
-      // Populate BHR options based on initial ZHR filter (which is empty or 'all')
-      if (zhrFilter && zhrFilter !== 'all') {
-        setBhrOptions(usersInVertical.filter(u => u.role === 'BHR' && u.reports_to === zhrFilter));
-      } else {
-        setBhrOptions(usersInVertical.filter(u => u.role === 'BHR'));
-      }
-      setBranchOptions(mockBranches); // For simplicity, all branches. Could be filtered by ZHR/BHR assignments.
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user && user.role === 'VHR') {
-      const usersInVertical = getVisibleUsers(user);
       if (zhrFilter && zhrFilter !== 'all') {
         setBhrOptions(usersInVertical.filter(u => u.role === 'BHR' && u.reports_to === zhrFilter));
       } else {
         // If ZHR is "All" or not set, show all BHRs in the VHR's vertical
-        setBhrOptions(usersInVertical.filter(u => u.role === 'BHR'));
+        const bhrIdsUnderVHR = usersInVertical
+            .filter(u => u.role === 'ZHR' && u.reports_to === user.id) // ZHRs under current VHR
+            .flatMap(zhr => usersInVertical.filter(u => u.role === 'BHR' && u.reports_to === zhr.id));
+        setBhrOptions(bhrIdsUnderVHR);
       }
+      setBranchOptions(mockBranches); 
     }
   }, [user, zhrFilter]);
 
 
   const filteredVisits = useMemo(() => {
     if (!user) return [];
-    let visits = getVisibleVisits(user);
+    let visits = getVisibleVisits(user); // Will only contain 'submitted' visits for VHR
 
     if (bhrFilter && bhrFilter !== 'all') {
       visits = visits.filter(v => v.bhr_id === bhrFilter);
     } else if (zhrFilter && zhrFilter !== 'all') {
-      // Filter by BHRs under the selected ZHR if no specific BHR is chosen
       const bhrIdsUnderSelectedZhr = getVisibleUsers(user).filter(u => u.role === 'BHR' && u.reports_to === zhrFilter).map(u => u.id);
       visits = visits.filter(v => bhrIdsUnderSelectedZhr.includes(v.bhr_id));
     }
-    // If bhrFilter is 'all' or empty, and zhrFilter is 'all' or empty, no user-based filtering is done here,
-    // as getVisibleVisits(user) already scopes to the VHR's vertical.
 
     if (branchFilter && branchFilter !== 'all') {
       visits = visits.filter(v => v.branch_id === branchFilter);
@@ -89,7 +77,10 @@ export default function VHRAnalyticsPage() {
 
   useEffect(() => {
     const visitsPerBranch = filteredVisits.reduce((acc, visit) => {
-      acc[visit.branch_name] = (acc[visit.branch_name] || 0) + 1;
+      const branch = mockBranches.find(b => b.id === visit.branch_id); // Assuming mockBranches for name lookup
+      if (branch) {
+        acc[branch.name] = (acc[branch.name] || 0) + 1;
+      }
       return acc;
     }, {} as Record<string, number>);
     setVisitsByBranchData(
@@ -112,7 +103,7 @@ export default function VHRAnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="VHR Analytics" description="Dive deep into visit data across your vertical." />
+      <PageTitle title="VHR Analytics (Submitted Visits)" description="Dive deep into submitted visit data across your vertical." />
 
       <Card className="shadow-lg">
         <CardHeader className="border-b !pb-4">
@@ -120,7 +111,7 @@ export default function VHRAnalyticsPage() {
         </CardHeader>
         <CardContent className="pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-                <Select value={zhrFilter} onValueChange={(value) => {setZhrFilter(value); setBhrFilter('');}}>
+                <Select value={zhrFilter} onValueChange={(value) => {setZhrFilter(value); setBhrFilter('all');}}>
                     <SelectTrigger><SelectValue placeholder="Filter by ZHR..." /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All ZHRs</SelectItem>
@@ -146,7 +137,7 @@ export default function VHRAnalyticsPage() {
                 
                 <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full"/>
                 
-                <Button onClick={() => { setZhrFilter(''); setBhrFilter(''); setBranchFilter(''); setDateRange(undefined); }} variant="outline" className="w-full">
+                <Button onClick={() => { setZhrFilter('all'); setBhrFilter('all'); setBranchFilter('all'); setDateRange(undefined); }} variant="outline" className="w-full">
                     Clear Filters
                 </Button>
             </div>
@@ -156,16 +147,16 @@ export default function VHRAnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PlaceholderBarChart
           data={visitTrendsData}
-          title="Visit Trends Over Time"
-          description="Monthly visit counts across the vertical."
+          title="Submitted Visit Trends Over Time"
+          description="Monthly submitted visit counts across the vertical."
           xAxisKey="name"
           dataKey="value"
           fillColor="var(--color-accent)"
         />
         <PlaceholderPieChart
           data={visitsByBranchData}
-          title="Visits by Branch"
-          description="Distribution of visits across different branches."
+          title="Submitted Visits by Branch"
+          description="Distribution of submitted visits across different branches."
           dataKey="value"
           nameKey="name"
         />
