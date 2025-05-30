@@ -7,7 +7,7 @@ import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { useAuth } from '@/contexts/auth-context';
 import type { Branch, User, Assignment } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Check, PlusCircle, Trash2, UserPlus, Loader2, Search } from 'lucide-react';
+import { Check, PlusCircle, Trash2, UserPlus, Loader2, Search, XCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabaseClient';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
 interface BranchAssignmentView extends Branch {
@@ -277,14 +277,19 @@ export default function ZHRBranchAssignmentsPage() {
       const term = searchTerm.toLowerCase();
       const matchesSearch = term === '' ||
         branch.name.toLowerCase().includes(term) ||
-        branch.location.toLowerCase().includes(term) ||
-        branch.code.toLowerCase().includes(term);
+        (branch.location && branch.location.toLowerCase().includes(term)) || // Added null check for location
+        (branch.code && branch.code.toLowerCase().includes(term)); // Added null check for code
       
       const matchesCategory = selectedCategory === 'all' || branch.category === selectedCategory;
 
       return matchesSearch && matchesCategory;
     });
   }, [branchesInZone, searchTerm, selectedCategory]);
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+  };
 
 
   if (isLoading && branchesInZone.length === 0) {
@@ -318,7 +323,7 @@ export default function ZHRBranchAssignmentsPage() {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
 
-  console.log("ZHRBranchAssignmentsPage: Rendering DataTable with branchesInZone:", branchesInZone);
+  console.log("ZHRBranchAssignmentsPage: Rendering DataTable with filteredBranches:", filteredBranches);
   console.log("ZHRBranchAssignmentsPage: isLoading state:", isLoading);
 
 
@@ -336,33 +341,42 @@ export default function ZHRBranchAssignmentsPage() {
       )}
 
       <Card className="shadow-md">
-        <CardHeader>
-          <CardContent className="p-4 md:p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative">
+        <CardHeader className="border-b pb-2">
+             <CardTitle className="text-lg">Filter Assignments</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 md:p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"> {/* Changed to md:grid-cols-3 */}
+              <div className="relative md:col-span-1"> {/* Adjusted col-span */}
+                <Label htmlFor="search-assignments" className="sr-only">Search</Label>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
+                  id="search-assignments"
                   placeholder="Search by branch name, location, code..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={branchCategories.length <= 1}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branchCategories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category === 'all' ? 'All Categories' : category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="md:col-span-1"> {/* Adjusted col-span */}
+                <Label htmlFor="category-filter" className="sr-only">Category</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={branchCategories.length <= 1}>
+                  <SelectTrigger id="category-filter">
+                    <SelectValue placeholder="Filter by Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branchCategories.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {category === 'all' ? 'All Categories' : category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleClearFilters} variant="outline" className="w-full md:w-auto md:col-span-1"> {/* Adjusted col-span and width */}
+                <XCircle className="mr-2 h-4 w-4" /> Clear Filters
+              </Button>
             </div>
           </CardContent>
-        </CardHeader>
       </Card>
 
       <DataTable
@@ -427,5 +441,3 @@ export default function ZHRBranchAssignmentsPage() {
     </div>
   );
 }
-
-    
