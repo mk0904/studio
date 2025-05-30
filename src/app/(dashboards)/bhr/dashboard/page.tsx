@@ -4,57 +4,103 @@
 import React, { useEffect, useState } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
-import type { Branch, Visit } from '@/types';
-import { mockBranches, mockVisits, getVisibleBranchesForBHR, getVisibleVisits } from '@/lib/mock-data';
-import { Users, Building2, ClipboardCheck, CalendarCheck2, TrendingUp } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { Users, Building2, ClipboardCheck, TrendingUp, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { isSameMonth, parseISO, startOfMonth } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BHRDashboardPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
   const [assignedBranchesCount, setAssignedBranchesCount] = useState<number>(0);
   const [branchesCoveredThisMonth, setBranchesCoveredThisMonth] = useState<number>(0);
   const [totalVisitsThisMonth, setTotalVisitsThisMonth] = useState<number>(0);
-  const [approvedReportsCount, setApprovedReportsCount] = useState<number>(0); // Mocked
   const [completionRate, setCompletionRate] = useState<number>(0);
   
-  // Mocked data for Visit Metrics
+  // Mocked data for Visit Metrics (can be fetched live later if needed)
   const visitMetrics = {
-    hrConnectSessions: "0/0",
+    hrConnectSessions: "0/0", // Example: Actual/Planned
     averageParticipation: "0%",
     employeeCoverage: "0%",
   };
 
   useEffect(() => {
     if (user && user.role === 'BHR') {
-      const assignedBHRBranches = getVisibleBranchesForBHR(user.id);
-      setAssignedBranchesCount(assignedBHRBranches.length);
+      const fetchData = async () => {
+        setIsLoading(true);
+        try {
+          // 1. Fetch assigned branches count
+          const { data: assignments, error: assignmentsError } = await supabase
+            .from('assignments')
+            .select('branch_id', { count: 'exact' })
+            .eq('bhr_id', user.id);
 
-      const bhrVisits = getVisibleVisits(user);
-      const today = new Date();
-      const currentMonthStart = startOfMonth(today);
+          if (assignmentsError) throw assignmentsError;
+          const assignedBranches = new Set((assignments || []).map(a => a.branch_id));
+          setAssignedBranchesCount(assignedBranches.size);
 
-      const visitsThisMonth = bhrVisits.filter(visit => 
-        isSameMonth(parseISO(visit.visit_date), currentMonthStart)
-      );
-      setTotalVisitsThisMonth(visitsThisMonth.length);
+          // 2. Fetch submitted visits for this BHR
+          const { data: submittedVisits, error: visitsError } = await supabase
+            .from('visits')
+            .select('branch_id, visit_date')
+            .eq('bhr_id', user.id)
+            .eq('status', 'submitted');
 
-      const uniqueBranchesVisitedThisMonth = new Set(visitsThisMonth.map(visit => visit.branch_id));
-      setBranchesCoveredThisMonth(uniqueBranchesVisitedThisMonth.size);
-      
-      if (assignedBHRBranches.length > 0) {
-        setCompletionRate(Math.round((uniqueBranchesVisitedThisMonth.size / assignedBHRBranches.length) * 100));
-      } else {
-        setCompletionRate(0);
-      }
+          if (visitsError) throw visitsError;
 
-      // Mock approved reports
-      setApprovedReportsCount(0); 
+          const today = new Date();
+          const currentMonthStart = startOfMonth(today);
+
+          const visitsThisMonth = (submittedVisits || []).filter(visit =>
+            isSameMonth(parseISO(visit.visit_date), currentMonthStart)
+          );
+          setTotalVisitsThisMonth(visitsThisMonth.length);
+
+          const uniqueBranchesVisitedThisMonth = new Set(visitsThisMonth.map(visit => visit.branch_id));
+          setBranchesCoveredThisMonth(uniqueBranchesVisitedThisMonth.size);
+          
+          if (assignedBranches.size > 0) {
+            setCompletionRate(Math.round((uniqueBranchesVisitedThisMonth.size / assignedBranches.size) * 100));
+          } else {
+            setCompletionRate(0);
+          }
+
+        } catch (error: any) {
+          console.error("Error fetching BHR dashboard data:", error);
+          toast({ title: "Error", description: `Failed to load dashboard data: ${error.message}`, variant: "destructive" });
+          setAssignedBranchesCount(0);
+          setTotalVisitsThisMonth(0);
+          setBranchesCoveredThisMonth(0);
+          setCompletionRate(0);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchData();
+    } else {
+        setIsLoading(false); // Not a BHR or no user
     }
-  }, [user]);
+  }, [user, toast]);
 
-  if (!user) return null; // Or loading state
+  if (!user) return null; // Or a more specific loading/auth check state
+
+  if (isLoading && user.role === 'BHR') {
+    return (
+      <div className="space-y-8">
+        <PageTitle 
+          title={`Welcome back, ${user.name}!`} 
+          description="Loading your dashboard overview..." 
+        />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8">
@@ -63,7 +109,7 @@ export default function BHRDashboardPage() {
         description="Here's an overview of your branch visits and performance metrics for this month." 
       />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"> {/* Changed to lg:grid-cols-3 */}
         <Card className="shadow-md bg-blue-50 dark:bg-blue-900/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-600 dark:text-blue-400">Assigned Branches</CardTitle>
@@ -82,7 +128,7 @@ export default function BHRDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-foreground">{branchesCoveredThisMonth}</div>
-            <p className="text-xs text-muted-foreground pt-1">Branches visited this month</p>
+            <p className="text-xs text-muted-foreground pt-1">Unique branches visited</p>
             <Badge variant="outline" className="text-xs mt-1 bg-purple-100 dark:bg-purple-800/50 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300">this month</Badge>
           </CardContent>
         </Card>
@@ -98,22 +144,10 @@ export default function BHRDashboardPage() {
              <Badge variant="outline" className="text-xs mt-1 bg-green-100 dark:bg-green-800/50 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">this month</Badge>
           </CardContent>
         </Card>
-
-        <Card className="shadow-md bg-orange-50 dark:bg-orange-900/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-600 dark:text-orange-400">Approved Reports</CardTitle>
-            <CalendarCheck2 className="h-5 w-5 text-orange-500 dark:text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{approvedReportsCount}</div>
-            <p className="text-xs text-muted-foreground pt-1">Total approved this month</p>
-            <Badge variant="outline" className="text-xs mt-1 bg-orange-100 dark:bg-orange-800/50 border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300">this month</Badge>
-          </CardContent>
-        </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3"> {/* Changed grid to allow 1/3 for completion rate */}
-        <Card className="shadow-md lg:col-span-1">
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
+        <Card className="shadow-md lg:col-span-1"> {/* Completion rate card */}
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
             <TrendingUp className="h-5 w-5 text-accent" />
@@ -125,7 +159,11 @@ export default function BHRDashboardPage() {
           </CardContent>
         </Card>
         {/* Placeholder for future cards taking up remaining 2/3 space */}
-         <div className="lg:col-span-2"></div>
+         <div className="lg:col-span-2 hidden md:block"> {/* Hide on small, show on md+ */}
+            <Card className="shadow-md h-full flex items-center justify-center bg-muted/30">
+                <p className="text-muted-foreground">Future content area</p>
+            </Card>
+         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -168,5 +206,3 @@ export default function BHRDashboardPage() {
     </div>
   );
 }
-
-    
