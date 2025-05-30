@@ -1,131 +1,214 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
-import type { Visit, Branch, User as AppUser } from '@/types'; // Renamed User to AppUser to avoid conflict
+import type { Visit, User as AppUser, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
-import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, BarChartHorizontalBig, Users, Percent, ClipboardList } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import type { ChartData } from '@/types';
-import { StatCard } from '@/components/shared/stat-card';
+import { Loader2, TrendingUp, CalendarDays } from 'lucide-react';
+import {
+  format,
+  parseISO,
+  startOfWeek,
+  endOfWeek,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  subYears,
+  startOfYear,
+  endOfYear,
+  isWithinInterval,
+  eachDayOfInterval,
+  isValid,
+} from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+
+interface MetricConfig {
+  key: keyof Visit;
+  label: string;
+  color: string;
+  yAxisId?: string; // For potential multi-axis charts
+}
+
+const METRIC_CONFIGS: MetricConfig[] = [
+  { key: 'manning_percentage', label: 'Manning %', color: 'hsl(var(--chart-1))', yAxisId: 'left' },
+  { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left' },
+  { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left' },
+  { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left' },
+  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' }, // Potentially different scale
+];
+
+type TimeframeKey = 'this_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
+
+interface TimeframeOption {
+  key: TimeframeKey;
+  label: string;
+}
+
+const TIMEFRAME_OPTIONS: TimeframeOption[] = [
+  { key: 'this_week', label: 'This Week' },
+  { key: 'past_month', label: 'Past Month' },
+  { key: 'last_3_months', label: 'Last 3 Months' },
+  { key: 'last_6_months', label: 'Last 6 Months' },
+  { key: 'last_year', label: 'Last Year' },
+  { key: 'last_3_years', label: 'Last 3 Years' },
+];
+
+type ChartDataPoint = {
+  date: string; // 'YYYY-MM-DD'
+  [key: string]: any; // For dynamic metrics
+};
 
 export default function ZHRAnalyticsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [submittedVisits, setSubmittedVisits] = useState<Visit[]>([]);
-  const [visitsByMonthData, setVisitsByMonthData] = useState<ChartData[]>([]);
-  const [performanceDistributionData, setPerformanceDistributionData] = useState<ChartData[]>([]);
-  const [hrConnectStats, setHrConnectStats] = useState({
-    totalConducted: 0,
-    averageParticipationRate: 0,
-    totalParticipants: 0,
-    totalInvited: 0,
-  });
-  const [bhrUsers, setBhrUsers] = useState<AppUser[]>([]);
-  const [allBranches, setAllBranches] = useState<Branch[]>([]);
-
+  const [allZoneVisits, setAllZoneVisits] = useState<Visit[]>([]);
+  const [activeMetrics, setActiveMetrics] = useState<Record<string, boolean>>(
+    METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {}) // Default 'Manning %' to true
+  );
+  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeKey>('past_month');
 
   useEffect(() => {
     if (user && user.role === 'ZHR') {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          // 1. Fetch BHRs reporting to this ZHR
           const { data: bhrUsersData, error: bhrError } = await supabase
             .from('users')
-            .select('id, name')
+            .select('id')
             .eq('role', 'BHR')
             .eq('reports_to', user.id);
 
           if (bhrError) throw bhrError;
-          setBhrUsers(bhrUsersData || []);
           const bhrIds = (bhrUsersData || []).map(bhr => bhr.id);
 
           if (bhrIds.length === 0) {
-            setSubmittedVisits([]);
+            setAllZoneVisits([]);
             setIsLoading(false);
             return;
           }
-          
-          // 2. Fetch submitted visits for these BHRs
+
           const { data: visitsData, error: visitsError } = await supabase
             .from('visits')
-            .select('*')
+            .select('visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases')
             .in('bhr_id', bhrIds)
             .eq('status', 'submitted');
 
           if (visitsError) throw visitsError;
-          setSubmittedVisits(visitsData || []);
-
-          // 3. Fetch all branches for name lookup
-          const { data: branchesData, error: branchesError } = await supabase
-            .from('branches')
-            .select('id, name');
-          if (branchesError) throw branchesError;
-          setAllBranches(branchesData || []);
-
-
-          // Process data for charts
-          const monthlyCounts: Record<string, number> = {};
-          const performanceCounts: Record<string, number> = {};
-          let connectConducted = 0;
-          let connectParticipants = 0;
-          let connectInvited = 0;
-
-          (visitsData || []).forEach(visit => {
-            const monthYear = format(parseISO(visit.visit_date), 'MMM yyyy');
-            monthlyCounts[monthYear] = (monthlyCounts[monthYear] || 0) + 1;
-
-            if (visit.performance_level) {
-              performanceCounts[visit.performance_level] = (performanceCounts[visit.performance_level] || 0) + 1;
-            }
-
-            if (visit.hr_connect_conducted) {
-              connectConducted++;
-              connectInvited += visit.hr_connect_employees_invited || 0;
-              connectParticipants += visit.hr_connect_participants || 0;
-            }
-          });
-
-          setVisitsByMonthData(
-            Object.entries(monthlyCounts).map(([name, value], index) => ({
-              name,
-              value,
-              fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-            })).sort((a,b) => new Date(a.name).getTime() - new Date(b.name).getTime())
-          );
-
-          setPerformanceDistributionData(
-            Object.entries(performanceCounts).map(([name, value], index) => ({
-              name,
-              value,
-              fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-            }))
-          );
-
-          setHrConnectStats({
-            totalConducted: connectConducted,
-            averageParticipationRate: connectInvited > 0 ? Math.round((connectParticipants / connectInvited) * 100) : 0,
-            totalParticipants: connectParticipants,
-            totalInvited: connectInvited,
-          });
-
+          setAllZoneVisits(visitsData || []);
         } catch (error: any) {
           console.error("Error fetching ZHR analytics data:", error);
+          toast({ title: "Error", description: `Failed to load analytics data: ${error.message}`, variant: "destructive" });
+          setAllZoneVisits([]);
         } finally {
           setIsLoading(false);
         }
       };
       fetchData();
     } else {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-  }, [user]);
+  }, [user, toast]);
+
+  const chartDisplayData = useMemo(() => {
+    if (allZoneVisits.length === 0) return [];
+
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+
+    switch (selectedTimeframe) {
+      case 'this_week':
+        startDate = startOfWeek(now, { weekStartsOn: 1 });
+        endDate = endOfWeek(now, { weekStartsOn: 1 });
+        break;
+      case 'past_month':
+        startDate = startOfMonth(subMonths(now, 1));
+        endDate = endOfMonth(subMonths(now, 1));
+        break;
+      case 'last_3_months':
+        startDate = startOfMonth(subMonths(now, 2)); // Current month + 2 previous full months
+        endDate = endOfMonth(now);
+        break;
+      case 'last_6_months':
+        startDate = startOfMonth(subMonths(now, 5));
+        endDate = endOfMonth(now);
+        break;
+      case 'last_year':
+        startDate = startOfYear(subYears(now, 1));
+        endDate = endOfYear(subYears(now, 1));
+        break;
+      case 'last_3_years':
+        startDate = startOfYear(subYears(now, 2));
+        endDate = endOfYear(now);
+        break;
+      default:
+        startDate = startOfMonth(subMonths(now, 1));
+        endDate = endOfMonth(subMonths(now, 1));
+    }
+    
+    if (!isValid(startDate) || !isValid(endDate)) return [];
+
+    const filteredVisits = allZoneVisits.filter(visit => {
+      const visitDate = parseISO(visit.visit_date);
+      return isValid(visitDate) && isWithinInterval(visitDate, { start: startDate, end: endDate });
+    });
+
+    if (filteredVisits.length === 0) return [];
+    
+    const aggregatedData: Record<string, { [key: string]: { sum: number; count: number } }> = {};
+
+    filteredVisits.forEach(visit => {
+      const day = format(parseISO(visit.visit_date), 'yyyy-MM-dd');
+      if (!aggregatedData[day]) {
+        aggregatedData[day] = {};
+        METRIC_CONFIGS.forEach(m => {
+          aggregatedData[day][m.key] = { sum: 0, count: 0 };
+        });
+      }
+
+      METRIC_CONFIGS.forEach(m => {
+        const value = visit[m.key] as number | undefined;
+        if (typeof value === 'number' && !isNaN(value)) {
+          aggregatedData[day][m.key].sum += value;
+          aggregatedData[day][m.key].count += 1;
+        }
+      });
+    });
+
+    const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
+    
+    return dateRange.map(dayDate => {
+      const dayKey = format(dayDate, 'yyyy-MM-dd');
+      const dayData = aggregatedData[dayKey];
+      const point: ChartDataPoint = { date: dayKey };
+
+      METRIC_CONFIGS.forEach(m => {
+        if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
+          if (m.key === 'cwt_cases') { // Sum for CWT cases
+            point[m.key] = dayData[m.key].sum;
+          } else { // Average for percentages
+            point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
+          }
+        } else {
+          // point[m.key] = undefined; // Or null if Recharts handles it better for gaps
+        }
+      });
+      return point;
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  }, [allZoneVisits, selectedTimeframe]);
+
+  const handleMetricToggle = (metricKey: string) => {
+    setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
+  };
 
   if (isLoading) {
     return (
@@ -135,105 +218,113 @@ export default function ZHRAnalyticsPage() {
     );
   }
 
-  if (!user) return null;
-
-  if (submittedVisits.length === 0 && !isLoading) {
-    return (
-      <div className="space-y-8">
-        <PageTitle title="Zonal Analytics" description="Visualize submitted visit data from BHRs in your zone." />
-        <Card className="shadow-md">
-          <CardContent className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-            <ClipboardList className="h-16 w-16 text-muted-foreground" />
-            <h3 className="text-xl font-semibold">No Submitted Visits Found in Zone</h3>
-            <p className="text-muted-foreground max-w-md">
-              Once BHRs in your zone submit visit reports, analytics will appear here.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (!user || user.role !== 'ZHR') {
+    return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
 
-  const getBranchName = (branchId: string) => allBranches.find(b => b.id === branchId)?.name || branchId;
-  const getBhrName = (bhrId: string) => bhrUsers.find(b => b.id === bhrId)?.name || bhrId;
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Zonal Analytics" description="Visualize submitted visit data from BHRs in your zone." />
+      <PageTitle title="Zonal Performance Trends" description="Analyze key metrics from submitted visits in your zone over time." />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <StatCard
-          title="HR Connect Sessions (Zone)"
-          value={hrConnectStats.totalConducted}
-          icon={Users}
-          description={`Invited: ${hrConnectStats.totalInvited}, Participated: ${hrConnectStats.totalParticipants}`}
-          className="lg:col-span-1"
-        />
-         <StatCard
-          title="Avg. HR Connect Participation (Zone)"
-          value={`${hrConnectStats.averageParticipationRate}%`}
-          icon={Percent}
-          description="Based on conducted sessions in zone"
-          className="lg:col-span-1"
-        />
-         <StatCard
-          title="Total Submitted Visits (Zone)"
-          value={submittedVisits.length}
-          icon={BarChartHorizontalBig}
-          description="Overall submitted reports from BHRs in zone"
-          className="lg:col-span-1"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PlaceholderBarChart
-          data={visitsByMonthData}
-          title="Monthly Submitted Visit Trend (Zone)"
-          description="Number of submitted visits each month by BHRs in zone."
-          xAxisKey="name"
-          dataKey="value"
-        />
-        <PlaceholderPieChart
-          data={performanceDistributionData}
-          title="Branch Performance Distribution (Zone)"
-          description="Distribution of performance levels from visits in your zone."
-          dataKey="value"
-          nameKey="name"
-        />
-      </div>
-
-       <Card className="shadow-md">
+      <Card className="shadow-lg">
         <CardHeader>
-            <CardTitle>Raw Data Overview (Last 5 Submitted Visits in Zone)</CardTitle>
-            <CardDescription>A quick look at the most recent submitted visits by BHRs in your zone.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Select Timeframe</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {TIMEFRAME_OPTIONS.map(tf => (
+            <Button
+              key={tf.key}
+              variant={selectedTimeframe === tf.key ? 'default' : 'outline'}
+              onClick={() => setSelectedTimeframe(tf.key)}
+            >
+              {tf.label}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Select Metrics to Display</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+          {METRIC_CONFIGS.map(metric => (
+            <div key={metric.key} className="flex items-center space-x-2">
+              <Checkbox
+                id={metric.key}
+                checked={activeMetrics[metric.key]}
+                onCheckedChange={() => handleMetricToggle(metric.key)}
+                style={{ accentColor: metric.color } as React.CSSProperties} // Basic color hint
+              />
+              <Label htmlFor={metric.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" style={{ color: metric.color }}>
+                {metric.label}
+              </Label>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      
+      <Card className="shadow-xl">
+        <CardHeader>
+            <CardTitle>Metric Trends</CardTitle>
+            <CardDescription>Trendlines for selected metrics and timeframe.</CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-muted/50">
-                        <tr>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">BHR Name</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Branch</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Visit Date</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Performance</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">HR Connect</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-background divide-y divide-border">
-                        {submittedVisits.slice(0, 5).map(visit => (
-                            <tr key={visit.id}>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{getBhrName(visit.bhr_id)}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{getBranchName(visit.branch_id)}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{format(parseISO(visit.visit_date), 'PPP')}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{visit.performance_level || 'N/A'}</td>
-                                <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{visit.hr_connect_conducted ? 'Yes' : 'No'}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+          {chartDisplayData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={chartDisplayData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(tick) => format(parseISO(tick), 'MMM d')} 
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" orientation="left" tick={{ fontSize: 12 }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                <YAxis yAxisId="right" stroke="hsl(var(--muted-foreground))" orientation="right" tick={{ fontSize: 12 }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))', 
+                    borderColor: 'hsl(var(--border))',
+                    borderRadius: 'var(--radius)',
+                    boxShadow: 'var(--shadow-md)' 
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                  formatter={(value, name, props) => {
+                    const config = METRIC_CONFIGS.find(m => m.label === name);
+                    if (config?.key.includes('percentage')) return [`${value}%`, name];
+                    return [value, name];
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                {METRIC_CONFIGS.map(metric => 
+                  activeMetrics[metric.key] && (
+                    <Line
+                      key={metric.key}
+                      type="monotone"
+                      dataKey={metric.key.toString()}
+                      name={metric.label}
+                      stroke={metric.color}
+                      strokeWidth={2}
+                      yAxisId={metric.yAxisId || 'left'} // Default to left if not specified
+                      dot={{ r: 2, fill: metric.color }}
+                      activeDot={{ r: 5 }}
+                      connectNulls // Connects lines over null/undefined data points
+                    />
+                  )
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-96 text-center p-4">
+                <TrendingUp className="w-16 h-16 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground font-semibold">No data available for the selected timeframe or metrics.</p>
+                <p className="text-xs text-muted-foreground">Try adjusting the filters or ensure BHRs have submitted visits with these metrics.</p>
             </div>
+          )}
         </CardContent>
-       </Card>
+      </Card>
     </div>
   );
 }
