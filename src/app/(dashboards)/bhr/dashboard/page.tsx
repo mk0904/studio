@@ -5,13 +5,14 @@ import React, { useEffect, useState } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, Building2, ClipboardCheck, Loader2, BarChart3 } from 'lucide-react';
+import { Users, Building2, ClipboardCheck, Loader2, BarChart3, PlusCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { isSameMonth, parseISO, startOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import type { ChartData } from '@/types';
+import Link from 'next/link';
 
 export default function BHRDashboardPage() {
   const { user } = useAuth();
@@ -23,12 +24,6 @@ export default function BHRDashboardPage() {
   const [completionRate, setCompletionRate] = useState<number>(0);
   const [branchCategoryDistribution, setBranchCategoryDistribution] = useState<ChartData[]>([]);
   
-  // Mocked data for Visit Metrics (can be fetched live later if needed)
-  const visitMetrics = {
-    hrConnectSessions: "0/0", // Example: Actual/Planned
-    averageParticipation: "0%",
-    employeeCoverage: "0%",
-  };
 
   useEffect(() => {
     if (user && user.role === 'BHR') {
@@ -90,7 +85,7 @@ export default function BHRDashboardPage() {
 
           const branchCategoryMap = new Map<string, string>();
           (allBranches || []).forEach(branch => {
-            if (branch.id && branch.category) { // Ensure category is not null/undefined
+            if (branch.id && branch.category) { 
               branchCategoryMap.set(branch.id, branch.category);
             }
           });
@@ -140,7 +135,7 @@ export default function BHRDashboardPage() {
 
   if (!user) return null; 
 
-  if (isLoading && user.role === 'BHR' && assignedBranchesCount === 0 && totalVisitsThisMonth === 0) { // More specific loading condition
+  if (isLoading && user.role === 'BHR' && assignedBranchesCount === 0 && totalVisitsThisMonth === 0) { 
     return (
       <div className="space-y-8">
         <PageTitle 
@@ -203,7 +198,7 @@ export default function BHRDashboardPage() {
         <Card className="shadow-md lg:col-span-1"> 
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
-            <BarChart3 className="h-5 w-5 text-accent" /> {/* Changed from TrendingUp to BarChart3 to match imports */}
+            <BarChart3 className="h-5 w-5 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-primary">{completionRate}%</div>
@@ -211,14 +206,19 @@ export default function BHRDashboardPage() {
              <Badge variant="outline" className="text-xs mt-1">this month</Badge>
           </CardContent>
         </Card>
-         <div className="lg:col-span-2 hidden md:block"> 
-            <Card className="shadow-md h-full flex items-center justify-center bg-muted/30">
-                <p className="text-muted-foreground">Future content area</p>
+         <Link href="/bhr/new-visit" className="lg:col-span-2">
+            <Card className="flex flex-col items-center justify-center h-full bg-accent text-accent-foreground hover:bg-accent/90 transition-colors cursor-pointer shadow-lg">
+              <CardHeader className="pb-2">
+                <PlusCircle className="h-10 w-10" />
+              </CardHeader>
+              <CardContent className="text-center">
+                <CardTitle className="text-lg font-semibold">Log New Visit</CardTitle>
+              </CardContent>
             </Card>
-         </div>
+          </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6"> {/* Changed to lg:grid-cols-1 */}
         <Card className="shadow-md">
           <CardHeader>
             <CardTitle>Branch Visit Progress</CardTitle>
@@ -243,28 +243,6 @@ export default function BHRDashboardPage() {
                 <p className="text-xs text-muted-foreground">Visit data by branch category will appear here once visits are submitted for the current month.</p>
               </div>
             )}
-          </CardContent>
-        </Card>
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Visit Metrics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">HR Connect Sessions</p>
-              <p className="text-sm font-semibold text-foreground">{visitMetrics.hrConnectSessions}</p>
-            </div>
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">Average Participation</p>
-              <p className="text-sm font-semibold text-foreground">{visitMetrics.averageParticipation}</p>
-            </div>
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">Employee Coverage</p>
-              <p className="text-sm font-semibold text-foreground">{visitMetrics.employeeCoverage}</p>
-            </div>
-             <div className="mt-4 h-20 flex items-center justify-center border-2 border-dashed rounded-md">
-              <p className="text-muted-foreground">More metrics coming soon</p>
-            </div>
           </CardContent>
         </Card>
       </div>
