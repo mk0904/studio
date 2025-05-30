@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // Keep if used elsewhere, but FormLabel is preferred in Form
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Form,
@@ -34,14 +34,15 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Loader2, Save, Send } from 'lucide-react';
+import { CalendarIcon, Loader2, Save, Send, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageTitle } from '@/components/shared/page-title';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
-import type { Branch, Visit } from '@/types';
-import { getVisibleBranchesForBHR, mockBranches, mockVisits } from '@/lib/mock-data';
+import type { Branch, Visit, VisitStatus } from '@/types';
+import { supabase } from '@/lib/supabaseClient';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const qualitativeQuestionSchema = z.enum(['yes', 'no'], {
   errorMap: () => ({ message: 'Please select Yes or No.' }),
@@ -72,6 +73,7 @@ const visitFormSchema = z.object({
   qual_comfortable_escalate: qualitativeQuestionSchema,
   qual_inclusive_culture: qualitativeQuestionSchema,
   additional_remarks: z.string().max(1000, "Remarks cannot exceed 1000 characters.").optional(),
+  status: z.custom<VisitStatus>().default('draft'), // Default to draft
 }).refine(data => !data.new_employees_total || !data.new_employees_covered || data.new_employees_covered <= data.new_employees_total, {
   message: "Covered new employees cannot exceed total new employees.",
   path: ["new_employees_covered"],
@@ -79,16 +81,16 @@ const visitFormSchema = z.object({
   message: "Covered STAR employees cannot exceed total STAR employees.",
   path: ["star_employees_covered"],
 }).refine(data => {
-  if (data.hr_connect_conducted && data.hr_connect_employees_invited !== undefined && data.hr_connect_participants !== undefined) {
-    return data.hr_connect_participants <= data.hr_connect_employees_invited;
+  if (data.hr_connect_conducted && (data.hr_connect_employees_invited || 0) > 0 && (data.hr_connect_participants || 0) > (data.hr_connect_employees_invited || 0)) {
+    return false;
   }
   return true;
 }, {
   message: "Total participants cannot exceed total employees invited.",
   path: ["hr_connect_participants"],
 }).refine(data => {
-  if (data.hr_connect_conducted && (data.hr_connect_participants || 0) > 0) {
-    return (data.hr_connect_employees_invited || 0) > 0;
+  if (data.hr_connect_conducted && (data.hr_connect_participants || 0) > 0 && (data.hr_connect_employees_invited || 0) === 0) {
+     return false;
   }
   return true;
 }, {
@@ -101,7 +103,7 @@ type VisitFormValues = z.infer<typeof visitFormSchema>;
 const performanceLevels = ["Excellent", "Good", "Average", "Needs Improvement", "Poor"];
 
 interface QualitativeQuestion {
-  name: keyof VisitFormValues;
+  name: keyof VisitFormValues; // Ensure names match the schema
   label: string;
 }
 
@@ -118,8 +120,10 @@ const qualitativeQuestions: QualitativeQuestion[] = [
 export default function NewVisitPage() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [assignedBranches, setAssignedBranches] = useState<Branch[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedBranchInfo, setSelectedBranchInfo] = useState<{ category: string, code: string } | null>(null);
   const [coveragePercentage, setCoveragePercentage] = useState(0);
   
@@ -139,6 +143,7 @@ export default function NewVisitPage() {
       new_employees_covered: 0,
       star_employees_total: 0,
       star_employees_covered: 0,
+      status: 'draft',
     },
   });
 
@@ -148,10 +153,58 @@ export default function NewVisitPage() {
   const participants = form.watch('hr_connect_participants');
 
   useEffect(() => {
-    if (user && user.role === 'BHR') {
-      setAssignedBranches(getVisibleBranchesForBHR(user.id));
-    }
-  }, [user]);
+    const fetchAssignedBranches = async () => {
+      if (user && user.role === 'BHR') {
+        setIsLoadingBranches(true);
+        setFetchError(null);
+        console.log("NewVisitPage: Fetching assignments for BHR:", user.id);
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from('assignments')
+          .select('branch_id')
+          .eq('bhr_id', user.id);
+
+        if (assignmentsError) {
+          console.error("NewVisitPage: Error fetching assignments:", assignmentsError);
+          toast({ title: "Error", description: `Failed to fetch assignments: ${assignmentsError.message}`, variant: "destructive" });
+          setFetchError(`Failed to fetch assignments: ${assignmentsError.message}`);
+          setAssignedBranches([]);
+          setIsLoadingBranches(false);
+          return;
+        }
+
+        if (!assignments || assignments.length === 0) {
+          console.log("NewVisitPage: No assignments found for BHR:", user.id);
+          setAssignedBranches([]);
+          setIsLoadingBranches(false);
+          return;
+        }
+
+        const branchIds = assignments.map(a => a.branch_id);
+        console.log("NewVisitPage: Found branch IDs from assignments:", branchIds);
+
+        const { data: branches, error: branchesError } = await supabase
+          .from('branches')
+          .select('*')
+          .in('id', branchIds);
+
+        if (branchesError) {
+          console.error("NewVisitPage: Error fetching branches:", branchesError);
+          toast({ title: "Error", description: `Failed to fetch branches: ${branchesError.message}`, variant: "destructive" });
+          setFetchError(`Failed to fetch branches: ${branchesError.message}`);
+          setAssignedBranches([]);
+        } else {
+          console.log("NewVisitPage: Fetched branches:", branches);
+          setAssignedBranches(branches as Branch[] || []);
+        }
+        setIsLoadingBranches(false);
+      } else {
+        setIsLoadingBranches(false);
+        setAssignedBranches([]);
+      }
+    };
+
+    fetchAssignedBranches();
+  }, [user, toast]);
 
   useEffect(() => {
     if (watchedBranchId) {
@@ -174,70 +227,92 @@ export default function NewVisitPage() {
     }
   }, [hrConnectConducted, employeesInvited, participants]);
 
-  async function handleFormSubmit(data: VisitFormValues, isDraft: boolean) {
+  async function handleFormSubmit(data: VisitFormValues, statusToSet: VisitStatus) {
     if (!user) {
       toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
       return;
     }
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000)); 
+    setIsSubmitting(true);
     
     const selectedBranch = assignedBranches.find(b => b.id === data.branch_id);
-
-    const newVisitEntry: Visit = {
-        id: `visit-${mockVisits.length + 1}-${Date.now()}`, 
-        bhr_id: user.id,
-        bhr_name: user.name,
-        branch_id: data.branch_id,
-        branch_name: selectedBranch?.name || 'Unknown Branch',
-        visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-        branch_category: selectedBranchInfo?.category,
-        branch_code: selectedBranchInfo?.code,
-        hr_connect_conducted: data.hr_connect_conducted,
-        hr_connect_employees_invited: data.hr_connect_conducted ? data.hr_connect_employees_invited : undefined,
-        hr_connect_participants: data.hr_connect_conducted ? data.hr_connect_participants : undefined,
-        manning_percentage: data.manning_percentage,
-        attrition_percentage: data.attrition_percentage,
-        non_vendor_percentage: data.non_vendor_percentage,
-        er_percentage: data.er_percentage,
-        cwt_cases: data.cwt_cases,
-        performance_level: data.performance_level,
-        new_employees_total: data.new_employees_total,
-        new_employees_covered: data.new_employees_covered,
-        star_employees_total: data.star_employees_total,
-        star_employees_covered: data.star_employees_covered,
-        qual_aligned_conduct: data.qual_aligned_conduct,
-        qual_safe_secure: data.qual_safe_secure,
-        qual_motivated: data.qual_motivated,
-        qual_abusive_language: data.qual_abusive_language,
-        qual_comfortable_escalate: data.qual_comfortable_escalate,
-        qual_inclusive_culture: data.qual_inclusive_culture,
-        additional_remarks: data.additional_remarks,
-    };
-    mockVisits.push(newVisitEntry);
-
-    toast({
-      title: isDraft ? "Visit Saved as Draft!" : "Visit Submitted Successfully!",
-      description: `${isDraft ? 'Draft for' : 'Visit to'} ${selectedBranch?.name} on ${format(data.visit_date, "PPP")} has been recorded.`,
-    });
-    if (!isDraft) {
-      form.reset();
-      setSelectedBranchInfo(null); 
-      setCoveragePercentage(0);
+    if (!selectedBranch) {
+        toast({ title: "Error", description: "Selected branch not found.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
     }
-    setIsLoading(false);
+
+    const visitDataToInsert = {
+      bhr_id: user.id,
+      branch_id: data.branch_id,
+      visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // Ensure ISO 8601 format
+      status: statusToSet,
+      hr_connect_conducted: data.hr_connect_conducted,
+      hr_connect_employees_invited: data.hr_connect_conducted ? data.hr_connect_employees_invited : null,
+      hr_connect_participants: data.hr_connect_conducted ? data.hr_connect_participants : null,
+      manning_percentage: data.manning_percentage,
+      attrition_percentage: data.attrition_percentage,
+      non_vendor_percentage: data.non_vendor_percentage,
+      er_percentage: data.er_percentage,
+      cwt_cases: data.cwt_cases,
+      performance_level: data.performance_level,
+      new_employees_total: data.new_employees_total,
+      new_employees_covered: data.new_employees_covered,
+      star_employees_total: data.star_employees_total,
+      star_employees_covered: data.star_employees_covered,
+      qual_aligned_conduct: data.qual_aligned_conduct,
+      qual_safe_secure: data.qual_safe_secure,
+      qual_motivated: data.qual_motivated,
+      qual_abusive_language: data.qual_abusive_language,
+      qual_comfortable_escalate: data.qual_comfortable_escalate,
+      qual_inclusive_culture: data.qual_inclusive_culture,
+      additional_remarks: data.additional_remarks,
+      // branch_name, bhr_name, branch_category, branch_code are not directly inserted
+      // as they can be derived or joined. If your RLS needs them, you might need to use a function call.
+      // Or, your table might not store these denormalized fields.
+    };
+
+    console.log("NewVisitPage: Submitting visit data:", visitDataToInsert);
+
+    const { error } = await supabase.from('visits').insert(visitDataToInsert);
+
+    if (error) {
+      console.error("NewVisitPage: Error inserting visit:", error);
+      toast({ title: "Error", description: `Failed to submit visit: ${error.message}`, variant: "destructive" });
+    } else {
+      toast({
+        title: statusToSet === 'draft' ? "Visit Saved as Draft!" : "Visit Submitted Successfully!",
+        description: `${statusToSet === 'draft' ? 'Draft for' : 'Visit to'} ${selectedBranch?.name} on ${format(data.visit_date, "PPP")} has been recorded.`,
+      });
+      if (statusToSet !== 'draft') { // Only reset form if not saving as draft
+        form.reset();
+        setSelectedBranchInfo(null); 
+        setCoveragePercentage(0);
+      }
+    }
+    setIsSubmitting(false);
   }
 
-  const onSubmit = (data: VisitFormValues) => handleFormSubmit(data, false);
-  const onSaveDraft = () => form.handleSubmit(data => handleFormSubmit(data, true))();
+  const onSubmit = (data: VisitFormValues) => handleFormSubmit(data, 'submitted');
+  const onSaveDraft = () => form.handleSubmit(data => handleFormSubmit(data, 'draft'))();
 
 
-  if (!user) return <PageTitle title="Loading..." />;
+  if (!user) return <PageTitle title="Loading user..." />;
 
 
   return (
     <div className="space-y-8 pb-12">
       <PageTitle title="Log New Branch Visit" description="Record the details of your recent branch visit." />
+      
+      {fetchError && (
+         <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error Loading Branches</AlertTitle>
+          <AlertDescription>
+            {fetchError} Please ensure you are assigned to branches or try again later.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-w-4xl mx-auto">
           
@@ -253,16 +328,17 @@ export default function NewVisitPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Branch</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingBranches || assignedBranches.length === 0}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a branch" />
+                            <SelectValue placeholder={isLoadingBranches ? "Loading branches..." : (assignedBranches.length === 0 ? "No branches assigned" : "Select a branch")} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {assignedBranches.map(branch => (
                             <SelectItem key={branch.id} value={branch.id}>{branch.name} - {branch.location}</SelectItem>
                           ))}
+                           {assignedBranches.length === 0 && !isLoadingBranches && <SelectItem value="no-branch" disabled>No branches assigned to you</SelectItem>}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -489,14 +565,14 @@ export default function NewVisitPage() {
                 <FormField
                   key={q.name}
                   control={form.control}
-                  name={q.name as any} // Bypassing strict type check for dynamic name
+                  name={q.name}
                   render={({ field }) => (
                     <FormItem className="space-y-2 p-3 border rounded-md shadow-sm">
                       <FormLabel className="text-sm">{q.label}</FormLabel>
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value || ""} // Ensure value is not undefined for RadioGroup
                           className="flex space-x-4"
                         >
                           <FormItem className="flex items-center space-x-2">
@@ -528,12 +604,12 @@ export default function NewVisitPage() {
                     <FormLabel className="sr-only">Additional Remarks</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Enter any additional remarks (optional, max 200 words / 1000 characters)"
+                        placeholder="Enter any additional remarks (optional, max 1000 characters)"
                         className="resize-y min-h-[100px]"
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Maximum 1000 characters (approx. 200 words).</FormDescription>
+                    <FormDescription>Maximum 1000 characters.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -542,12 +618,12 @@ export default function NewVisitPage() {
           </Card>
           
           <div className="flex flex-col sm:flex-row justify-end gap-4 pt-4">
-            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={isLoading} className="w-full sm:w-auto">
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={isSubmitting || isLoadingBranches} className="w-full sm:w-auto">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save as Draft
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Submit Visit
             </Button>
           </div>
@@ -556,3 +632,5 @@ export default function NewVisitPage() {
     </div>
   );
 }
+
+    
