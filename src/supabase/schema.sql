@@ -1,3 +1,4 @@
+
 -- Custom ENUM types
 DROP TYPE IF EXISTS public.user_role_enum CASCADE;
 CREATE TYPE public.user_role_enum AS ENUM ('BHR', 'ZHR', 'VHR', 'CHR');
@@ -73,8 +74,8 @@ CREATE TABLE public.visits (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   bhr_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   branch_id UUID NOT NULL REFERENCES public.branches(id) ON DELETE CASCADE,
-  bhr_name TEXT, -- Denormalized for easier display
-  branch_name TEXT, -- Denormalized for easier display
+  -- bhr_name TEXT, -- Removed
+  -- branch_name TEXT, -- Removed
   visit_date TIMESTAMPTZ NOT NULL,
   status public.visit_status_enum DEFAULT 'draft',
   hr_connect_conducted BOOLEAN DEFAULT false,
@@ -109,10 +110,10 @@ CREATE TRIGGER on_visits_updated
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 
--- Add missing columns to visits table if they don't exist (safer than full DROP/CREATE if data exists)
-ALTER TABLE public.visits
-ADD COLUMN IF NOT EXISTS bhr_name TEXT,
-ADD COLUMN IF NOT EXISTS branch_name TEXT;
+-- Remove ALTER TABLE commands for bhr_name and branch_name as they are removed from create table
+-- ALTER TABLE public.visits
+-- ADD COLUMN IF NOT EXISTS bhr_name TEXT,
+-- ADD COLUMN IF NOT EXISTS branch_name TEXT;
 
 --------------------------------------------------------------------------------
 -- Row Level Security (RLS) Policies
@@ -128,12 +129,14 @@ SET search_path = public -- Ensures it uses the public schema
 AS $$
 BEGIN
   IF auth.uid() IS NULL THEN
-    RETURN NULL;
+    RETURN NULL; -- Or handle as an error/default role if preferred
   ELSE
+    -- This assumes there's a 'role' column in your 'users' table
     RETURN (SELECT role FROM users WHERE id = auth.uid());
   END IF;
 END;
 $$;
+-- Grant execute permission on the function to authenticated users
 GRANT EXECUTE ON FUNCTION public.get_my_role() TO authenticated;
 
 
@@ -144,29 +147,29 @@ ALTER TABLE public.users FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own user record" ON public.users;
 DROP POLICY IF EXISTS "Authenticated users can read basic user info for selection" ON public.users;
 DROP POLICY IF EXISTS "CHR can view all user records" ON public.users;
-DROP POLICY IF EXISTS "Authenticated users can insert their own user record" ON public.users;
+DROP POLICY IF EXISTS "Authenticated users can insert their own user record" ON public.users; -- Important for Supabase Auth + Profile setup
 DROP POLICY IF EXISTS "Users can update their own user record" ON public.users;
 DROP POLICY IF EXISTS "CHR can update any user record" ON public.users;
 DROP POLICY IF EXISTS "CHR can delete any user record" ON public.users;
 
 -- For Supabase Auth, users need to be able to insert their own profile after signup.
 -- This policy uses auth.uid() which is the ID from the auth.users table.
--- Make sure "Enable email confirmations" is OFF in Supabase Auth settings for easier dev,
--- otherwise this step can fail until email is confirmed.
+-- Ensure "Enable email confirmations" is OFF in Supabase Auth settings for easier dev,
+-- OR use a trigger/server-side function to create profiles if email confirmation is ON.
 CREATE POLICY "Authenticated users can insert their own user record"
   ON public.users FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = NEW.id);
+  WITH CHECK (auth.uid() = NEW.id); -- NEW.id here refers to the id being inserted into public.users
 
 CREATE POLICY "Users can view their own user record"
   ON public.users FOR SELECT
   TO authenticated
   USING (auth.uid() = id);
 
-CREATE POLICY "Authenticated users can read basic user info for selection"
+CREATE POLICY "Authenticated users can read basic user info for selection" -- For dropdowns
   ON public.users FOR SELECT
   TO authenticated
-  USING (true);
+  USING (true); -- Allows reading specific columns. Application should limit columns selected.
 
 CREATE POLICY "CHR can view all user records"
   ON public.users FOR SELECT
@@ -179,7 +182,7 @@ CREATE POLICY "Users can update their own user record"
   USING (auth.uid() = id)
   WITH CHECK (
     auth.uid() = id AND
-    NEW.email IS NOT DISTINCT FROM OLD.email AND
+    NEW.email IS NOT DISTINCT FROM OLD.email AND -- Prevent users from changing critical fields
     NEW.role IS NOT DISTINCT FROM OLD.role AND
     NEW.reports_to IS NOT DISTINCT FROM OLD.reports_to
   );
@@ -292,6 +295,7 @@ DROP POLICY IF EXISTS "VHRs can update status of visits in their vertical" ON pu
 
 DROP POLICY IF EXISTS "CHR can manage all visits" ON public.visits;
 
+
 -- BHR Policies for 'visits' table
 CREATE POLICY "BHRs can insert their own visits"
   ON public.visits FOR INSERT
@@ -319,7 +323,7 @@ CREATE POLICY "BHRs can update their own draft/submitted visits"
       (OLD.status = 'draft' AND NEW.status IN ('draft', 'submitted')) OR
       (OLD.status = 'submitted' AND NEW.status = 'submitted')
     ) AND
-    NOT (NEW.status IN ('approved', 'rejected'))
+    NOT (NEW.status IN ('approved', 'rejected')) -- 'approved', 'rejected' not valid statuses anymore
   );
 
 CREATE POLICY "BHRs can delete their draft visits"
@@ -331,6 +335,7 @@ CREATE POLICY "BHRs can delete their draft visits"
     status = 'draft'
   );
 
+
 -- ZHR Policies for 'visits' table
 CREATE POLICY "ZHRs can select visits of their BHRs"
   ON public.visits FOR SELECT
@@ -340,21 +345,10 @@ CREATE POLICY "ZHRs can select visits of their BHRs"
     bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR')
   );
 
-CREATE POLICY "ZHRs can update status of submitted visits by their BHRs"
-  ON public.visits FOR UPDATE
-  TO authenticated
-  USING (
-    public.get_my_role() = 'ZHR' AND
-    bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR') AND
-    OLD.status = 'submitted'
-  )
-  WITH CHECK (
-    public.get_my_role() = 'ZHR' AND
-    NEW.status IN ('approved', 'rejected') AND OLD.status = 'submitted' AND
-    NEW.bhr_id IS NOT DISTINCT FROM OLD.bhr_id AND
-    NEW.branch_id IS NOT DISTINCT FROM OLD.branch_id AND
-    NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
-  );
+-- ZHRs no longer update status, so their UPDATE policy for visits can be removed or simplified to read-only if needed.
+-- For now, removing direct ZHR update policy on visits as status flow is simplified. They can only SELECT.
+-- If ZHRs need to "comment" or add notes, that would be a different mechanism/table or a field on the visit they can update.
+
 
 -- VHR Policies for 'visits' table
 CREATE POLICY "VHRs can select visits in their vertical"
@@ -369,25 +363,8 @@ CREATE POLICY "VHRs can select visits in their vertical"
     )
   );
 
-CREATE POLICY "VHRs can update status of visits in their vertical"
-  ON public.visits FOR UPDATE
-  TO authenticated
-  USING (
-    public.get_my_role() = 'VHR' AND
-    bhr_id IN (
-      SELECT bhr.id FROM public.users bhr
-      JOIN public.users zhr ON bhr.reports_to = zhr.id
-      WHERE zhr.reports_to = auth.uid() AND bhr.role = 'BHR' AND zhr.role = 'ZHR'
-    ) AND
-    OLD.status IN ('submitted', 'approved')
-  )
-  WITH CHECK (
-    public.get_my_role() = 'VHR' AND
-    NEW.status IN ('approved', 'rejected') AND OLD.status IN ('submitted', 'approved') AND
-    NEW.bhr_id IS NOT DISTINCT FROM OLD.bhr_id AND
-    NEW.branch_id IS NOT DISTINCT FROM OLD.branch_id AND
-    NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
-  );
+-- VHRs no longer update status directly based on 'draft'/'submitted' only model. They can only SELECT.
+
 
 -- CHR Policy for 'visits' table
 CREATE POLICY "CHR can manage all visits"

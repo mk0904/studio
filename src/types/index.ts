@@ -39,15 +39,15 @@ export type VisitStatus = 'draft' | 'submitted'; // Simplified
 export interface Visit {
   id: string;
   bhr_id: string;
-  bhr_name: string;
+  // bhr_name: string; // Removed
   branch_id: string;
-  branch_name: string;
+  // branch_name: string; // Removed
   visit_date: string; // ISO string
   status?: VisitStatus;
 
   // Basic Info
-  branch_category?: string;
-  branch_code?: string;
+  // branch_category?: string; // Not part of visit, but branch
+  // branch_code?: string; // Not part of visit, but branch
   hr_connect_conducted?: boolean;
   hr_connect_employees_invited?: number;
   hr_connect_participants?: number;
@@ -75,7 +75,9 @@ export interface Visit {
   qual_inclusive_culture?: 'yes' | 'no';
 
   additional_remarks?: string;
-  notes?: string; // Kept for potential legacy data, but new forms use additional_remarks
+  // notes?: string; // Merged into additional_remarks conceptually
+  created_at?: string; // Supabase adds these
+  updated_at?: string; // Supabase adds these
 }
 
 export interface VisitReportInput {

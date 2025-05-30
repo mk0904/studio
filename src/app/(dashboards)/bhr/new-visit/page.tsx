@@ -11,12 +11,12 @@ import type { Branch, VisitStatus } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
 import { format } from 'date-fns';
 import { VisitForm, type VisitFormValues } from '@/components/bhr/visit-form';
-import { useSearchParams, useRouter } from 'next/navigation'; // useRouter for redirect
+import { useSearchParams, useRouter } from 'next/navigation'; 
 
 export default function ManageVisitPage() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const router = useRouter(); // For redirecting after submission
+  const router = useRouter(); 
   const searchParams = useSearchParams();
   const visitIdToLoad = searchParams.get('visit_id');
 
@@ -89,23 +89,21 @@ export default function ManageVisitPage() {
             .from('visits')
             .select('*')
             .eq('id', visitIdToLoad)
-            .eq('bhr_id', user.id) // Ensure BHR can only load their own visits
+            .eq('bhr_id', user.id) 
             .single();
 
           if (error) {
-             if (error.code === 'PGRST116') { // Single row not found
+             if (error.code === 'PGRST116') { 
                 toast({ title: "Not Found", description: "Visit not found or you don't have permission to view it.", variant: "destructive" });
-                router.push('/bhr/my-visits'); // Redirect if not found
+                router.push('/bhr/my-visits'); 
              } else {
                 throw error;
              }
           }
           if (visitData) {
-            // Transform data for the form
             const formData: Partial<VisitFormValues> = {
               ...visitData,
               visit_date: visitData.visit_date ? new Date(visitData.visit_date) : new Date(),
-              // Ensure all optional numeric fields are numbers or undefined
               hr_connect_employees_invited: visitData.hr_connect_employees_invited ?? undefined,
               hr_connect_participants: visitData.hr_connect_participants ?? undefined,
               manning_percentage: visitData.manning_percentage ?? undefined,
@@ -143,61 +141,50 @@ export default function ManageVisitPage() {
     }
     setIsSubmitting(true);
 
-    const currentSelectedBranchInfo = assignedBranches.find(b => b.id === data.branch_id);
-    if (!currentSelectedBranchInfo) {
-      toast({ title: "Error", description: "Selected branch details not found. Please re-select the branch.", variant: "destructive" });
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Remove undefined fields before sending to Supabase to avoid issues with optional fields
     const cleanData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 
-
     const visitPayload = {
-      ...cleanData, // Use cleaned data
+      ...cleanData, 
       bhr_id: user.id,
-      branch_id: data.branch_id, // branch_id must be present from form
-      bhr_name: user.name,
-      branch_name: currentSelectedBranchInfo.name,
-      visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // Ensure ISO 8601
+      branch_id: data.branch_id, 
+      // bhr_name: user.name, // Removed
+      // branch_name: currentSelectedBranchInfo.name, // Removed
+      visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), 
       status: statusToSet,
-      // Explicitly set hr_connect fields to null if not conducted
       hr_connect_conducted: data.hr_connect_conducted ?? false,
       hr_connect_employees_invited: data.hr_connect_conducted ? data.hr_connect_employees_invited : null,
       hr_connect_participants: data.hr_connect_conducted ? data.hr_connect_participants : null,
     };
     
-    // Remove id from payload if it's an update, as it's used in .eq('id', visitIdToLoad)
     const { id: formId, ...payloadForUpsert } = visitPayload as any;
-
 
     try {
       let responseError;
-      if (visitIdToLoad && initialVisitData) { // This is an update
+      if (visitIdToLoad && initialVisitData) { 
         const { error } = await supabase
             .from('visits')
             .update(payloadForUpsert)
             .eq('id', visitIdToLoad)
-            .eq('bhr_id', user.id); // Ensure BHR can only update their own visits
+            .eq('bhr_id', user.id); 
         responseError = error;
-      } else { // This is an insert
+      } else { 
         const { error } = await supabase.from('visits').insert(payloadForUpsert);
         responseError = error;
       }
 
       if (responseError) throw responseError;
+      
+      const currentSelectedBranchInfo = assignedBranches.find(b => b.id === data.branch_id); // Get branch info for toast
 
       toast({
         title: visitIdToLoad ? "Visit Updated!" : (statusToSet === 'draft' ? "Visit Saved as Draft!" : "Visit Submitted Successfully!"),
-        description: `${visitIdToLoad ? 'Changes to visit' : (statusToSet === 'draft' ? 'Draft for' : 'Visit to')} ${currentSelectedBranchInfo?.name} on ${format(data.visit_date, "PPP")} has been recorded.`,
+        description: `${visitIdToLoad ? 'Changes to visit' : (statusToSet === 'draft' ? 'Draft for' : 'Visit to')} ${currentSelectedBranchInfo?.name || 'the branch'} on ${format(data.visit_date, "PPP")} has been recorded.`,
       });
-      if (statusToSet !== 'draft' || visitIdToLoad) { // Redirect if submitted or if it was an update
+      if (statusToSet !== 'draft' || visitIdToLoad) { 
         router.push('/bhr/my-visits');
       }
-      // Form reset is handled within VisitForm for new entries
     } catch (error: any) {
-      console.error("Error submitting/updating visit object:", error); // Log the full error object
+      console.error("Error submitting/updating visit object:", error); 
       const errorMessage = error?.message || "An unexpected error occurred.";
       toast({ 
         title: "Error", 
@@ -235,14 +222,16 @@ export default function ManageVisitPage() {
         </Alert>
       )}
 
-      {(!visitIdToLoad || initialVisitData) && ( // Render form if new or if initial data for edit has loaded
+      {(!visitIdToLoad || initialVisitData) && ( 
          <VisitForm
             initialData={initialVisitData}
             onSubmitForm={handleFormSubmit}
             isSubmitting={isSubmitting}
             assignedBranches={assignedBranches}
             isLoadingBranches={isLoadingBranches}
-            onFormReset={() => setInitialVisitData(undefined)} // For new entries after submission
+            onFormReset={() => {
+              if (!visitIdToLoad) setInitialVisitData(undefined); // Only reset if it was a new entry
+            }}
          />
       )}
     </div>

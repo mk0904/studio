@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'; 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow, getMonth, parseISO } from 'date-fns';
-import { Search, FileText, Eye, Trash2, Clock, PlusCircle, FileQuestion, Loader2, Edit } from 'lucide-react'; // Removed CheckCircle2
+import { Search, FileText, Eye, Clock, PlusCircle, FileQuestion, Loader2, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EditVisitModal } from '@/components/bhr/edit-visit-modal'; 
 
@@ -35,8 +35,12 @@ export default function MyVisitsPage() {
 
   const columns: ColumnConfig<Visit>[] = [
     {
-      accessorKey: 'branch_name',
+      accessorKey: 'branch_id', // We'll use branch_id to lookup the name
       header: 'Branch',
+      cell: (visit) => {
+        const branch = allBranches.find(b => b.id === visit.branch_id);
+        return branch ? branch.name : 'Unknown Branch';
+      }
     },
     {
       accessorKey: 'visit_date',
@@ -59,8 +63,6 @@ export default function MyVisitsPage() {
       cell: (visit) => {
         if (!visit.status) return <Badge variant="outline">Unknown</Badge>;
         let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
-        // With only 'draft' and 'submitted', 'default' and 'secondary' are less distinct.
-        // Let's use 'secondary' for 'submitted' and 'outline' for 'draft' for now.
         if (visit.status === 'submitted') variant = 'secondary'; 
         if (visit.status === 'draft') variant = 'outline';
         return <Badge variant={variant} className="capitalize">{visit.status}</Badge>;
@@ -77,7 +79,6 @@ export default function MyVisitsPage() {
             </Button>
           );
         }
-        // For 'submitted'
         return (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/bhr/new-visit?visit_id=${visit.id}`}>
@@ -101,7 +102,7 @@ export default function MyVisitsPage() {
   ];
 
   const branchCategories = useMemo(() => {
-    const categories = new Set(allBranches.map(b => b.category));
+    const categories = new Set(allBranches.map(b => b.category).filter(Boolean)); // Filter out undefined/null categories
     return [{label: "All Categories", value: "all"}, ...Array.from(categories).map(c => ({label: c, value: c}))];
   }, [allBranches]);
 
@@ -116,11 +117,12 @@ export default function MyVisitsPage() {
           .order('visit_date', { ascending: false });
 
         if (visitsError) throw visitsError;
-        setMyVisits(visitsData || []);
+        setMyVisits(visitsData as Visit[] || []);
 
+        // Fetch all branches once for name lookups and category filter
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
-          .select('id, name, category, location');
+          .select('id, name, category, location'); 
         
         if (branchesError) throw branchesError;
         setAllBranches(branchesData || []);
@@ -149,7 +151,7 @@ export default function MyVisitsPage() {
       const branch = allBranches.find(b => b.id === visit.branch_id);
 
       const matchesSearch = searchTerm === '' ||
-        (visit.branch_name && visit.branch_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (branch?.name && branch.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (branch?.location && branch.location.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesMonth = selectedMonth === 'all' || getMonth(visitDate) === parseInt(selectedMonth);
@@ -170,10 +172,6 @@ export default function MyVisitsPage() {
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
     setSelectedVisitForEdit(null);
-  };
-
-  const handleVisitUpdated = () => {
-    fetchVisitsAndBranches(); 
   };
 
   if (!user) return null;
@@ -224,7 +222,7 @@ export default function MyVisitsPage() {
             </Select>
           </div>
           <Tabs value={activeStatusTab} onValueChange={(value) => setActiveStatusTab(value as VisitStatus | 'all')}>
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3"> {/* Adjusted grid columns */}
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3"> 
               {statusFilters.map(filter => (
                 <TabsTrigger key={filter.value} value={filter.value} className="gap-2">
                   <filter.icon className="h-4 w-4" />
