@@ -7,10 +7,13 @@ import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
 import type { Branch, User, Visit } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, CalendarDays, Loader2, UserCheck } from 'lucide-react';
+import { Users, CalendarDays, Loader2, UserCheck, Eye } from 'lucide-react';
 import { DataTable, ColumnConfig } from '@/components/shared/data-table';
+import { Button } from '@/components/ui/button';
 import { format, parseISO, isSameMonth, startOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
+
 
 export default function ZHRDashboardPage() {
   const { user } = useAuth();
@@ -19,39 +22,47 @@ export default function ZHRDashboardPage() {
   const [bhrCount, setBhrCount] = useState(0);
   const [totalVisitsThisMonth, setTotalVisitsThisMonth] = useState(0);
   const [activeBHRsCount, setActiveBHRsCount] = useState(0);
-  const [recentVisits, setRecentVisits] = useState<Visit[]>([]);
+  const [recentVisits, setRecentVisits] = useState<EnrichedVisitForModal[]>([]);
   const [allBranches, setAllBranches] = useState<Branch[]>([]);
   const [bhrUsersInZone, setBhrUsersInZone] = useState<User[]>([]);
 
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedVisitForView, setSelectedVisitForView] = useState<EnrichedVisitForModal | null>(null);
 
-  const recentVisitsColumns: ColumnConfig<Visit>[] = useMemo(() => [
+
+  const recentVisitsColumns: ColumnConfig<EnrichedVisitForModal>[] = useMemo(() => [
     {
       accessorKey: 'bhr_id',
       header: 'BHR Name',
-      cell: (visit) => {
-        const bhr = bhrUsersInZone.find(b => b.id === visit.bhr_id);
-        return bhr ? bhr.name : visit.bhr_id;
-      }
+      cell: (visit) => visit.bhr_name_display || 'N/A',
     },
     {
       accessorKey: 'branch_id',
       header: 'Branch',
-      cell: (visit) => {
-        const branch = allBranches.find(b => b.id === visit.branch_id);
-        return branch ? branch.name : 'Unknown Branch';
-      }
+      cell: (visit) => visit.branch_name_display || 'N/A',
     },
     {
       accessorKey: 'visit_date',
       header: 'Visit Date',
       cell: (visit) => format(parseISO(visit.visit_date), 'PPP')
     },
-    // { // Summary column removed as per request
-    //   accessorKey: 'additional_remarks', 
-    //   header: 'Summary',
-    //   cell: (visit) => <p className="truncate max-w-xs">{visit.additional_remarks || 'N/A'}</p>
-    // },
-  ], [allBranches, bhrUsersInZone]);
+    {
+      accessorKey: 'actions',
+      header: 'Actions',
+      cell: (visit) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSelectedVisitForView(visit);
+            setIsViewModalOpen(true);
+          }}
+        >
+          <Eye className="mr-2 h-4 w-4" /> View
+        </Button>
+      ),
+    }
+  ], []);
 
 
   useEffect(() => {
@@ -81,7 +92,7 @@ export default function ZHRDashboardPage() {
             // 2. Fetch submitted visits for these BHRs
             const { data: submittedVisits, error: visitsError } = await supabase
               .from('visits')
-              .select('*') // Select all columns needed for a Visit type
+              .select('*') 
               .in('bhr_id', bhrIds)
               .eq('status', 'submitted')
               .order('visit_date', { ascending: false });
@@ -104,16 +115,31 @@ export default function ZHRDashboardPage() {
             // Fetch all branches for name lookup for recent visits
             const { data: branchesData, error: branchesErr } = await supabase
                 .from('branches')
-                .select('*'); // Select all columns needed for Branch type
+                .select('*'); 
             if (branchesErr) throw branchesErr;
-            setAllBranches(branchesData as Branch[] || []); 
+            setAllBranches(branchesData as Branch[] || []);
+
+            // Enrich recent visits with branch and BHR names
+            const enrichedRecentVisits = recentVisitsData.map(v => {
+                const branch = (branchesData || []).find(b => b.id === v.branch_id);
+                const bhr = (bhrUsersData || []).find(u => u.id === v.bhr_id);
+                return {
+                    ...v,
+                    branch_name_display: branch?.name || v.branch_id,
+                    branch_category_display: branch?.category,
+                    branch_code_display: branch?.code,
+                    bhr_name_display: bhr?.name || v.bhr_id,
+                };
+            });
+            setRecentVisits(enrichedRecentVisits);
+
           } else {
-            setAllBranches([]); 
+            setAllBranches([]);
+            setRecentVisits([]);
           }
           
           setTotalVisitsThisMonth(currentMonthVisitsCount);
           setActiveBHRsCount(activeBHRsThisMonth);
-          setRecentVisits(recentVisitsData);
 
         } catch (error: any) {
           console.error("Error fetching ZHR dashboard data:", error);
@@ -165,6 +191,16 @@ export default function ZHRDashboardPage() {
           emptyStateMessage={isLoading ? "Loading..." : "No recent submitted visits in your zone."}
         />
       </div>
+      {selectedVisitForView && (
+        <ViewVisitDetailsModal
+            visit={selectedVisitForView}
+            isOpen={isViewModalOpen}
+            onClose={() => {
+                setIsViewModalOpen(false);
+                setSelectedVisitForView(null);
+            }}
+        />
+      )}
     </div>
   );
 }
