@@ -10,7 +10,14 @@ import { useToast } from '@/hooks/use-toast';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password?: string) => Promise<void>; // Password ignored for mock
-  signup: (name: string, email: string, role: UserRole) => Promise<void>;
+  signup: (
+    name: string, 
+    email: string, 
+    role: UserRole, 
+    e_code?: string, 
+    location?: string, 
+    reports_to?: string
+  ) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -72,8 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       const defaultRole: UserRole = 'BHR'; // Default role for new demo users
       toast({
-        title: "Demo Session",
-        description: `User with email '${email}' not found. Starting a demo session as ${defaultRole}.`,
+        title: "Demo Session Initiated",
+        description: `User with email '${email}' not found. Starting a demo session as ${defaultRole}. You can also sign up for a specific role.`,
         variant: "default",
       });
       const demoUser: User = { 
@@ -92,7 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   };
 
-  const signup = async (name: string, email: string, role: UserRole) => {
+  const signup = async (
+    name: string, 
+    email: string, 
+    role: UserRole,
+    e_code?: string,
+    location?: string,
+    reports_to?: string
+  ) => {
     setIsLoading(true);
     const existingUser = sessionMockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (existingUser) {
@@ -101,10 +115,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const newUser: User = {
-      id: `user-${Date.now()}`, 
+      id: `user-${Date.now()}-${Math.random().toString(36).substring(7)}`, // More unique ID
       name,
       email,
       role,
+      e_code,
+      location,
+      reports_to: reports_to || undefined, // Ensure it's undefined if empty string
     };
 
     sessionMockUsers.push(newUser); 
@@ -135,4 +152,3 @@ export function useAuth() {
   }
   return context;
 }
-

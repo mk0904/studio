@@ -9,6 +9,8 @@ export interface User {
   email: string;
   role: UserRole;
   reports_to?: string; // UUID of manager
+  e_code?: string;
+  location?: string;
 }
 
 export interface NavItem {
