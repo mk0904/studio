@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit, Branch } from '@/types';
@@ -86,6 +86,29 @@ type SpiderChartDataPoint = {
     fullMark: number;
 };
 
+// Helper component for Timeframe Buttons
+interface TimeframeButtonsProps {
+  selectedTimeframe: TimeframeKey;
+  onTimeframeChange: (timeframe: TimeframeKey) => void;
+}
+
+const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, onTimeframeChange }) => {
+  return (
+    <div className="flex flex-wrap gap-2 mb-4">
+      {TIMEFRAME_OPTIONS.map(tf => (
+        <Button
+          key={tf.key}
+          variant={selectedTimeframe === tf.key ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => onTimeframeChange(tf.key)}
+        >
+          {tf.label}
+        </Button>
+      ))}
+    </div>
+  );
+};
+
 
 export default function ZHRAnalyticsPage() {
   const { user } = useAuth();
@@ -93,12 +116,15 @@ export default function ZHRAnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [allZoneVisits, setAllZoneVisits] = useState<Visit[]>([]);
   const [allBranchesForCategoryLookup, setAllBranchesForCategoryLookup] = useState<Pick<Branch, 'id' | 'category'>[]>([]);
+  
   const [activeMetrics, setActiveMetrics] = useState<Record<string, boolean>>(
     METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {})
   );
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeKey>('past_month');
-  const [qualitativeSpiderData, setQualitativeSpiderData] = useState<SpiderChartDataPoint[]>([]);
-  const [branchCategoryDistributionData, setBranchCategoryDistributionData] = useState<ChartData[]>([]);
+
+  // Separate timeframe states for each chart
+  const [trendlineTimeframe, setTrendlineTimeframe] = useState<TimeframeKey>('past_month');
+  const [spiderChartTimeframe, setSpiderChartTimeframe] = useState<TimeframeKey>('past_month');
+  const [categoryPieChartTimeframe, setCategoryPieChartTimeframe] = useState<TimeframeKey>('past_month');
 
 
   useEffect(() => {
@@ -166,13 +192,13 @@ export default function ZHRAnalyticsPage() {
 
   const chartDisplayData = useMemo(() => {
     if (allZoneVisits.length === 0) return [];
-    console.log("ZHR Analytics - Trend Data: Processing allZoneVisits for trend chart. Count:", allZoneVisits.length, "Selected Timeframe:", selectedTimeframe);
+    console.log("ZHR Analytics - Trend Data: Processing allZoneVisits for trend chart. Count:", allZoneVisits.length, "Selected Timeframe:", trendlineTimeframe);
 
     const now = new Date();
     let startDateFilter: Date;
     const endDateFilter: Date = endOfDay(now);
 
-    switch (selectedTimeframe) {
+    switch (trendlineTimeframe) {
       case 'past_week': startDateFilter = startOfDay(subDays(now, 6)); break;
       case 'past_month': startDateFilter = startOfDay(subMonths(now, 1)); break;
       case 'last_3_months': startDateFilter = startOfDay(subMonths(now, 3)); break;
@@ -242,7 +268,7 @@ export default function ZHRAnalyticsPage() {
     console.log("ZHR Analytics - Trend Data: Final trendChartData. Count:", trendChartData.length, "First item:", trendChartData[0]);
     return trendChartData;
 
-  }, [allZoneVisits, selectedTimeframe]);
+  }, [allZoneVisits, trendlineTimeframe]);
 
 
   const qualitativeDataForSpiderChart = useMemo(() => {
@@ -250,13 +276,13 @@ export default function ZHRAnalyticsPage() {
         console.log("ZHR Analytics - Spider Data: allZoneVisits is empty, returning empty spider data.");
         return [];
     }
-    console.log("ZHR Analytics - Spider Data: Processing allZoneVisits for spider chart. Count:", allZoneVisits.length, "Selected Timeframe:", selectedTimeframe);
+    console.log("ZHR Analytics - Spider Data: Processing allZoneVisits for spider chart. Count:", allZoneVisits.length, "Selected Timeframe:", spiderChartTimeframe);
 
     const now = new Date();
     let startDateFilter: Date;
     const endDateFilter: Date = endOfDay(now);
 
-    switch (selectedTimeframe) {
+    switch (spiderChartTimeframe) {
         case 'past_week': startDateFilter = startOfDay(subDays(now, 6)); break;
         case 'past_month': startDateFilter = startOfDay(subMonths(now, 1)); break;
         case 'last_3_months': startDateFilter = startOfDay(subMonths(now, 3)); break;
@@ -312,24 +338,21 @@ export default function ZHRAnalyticsPage() {
     console.log("ZHR Analytics - Spider Data: spiderChartFormattedData", spiderChartFormattedData);
     return spiderChartFormattedData;
 
-  }, [allZoneVisits, selectedTimeframe]);
+  }, [allZoneVisits, spiderChartTimeframe]);
 
-  useEffect(() => {
-    setQualitativeSpiderData(qualitativeDataForSpiderChart);
-  }, [qualitativeDataForSpiderChart]);
 
   const branchCategoryDistributionChartData = useMemo(() => {
     if (allZoneVisits.length === 0 || allBranchesForCategoryLookup.length === 0) {
         console.log("ZHR Analytics - Category Pie: allZoneVisits or allBranchesForCategoryLookup is empty.");
         return [];
     }
-    console.log("ZHR Analytics - Category Pie: Processing. Visits:", allZoneVisits.length, "Branches:", allBranchesForCategoryLookup.length, "Timeframe:", selectedTimeframe);
+    console.log("ZHR Analytics - Category Pie: Processing. Visits:", allZoneVisits.length, "Branches:", allBranchesForCategoryLookup.length, "Timeframe:", categoryPieChartTimeframe);
 
     const now = new Date();
     let startDateFilter: Date;
     const endDateFilter: Date = endOfDay(now);
 
-    switch (selectedTimeframe) {
+    switch (categoryPieChartTimeframe) {
         case 'past_week': startDateFilter = startOfDay(subDays(now, 6)); break;
         case 'past_month': startDateFilter = startOfDay(subMonths(now, 1)); break;
         case 'last_3_months': startDateFilter = startOfDay(subMonths(now, 3)); break;
@@ -371,16 +394,12 @@ export default function ZHRAnalyticsPage() {
             value,
             fill: `hsl(var(--chart-${(index % 5) + 1}))`, 
         }))
-        .sort((a, b) => b.value - a.value); // Sort by value descending for better pie chart readability
+        .sort((a, b) => b.value - a.value); 
         
     console.log("ZHR Analytics - Category Pie: Final distributionData:", distributionData);
     return distributionData;
 
-  }, [allZoneVisits, selectedTimeframe, allBranchesForCategoryLookup]);
-
-  useEffect(() => {
-    setBranchCategoryDistributionData(branchCategoryDistributionChartData);
-  }, [branchCategoryDistributionChartData]);
+  }, [allZoneVisits, categoryPieChartTimeframe, allBranchesForCategoryLookup]);
 
 
   const handleMetricToggle = (metricKey: string) => {
@@ -399,56 +418,34 @@ export default function ZHRAnalyticsPage() {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
 
-  console.log("ZHR Analytics: qualitativeSpiderData before render", qualitativeSpiderData);
+  console.log("ZHR Analytics: qualitativeSpiderData before render", qualitativeDataForSpiderChart);
 
   return (
     <div className="space-y-8">
       <PageTitle title="Zonal Performance Trends" description="Analyze key metrics and qualitative assessments from submitted visits in your zone over time." />
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Select Timeframe</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {TIMEFRAME_OPTIONS.map(tf => (
-            <Button
-              key={tf.key}
-              variant={selectedTimeframe === tf.key ? 'default' : 'outline'}
-              onClick={() => setSelectedTimeframe(tf.key)}
-            >
-              {tf.label}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Select Metrics for Trendline</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-          {METRIC_CONFIGS.map(metric => (
-            <div key={metric.key} className="flex items-center space-x-2">
-              <Checkbox
-                id={metric.key}
-                checked={!!activeMetrics[metric.key]}
-                onCheckedChange={() => handleMetricToggle(metric.key)}
-                style={{ accentColor: metric.color } as React.CSSProperties}
-              />
-              <Label htmlFor={metric.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" style={{ color: metric.color }}>
-                {metric.label}
-              </Label>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
       <Card className="shadow-xl">
         <CardHeader>
-            <CardTitle>Metric Trends</CardTitle>
+            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Metric Trends</CardTitle>
             <CardDescription>Trendlines for selected metrics and timeframe.</CardDescription>
         </CardHeader>
         <CardContent>
+          <TimeframeButtons selectedTimeframe={trendlineTimeframe} onTimeframeChange={setTrendlineTimeframe} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+            {METRIC_CONFIGS.map(metric => (
+              <div key={metric.key} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`metric-${metric.key}`}
+                  checked={!!activeMetrics[metric.key]}
+                  onCheckedChange={() => handleMetricToggle(metric.key)}
+                  style={{ accentColor: metric.color } as React.CSSProperties}
+                />
+                <Label htmlFor={`metric-${metric.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" style={{ color: metric.color }}>
+                  {metric.label}
+                </Label>
+              </div>
+            ))}
+          </div>
           {chartDisplayData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={chartDisplayData}>
@@ -469,7 +466,7 @@ export default function ZHRAnalyticsPage() {
                     boxShadow: 'var(--shadow-md)'
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
-                  formatter={(value: number, name) => { // Explicitly type value
+                  formatter={(value: number, name) => { 
                     const config = METRIC_CONFIGS.find(m => m.label === name);
                     if (config?.key.includes('percentage')) return [`${value}%`, name];
                     return [value, name];
@@ -511,9 +508,10 @@ export default function ZHRAnalyticsPage() {
             <CardDescription>Average scores for qualitative questions from visits in the selected timeframe (0-5 scale).</CardDescription>
           </CardHeader>
           <CardContent>
-            {qualitativeSpiderData.length > 0 && qualitativeSpiderData.some(d => d.score > 0) ? (
+            <TimeframeButtons selectedTimeframe={spiderChartTimeframe} onTimeframeChange={setSpiderChartTimeframe} />
+            {qualitativeDataForSpiderChart.length > 0 && qualitativeDataForSpiderChart.some(d => d.score > 0) ? (
               <ResponsiveContainer width="100%" height={400}>
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderData}>
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeDataForSpiderChart}>
                   <PolarGrid stroke="hsl(var(--border))" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
@@ -543,9 +541,10 @@ export default function ZHRAnalyticsPage() {
                 <CardDescription>Distribution of submitted visits by branch category in the selected timeframe.</CardDescription>
             </CardHeader>
             <CardContent>
-                {branchCategoryDistributionData.length > 0 ? (
+                <TimeframeButtons selectedTimeframe={categoryPieChartTimeframe} onTimeframeChange={setCategoryPieChartTimeframe} />
+                {branchCategoryDistributionChartData.length > 0 ? (
                     <PlaceholderPieChart
-                        data={branchCategoryDistributionData}
+                        data={branchCategoryDistributionChartData}
                         title=""
                         dataKey="value"
                         nameKey="name"
@@ -565,3 +564,4 @@ export default function ZHRAnalyticsPage() {
     </div>
   );
 }
+
