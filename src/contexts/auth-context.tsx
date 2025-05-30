@@ -5,6 +5,7 @@ import type { User, UserRole } from '@/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { mockUsers } from '@/lib/mock-data'; // Mock users
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Simulate checking for an existing session
@@ -53,9 +55,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         default: router.push('/auth/login');
       }
     } else {
-      // Handle login failure (e.g., show a toast)
-      console.error("Login failed: User not found or role mismatch");
-      // For now, just log, a toast would be better in a real app.
+      // User not found in mock data, proceed with demo user
+      toast({
+        title: "Demo Session",
+        description: `User '${email}' with role '${role}' not found. Starting a demo session.`,
+        variant: "default",
+      });
+      
       // To make it work for any email with selected role for demo:
       const demoUser: User = { id: 'demo-user', email, name: email.split('@')[0], role };
       setUser(demoUser);
