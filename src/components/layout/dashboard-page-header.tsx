@@ -6,7 +6,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { LogOut, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { useChrFilter } from '@/contexts/chr-filter-context';
+import { useChrFilter } from '@/contexts/chr-filter-context'; // Corrected path if needed, assuming file is chr-filter-context.tsx
 import {
   Select,
   SelectContent,
