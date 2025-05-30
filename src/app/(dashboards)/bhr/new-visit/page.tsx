@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -31,24 +32,30 @@ export default function ManageVisitPage() {
     if (user && user.role === 'BHR') {
       setIsLoadingBranches(true);
       setFetchError(null);
+      console.log("ManageVisitPage: Fetching assigned branches for BHR:", user.id);
       try {
         const { data: assignments, error: assignmentsError } = await supabase
           .from('assignments')
           .select('branch_id')
           .eq('bhr_id', user.id);
 
+        console.log("ManageVisitPage: Fetched assignments:", assignments, "Error:", assignmentsError);
         if (assignmentsError) throw assignmentsError;
         if (!assignments || assignments.length === 0) {
           setAssignedBranches([]);
+          console.log("ManageVisitPage: No assignments found for BHR.");
+          setIsLoadingBranches(false);
           return;
         }
 
         const branchIds = assignments.map(a => a.branch_id);
+        console.log("ManageVisitPage: Branch IDs from assignments:", branchIds);
         const { data: branches, error: branchesError } = await supabase
           .from('branches')
           .select('*')
           .in('id', branchIds);
-
+        
+        console.log("ManageVisitPage: Fetched branches:", branches, "Error:", branchesError);
         if (branchesError) throw branchesError;
         setAssignedBranches(branches as Branch[] || []);
       } catch (error: any) {
@@ -58,10 +65,12 @@ export default function ManageVisitPage() {
         setAssignedBranches([]);
       } finally {
         setIsLoadingBranches(false);
+        console.log("ManageVisitPage: Finished fetching branches. Loading state:", false);
       }
     } else {
       setIsLoadingBranches(false);
       setAssignedBranches([]);
+      console.log("ManageVisitPage: No user or user is not BHR, skipping branch fetch.");
     }
   }, [user, toast]);
 
@@ -141,42 +150,39 @@ export default function ManageVisitPage() {
       return;
     }
 
+    // Remove undefined fields before sending to Supabase to avoid issues with optional fields
+    const cleanData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+
+
     const visitPayload = {
+      ...cleanData, // Use cleaned data
       bhr_id: user.id,
-      branch_id: data.branch_id,
+      branch_id: data.branch_id, // branch_id must be present from form
       bhr_name: user.name,
       branch_name: currentSelectedBranchInfo.name,
       visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // Ensure ISO 8601
       status: statusToSet,
-      hr_connect_conducted: data.hr_connect_conducted,
+      // Explicitly set hr_connect fields to null if not conducted
+      hr_connect_conducted: data.hr_connect_conducted ?? false,
       hr_connect_employees_invited: data.hr_connect_conducted ? data.hr_connect_employees_invited : null,
       hr_connect_participants: data.hr_connect_conducted ? data.hr_connect_participants : null,
-      manning_percentage: data.manning_percentage,
-      attrition_percentage: data.attrition_percentage,
-      non_vendor_percentage: data.non_vendor_percentage,
-      er_percentage: data.er_percentage,
-      cwt_cases: data.cwt_cases,
-      performance_level: data.performance_level,
-      new_employees_total: data.new_employees_total,
-      new_employees_covered: data.new_employees_covered,
-      star_employees_total: data.star_employees_total,
-      star_employees_covered: data.star_employees_covered,
-      qual_aligned_conduct: data.qual_aligned_conduct,
-      qual_safe_secure: data.qual_safe_secure,
-      qual_motivated: data.qual_motivated,
-      qual_abusive_language: data.qual_abusive_language,
-      qual_comfortable_escalate: data.qual_comfortable_escalate,
-      qual_inclusive_culture: data.qual_inclusive_culture,
-      additional_remarks: data.additional_remarks,
     };
+    
+    // Remove id from payload if it's an update, as it's used in .eq('id', visitIdToLoad)
+    const { id: formId, ...payloadForUpsert } = visitPayload as any;
+
 
     try {
       let responseError;
       if (visitIdToLoad && initialVisitData) { // This is an update
-        const { error } = await supabase.from('visits').update(visitPayload).eq('id', visitIdToLoad).eq('bhr_id', user.id);
+        const { error } = await supabase
+            .from('visits')
+            .update(payloadForUpsert)
+            .eq('id', visitIdToLoad)
+            .eq('bhr_id', user.id); // Ensure BHR can only update their own visits
         responseError = error;
       } else { // This is an insert
-        const { error } = await supabase.from('visits').insert(visitPayload);
+        const { error } = await supabase.from('visits').insert(payloadForUpsert);
         responseError = error;
       }
 
@@ -191,8 +197,13 @@ export default function ManageVisitPage() {
       }
       // Form reset is handled within VisitForm for new entries
     } catch (error: any) {
-      console.error("Error submitting/updating visit:", error);
-      toast({ title: "Error", description: `Failed to ${visitIdToLoad ? 'update' : 'submit'} visit: ${error.message}`, variant: "destructive" });
+      console.error("Error submitting/updating visit object:", error); // Log the full error object
+      const errorMessage = error?.message || "An unexpected error occurred.";
+      toast({ 
+        title: "Error", 
+        description: `Failed to ${visitIdToLoad ? 'update' : 'submit'} visit: ${errorMessage}`, 
+        variant: "destructive" 
+      });
     } finally {
       setIsSubmitting(false);
     }
