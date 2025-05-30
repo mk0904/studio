@@ -15,14 +15,11 @@ import { Loader2, TrendingUp, CalendarDays } from 'lucide-react';
 import {
   format,
   parseISO,
-  startOfWeek,
-  endOfWeek,
+  subDays,
   subMonths,
-  startOfMonth,
-  endOfMonth,
   subYears,
-  startOfYear,
-  endOfYear,
+  startOfDay,
+  endOfDay,
   isWithinInterval,
   eachDayOfInterval,
   isValid,
@@ -44,7 +41,7 @@ const METRIC_CONFIGS: MetricConfig[] = [
   { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' }, // Potentially different scale
 ];
 
-type TimeframeKey = 'this_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
+type TimeframeKey = 'past_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
 
 interface TimeframeOption {
   key: TimeframeKey;
@@ -52,7 +49,7 @@ interface TimeframeOption {
 }
 
 const TIMEFRAME_OPTIONS: TimeframeOption[] = [
-  { key: 'this_week', label: 'This Week' },
+  { key: 'past_week', label: 'Past Week' },
   { key: 'past_month', label: 'Past Month' },
   { key: 'last_3_months', label: 'Last 3 Months' },
   { key: 'last_6_months', label: 'Last 6 Months' },
@@ -120,45 +117,41 @@ export default function ZHRAnalyticsPage() {
   const chartDisplayData = useMemo(() => {
     if (allZoneVisits.length === 0) return [];
 
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date = now;
+    const today = new Date();
+    let startDateFilter: Date;
+    const endDateFilter: Date = endOfDay(today);
 
     switch (selectedTimeframe) {
-      case 'this_week':
-        startDate = startOfWeek(now, { weekStartsOn: 1 });
-        endDate = endOfWeek(now, { weekStartsOn: 1 });
+      case 'past_week':
+        startDateFilter = startOfDay(subDays(today, 6));
         break;
       case 'past_month':
-        startDate = startOfMonth(subMonths(now, 1));
-        endDate = endOfMonth(subMonths(now, 1));
+        startDateFilter = startOfDay(subMonths(today, 1));
         break;
       case 'last_3_months':
-        startDate = startOfMonth(subMonths(now, 2)); // Current month + 2 previous full months
-        endDate = endOfMonth(now);
+        startDateFilter = startOfDay(subMonths(today, 3));
         break;
       case 'last_6_months':
-        startDate = startOfMonth(subMonths(now, 5));
-        endDate = endOfMonth(now);
+        startDateFilter = startOfDay(subMonths(today, 6));
         break;
       case 'last_year':
-        startDate = startOfYear(subYears(now, 1));
-        endDate = endOfYear(subYears(now, 1));
+        startDateFilter = startOfDay(subYears(today, 1));
         break;
       case 'last_3_years':
-        startDate = startOfYear(subYears(now, 2));
-        endDate = endOfYear(now);
+        startDateFilter = startOfDay(subYears(today, 3));
         break;
-      default:
-        startDate = startOfMonth(subMonths(now, 1));
-        endDate = endOfMonth(subMonths(now, 1));
+      default: // Should not happen with typed TimeframeKey
+        startDateFilter = startOfDay(subMonths(today, 1)); 
     }
     
-    if (!isValid(startDate) || !isValid(endDate)) return [];
+    if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) {
+        console.warn("Invalid date range for filtering:", {startDateFilter, endDateFilter});
+        return [];
+    }
 
     const filteredVisits = allZoneVisits.filter(visit => {
       const visitDate = parseISO(visit.visit_date);
-      return isValid(visitDate) && isWithinInterval(visitDate, { start: startDate, end: endDate });
+      return isValid(visitDate) && isWithinInterval(visitDate, { start: startDateFilter, end: endDateFilter });
     });
 
     if (filteredVisits.length === 0) return [];
@@ -182,10 +175,16 @@ export default function ZHRAnalyticsPage() {
         }
       });
     });
-
-    const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
     
-    return dateRange.map(dayDate => {
+    let dateRangeForChart: Date[] = [];
+    try {
+        dateRangeForChart = eachDayOfInterval({ start: startDateFilter, end: endDateFilter });
+    } catch (e) {
+        console.error("Error creating date interval for chart:", e, {startDateFilter, endDateFilter});
+        return []; // Prevent crash if interval is invalid
+    }
+
+    return dateRangeForChart.map(dayDate => {
       const dayKey = format(dayDate, 'yyyy-MM-dd');
       const dayData = aggregatedData[dayKey];
       const point: ChartDataPoint = { date: dayKey };
@@ -253,9 +252,9 @@ export default function ZHRAnalyticsPage() {
             <div key={metric.key} className="flex items-center space-x-2">
               <Checkbox
                 id={metric.key}
-                checked={activeMetrics[metric.key]}
+                checked={!!activeMetrics[metric.key]}
                 onCheckedChange={() => handleMetricToggle(metric.key)}
-                style={{ accentColor: metric.color } as React.CSSProperties} // Basic color hint
+                style={{ accentColor: metric.color } as React.CSSProperties} 
               />
               <Label htmlFor={metric.key} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" style={{ color: metric.color }}>
                 {metric.label}
@@ -307,10 +306,10 @@ export default function ZHRAnalyticsPage() {
                       name={metric.label}
                       stroke={metric.color}
                       strokeWidth={2}
-                      yAxisId={metric.yAxisId || 'left'} // Default to left if not specified
+                      yAxisId={metric.yAxisId || 'left'} 
                       dot={{ r: 2, fill: metric.color }}
                       activeDot={{ r: 5 }}
-                      connectNulls // Connects lines over null/undefined data points
+                      connectNulls 
                     />
                   )
                 )}
@@ -328,3 +327,4 @@ export default function ZHRAnalyticsPage() {
     </div>
   );
 }
+
