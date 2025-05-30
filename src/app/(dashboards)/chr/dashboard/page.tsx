@@ -7,7 +7,7 @@ import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Visit, Branch } from '@/types';
 import { mockUsers, mockVisits, mockBranches, getVisibleUsers } from '@/lib/mock-data';
-import { Users, Building, CalendarDays, Globe2, BarChartBig } from 'lucide-react';
+import { Users, Building, CalendarDays, Globe2, BarChartBig, TrendingUp } from 'lucide-react';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import Link from 'next/link';
