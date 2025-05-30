@@ -53,6 +53,8 @@ const visitFormSchema = z.object({
     required_error: "A visit date is required.",
   }),
   hr_connect_conducted: z.boolean().default(false).optional(),
+  hr_connect_employees_invited: z.coerce.number().min(0, "Cannot be negative").optional(),
+  hr_connect_participants: z.coerce.number().min(0, "Cannot be negative").optional(),
   manning_percentage: z.coerce.number().min(0, "Must be >= 0").max(100, "Must be <= 100").optional(),
   attrition_percentage: z.coerce.number().min(0).max(100).optional(),
   non_vendor_percentage: z.coerce.number().min(0).max(100).optional(),
@@ -76,6 +78,22 @@ const visitFormSchema = z.object({
 }).refine(data => !data.star_employees_total || !data.star_employees_covered || data.star_employees_covered <= data.star_employees_total, {
   message: "Covered STAR employees cannot exceed total STAR employees.",
   path: ["star_employees_covered"],
+}).refine(data => {
+  if (data.hr_connect_conducted && data.hr_connect_employees_invited !== undefined && data.hr_connect_participants !== undefined) {
+    return data.hr_connect_participants <= data.hr_connect_employees_invited;
+  }
+  return true;
+}, {
+  message: "Total participants cannot exceed total employees invited.",
+  path: ["hr_connect_participants"],
+}).refine(data => {
+  if (data.hr_connect_conducted && (data.hr_connect_participants || 0) > 0) {
+    return (data.hr_connect_employees_invited || 0) > 0;
+  }
+  return true;
+}, {
+  message: "Total employees invited must be greater than 0 if there are participants.",
+  path: ["hr_connect_employees_invited"],
 });
 
 type VisitFormValues = z.infer<typeof visitFormSchema>;
@@ -103,11 +121,14 @@ export default function NewVisitPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [assignedBranches, setAssignedBranches] = useState<Branch[]>([]);
   const [selectedBranchInfo, setSelectedBranchInfo] = useState<{ category: string, code: string } | null>(null);
+  const [coveragePercentage, setCoveragePercentage] = useState(0);
   
   const form = useForm<VisitFormValues>({
     resolver: zodResolver(visitFormSchema),
     defaultValues: {
       hr_connect_conducted: false,
+      hr_connect_employees_invited: 0,
+      hr_connect_participants: 0,
       additional_remarks: "",
       manning_percentage: 0,
       attrition_percentage: 0,
@@ -122,6 +143,9 @@ export default function NewVisitPage() {
   });
 
   const watchedBranchId = form.watch('branch_id');
+  const hrConnectConducted = form.watch('hr_connect_conducted');
+  const employeesInvited = form.watch('hr_connect_employees_invited');
+  const participants = form.watch('hr_connect_participants');
 
   useEffect(() => {
     if (user && user.role === 'BHR') {
@@ -142,6 +166,14 @@ export default function NewVisitPage() {
     }
   }, [watchedBranchId, assignedBranches]);
 
+  useEffect(() => {
+    if (hrConnectConducted && employeesInvited && employeesInvited > 0 && participants !== undefined) {
+      setCoveragePercentage(Math.round((participants / employeesInvited) * 100));
+    } else {
+      setCoveragePercentage(0);
+    }
+  }, [hrConnectConducted, employeesInvited, participants]);
+
   async function handleFormSubmit(data: VisitFormValues, isDraft: boolean) {
     if (!user) {
       toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
@@ -153,7 +185,7 @@ export default function NewVisitPage() {
     const selectedBranch = assignedBranches.find(b => b.id === data.branch_id);
 
     const newVisitEntry: Visit = {
-        id: `visit-${mockVisits.length + 1}-${Date.now()}`, // More unique ID
+        id: `visit-${mockVisits.length + 1}-${Date.now()}`, 
         bhr_id: user.id,
         bhr_name: user.name,
         branch_id: data.branch_id,
@@ -162,6 +194,8 @@ export default function NewVisitPage() {
         branch_category: selectedBranchInfo?.category,
         branch_code: selectedBranchInfo?.code,
         hr_connect_conducted: data.hr_connect_conducted,
+        hr_connect_employees_invited: data.hr_connect_conducted ? data.hr_connect_employees_invited : undefined,
+        hr_connect_participants: data.hr_connect_conducted ? data.hr_connect_participants : undefined,
         manning_percentage: data.manning_percentage,
         attrition_percentage: data.attrition_percentage,
         non_vendor_percentage: data.non_vendor_percentage,
@@ -179,7 +213,6 @@ export default function NewVisitPage() {
         qual_comfortable_escalate: data.qual_comfortable_escalate,
         qual_inclusive_culture: data.qual_inclusive_culture,
         additional_remarks: data.additional_remarks,
-        // notes field could be populated here too if needed for old system compatibility
     };
     mockVisits.push(newVisitEntry);
 
@@ -190,6 +223,7 @@ export default function NewVisitPage() {
     if (!isDraft) {
       form.reset();
       setSelectedBranchInfo(null); 
+      setCoveragePercentage(0);
     }
     setIsLoading(false);
   }
@@ -281,6 +315,14 @@ export default function NewVisitPage() {
                   <Input readOnly value={selectedBranchInfo?.code || "Select a branch to set code"} className="bg-muted" />
                 </FormItem>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>HR Connect Session</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <FormField
                 control={form.control}
                 name="hr_connect_conducted"
@@ -298,6 +340,38 @@ export default function NewVisitPage() {
                   </FormItem>
                 )}
               />
+              {hrConnectConducted && (
+                <div className="space-y-4 pt-4 border-t mt-4">
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <FormField
+                      control={form.control}
+                      name="hr_connect_employees_invited"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Total Employees Invited</FormLabel>
+                          <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="hr_connect_participants"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Total Participants</FormLabel>
+                          <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormItem>
+                        <FormLabel>Coverage Percentage</FormLabel>
+                        <Input readOnly value={`${coveragePercentage}%`} className="bg-muted font-semibold" />
+                      </FormItem>
+                   </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
