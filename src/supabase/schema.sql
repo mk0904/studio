@@ -1,5 +1,4 @@
-
--- Create custom ENUM types
+-- Custom ENUM types
 DROP TYPE IF EXISTS public.user_role_enum CASCADE;
 CREATE TYPE public.user_role_enum AS ENUM ('BHR', 'ZHR', 'VHR', 'CHR');
 
@@ -9,7 +8,7 @@ CREATE TYPE public.visit_status_enum AS ENUM ('draft', 'submitted', 'approved', 
 DROP TYPE IF EXISTS public.qualitative_assessment_enum CASCADE;
 CREATE TYPE public.qualitative_assessment_enum AS ENUM ('yes', 'no');
 
--- Auto-update 'updated_at' column
+-- Trigger function to auto-update 'updated_at' timestamps
 DROP FUNCTION IF EXISTS public.handle_updated_at() CASCADE;
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
@@ -19,75 +18,78 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- USERS Table
+-- users Table
 DROP TABLE IF EXISTS public.users CASCADE;
 CREATE TABLE public.users (
-  id UUID NOT NULL PRIMARY KEY, -- References auth.users.id
+  id UUID NOT NULL PRIMARY KEY, -- Corresponds to auth.users.id
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   role public.user_role_enum NOT NULL,
   e_code TEXT,
   location TEXT,
-  reports_to UUID REFERENCES public.users(id),
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+  reports_to UUID REFERENCES public.users(id) ON DELETE SET NULL, -- Manager's user ID
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TRIGGER on_users_updated
   BEFORE UPDATE ON public.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
 
--- BRANCHES Table
+-- branches Table
 DROP TABLE IF EXISTS public.branches CASCADE;
 CREATE TABLE public.branches (
-  id uuid not null default gen_random_uuid (),
-  name text not null,
-  location text not null,
-  category text not null,
-  code text not null,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now(),
-  constraint branches_pkey primary key (id),
-  constraint branches_code_key unique (code)
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  location TEXT NOT NULL,
+  category TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TRIGGER on_branches_updated
   BEFORE UPDATE ON public.branches
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
 
--- ASSIGNMENTS Table (BHR to Branch mapping)
+-- assignments Table (Join table for BHRs and Branches)
 DROP TABLE IF EXISTS public.assignments CASCADE;
 CREATE TABLE public.assignments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   bhr_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   branch_id UUID NOT NULL REFERENCES public.branches(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  UNIQUE (bhr_id, branch_id) -- Ensure a BHR isn't assigned to the same branch multiple times
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (bhr_id, branch_id) -- Prevent duplicate assignments
 );
 CREATE TRIGGER on_assignments_updated
   BEFORE UPDATE ON public.assignments
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
 
--- VISITS Table
+-- visits Table
 DROP TABLE IF EXISTS public.visits CASCADE;
 CREATE TABLE public.visits (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bhr_id UUID NOT NULL REFERENCES public.users(id),
-  branch_id UUID NOT NULL REFERENCES public.branches(id),
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  bhr_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  branch_id UUID NOT NULL REFERENCES public.branches(id) ON DELETE CASCADE,
+  bhr_name TEXT, -- Denormalized for easier display
+  branch_name TEXT, -- Denormalized for easier display
   visit_date TIMESTAMPTZ NOT NULL,
   status public.visit_status_enum DEFAULT 'draft',
   hr_connect_conducted BOOLEAN DEFAULT false,
-  hr_connect_employees_invited INT CHECK (hr_connect_employees_invited IS NULL OR hr_connect_employees_invited >= 0),
-  hr_connect_participants INT CHECK (hr_connect_participants IS NULL OR hr_connect_participants >= 0),
-  manning_percentage NUMERIC(5,2) CHECK (manning_percentage IS NULL OR (manning_percentage >= 0 AND manning_percentage <= 100)),
-  attrition_percentage NUMERIC(5,2) CHECK (attrition_percentage IS NULL OR (attrition_percentage >= 0 AND attrition_percentage <= 100)),
-  non_vendor_percentage NUMERIC(5,2) CHECK (non_vendor_percentage IS NULL OR (non_vendor_percentage >= 0 AND non_vendor_percentage <= 100)),
-  er_percentage NUMERIC(5,2) CHECK (er_percentage IS NULL OR (er_percentage >= 0 AND er_percentage <= 100)),
-  cwt_cases INT CHECK (cwt_cases IS NULL OR cwt_cases >= 0),
+  hr_connect_employees_invited INTEGER CHECK (hr_connect_employees_invited >= 0 OR hr_connect_employees_invited IS NULL),
+  hr_connect_participants INTEGER CHECK (hr_connect_participants >= 0 OR hr_connect_participants IS NULL),
+  manning_percentage NUMERIC(5,2) CHECK (manning_percentage >= 0 AND manning_percentage <= 100 OR manning_percentage IS NULL),
+  attrition_percentage NUMERIC(5,2) CHECK (attrition_percentage >= 0 AND attrition_percentage <= 100 OR attrition_percentage IS NULL),
+  non_vendor_percentage NUMERIC(5,2) CHECK (non_vendor_percentage >= 0 AND non_vendor_percentage <= 100 OR non_vendor_percentage IS NULL),
+  er_percentage NUMERIC(5,2) CHECK (er_percentage >= 0 AND er_percentage <= 100 OR er_percentage IS NULL),
+  cwt_cases INTEGER CHECK (cwt_cases >= 0 OR cwt_cases IS NULL),
   performance_level TEXT,
-  new_employees_total INT CHECK (new_employees_total IS NULL OR new_employees_total >= 0),
-  new_employees_covered INT CHECK (new_employees_covered IS NULL OR new_employees_covered >= 0),
-  star_employees_total INT CHECK (star_employees_total IS NULL OR star_employees_total >= 0),
-  star_employees_covered INT CHECK (star_employees_covered IS NULL OR star_employees_covered >= 0),
+  new_employees_total INTEGER CHECK (new_employees_total >= 0 OR new_employees_total IS NULL),
+  new_employees_covered INTEGER CHECK (new_employees_covered >= 0 OR new_employees_covered IS NULL),
+  star_employees_total INTEGER CHECK (star_employees_total >= 0 OR star_employees_total IS NULL),
+  star_employees_covered INTEGER CHECK (star_employees_covered >= 0 OR star_employees_covered IS NULL),
   qual_aligned_conduct public.qualitative_assessment_enum,
   qual_safe_secure public.qualitative_assessment_enum,
   qual_motivated public.qualitative_assessment_enum,
@@ -95,85 +97,86 @@ CREATE TABLE public.visits (
   qual_comfortable_escalate public.qualitative_assessment_enum,
   qual_inclusive_culture public.qualitative_assessment_enum,
   additional_remarks TEXT,
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  CONSTRAINT chk_participants_not_exceed_invited CHECK (hr_connect_participants IS NULL OR hr_connect_employees_invited IS NULL OR hr_connect_participants <= hr_connect_employees_invited),
-  CONSTRAINT chk_new_employees_covered_not_exceed_total CHECK (new_employees_covered IS NULL OR new_employees_total IS NULL OR new_employees_covered <= new_employees_total),
-  CONSTRAINT chk_star_employees_covered_not_exceed_total CHECK (star_employees_covered IS NULL OR star_employees_total IS NULL OR star_employees_covered <= star_employees_total)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_participants_not_greater_than_invited CHECK (hr_connect_participants IS NULL OR hr_connect_employees_invited IS NULL OR hr_connect_participants <= hr_connect_employees_invited),
+  CONSTRAINT chk_new_covered_not_greater_than_total CHECK (new_employees_covered IS NULL OR new_employees_total IS NULL OR new_employees_covered <= new_employees_total),
+  CONSTRAINT chk_star_covered_not_greater_than_total CHECK (star_employees_covered IS NULL OR star_employees_total IS NULL OR star_employees_covered <= star_employees_total),
+  CONSTRAINT chk_invited_positive_if_participants CHECK (NOT (hr_connect_participants > 0 AND (hr_connect_employees_invited IS NULL OR hr_connect_employees_invited = 0)))
 );
 CREATE TRIGGER on_visits_updated
   BEFORE UPDATE ON public.visits
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
 
 --------------------------------------------------------------------------------
--- Row Level Security (RLS)
+-- Row Level Security (RLS) Policies
 --------------------------------------------------------------------------------
 
 -- Helper function to get the role of the current authenticated user
+DROP FUNCTION IF EXISTS public.get_my_role() CASCADE;
 CREATE OR REPLACE FUNCTION public.get_my_role()
 RETURNS public.user_role_enum
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET LOCAL search_path = public
+SET search_path = public -- Ensures it uses the public schema
 AS $$
 BEGIN
   IF auth.uid() IS NULL THEN
-    RETURN NULL;
+    RETURN NULL; -- Or handle as an error/default role if preferred
   ELSE
-    -- Ensure the user exists in public.users, otherwise this select might fail or return null incorrectly
-    -- This assumes that a user record in public.users is created upon signup.
+    -- This assumes there's a 'role' column in your 'users' table
     RETURN (SELECT role FROM users WHERE id = auth.uid());
   END IF;
 END;
 $$;
+-- Grant execute permission on the function to authenticated users
 GRANT EXECUTE ON FUNCTION public.get_my_role() TO authenticated;
 
 
--- RLS for USERS table
+-- RLS for 'users' table
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view their own user record" ON public.users;
 DROP POLICY IF EXISTS "Authenticated users can read basic user info for selection" ON public.users;
 DROP POLICY IF EXISTS "CHR can view all user records" ON public.users;
-DROP POLICY IF EXISTS "Authenticated users can insert their own user record" ON public.users; -- This is key for signup
-DROP POLICY IF EXISTS "Users can update their own non-critical user record info" ON public.users;
+DROP POLICY IF EXISTS "Authenticated users can insert their own user record" ON public.users; -- Important for Supabase Auth + Profile setup
+DROP POLICY IF EXISTS "Users can update their own user record" ON public.users;
 DROP POLICY IF EXISTS "CHR can update any user record" ON public.users;
 DROP POLICY IF EXISTS "CHR can delete any user record" ON public.users;
 
--- For signup, this allows the authenticated user (just created in auth.users) to insert their profile into public.users.
--- Ensure "Enable email confirmations" is OFF in Supabase Auth settings for easier development, otherwise, this might fail
--- until the email is confirmed because auth.uid() might not resolve as expected or role might be anon.
+-- For Supabase Auth, users need to be able to insert their own profile after signup.
+-- This policy uses auth.uid() which is the ID from the auth.users table.
 CREATE POLICY "Authenticated users can insert their own user record"
   ON public.users FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = NEW.id); -- NEW.id is the id being inserted
+  WITH CHECK (auth.uid() = NEW.id); -- NEW.id here refers to the id being inserted into public.users
 
 CREATE POLICY "Users can view their own user record"
   ON public.users FOR SELECT
   TO authenticated
   USING (auth.uid() = id);
 
-CREATE POLICY "Authenticated users can read basic user info for selection"
+CREATE POLICY "Authenticated users can read basic user info for selection" -- For dropdowns
   ON public.users FOR SELECT
   TO authenticated
-  USING (true); -- Necessary for "Reports To" dropdowns. Restrict columns in your app's queries.
+  USING (true); -- Allows reading specific columns. Application should limit columns selected.
 
 CREATE POLICY "CHR can view all user records"
   ON public.users FOR SELECT
   TO authenticated
   USING (public.get_my_role() = 'CHR');
 
-CREATE POLICY "Users can update their own non-critical user record info"
+CREATE POLICY "Users can update their own user record"
   ON public.users FOR UPDATE
   TO authenticated
   USING (auth.uid() = id)
   WITH CHECK (
     auth.uid() = id AND
-    NEW.email IS NOT DISTINCT FROM OLD.email AND -- Don't allow changing email via this policy
-    NEW.role IS NOT DISTINCT FROM OLD.role AND   -- Don't allow changing role
-    NEW.reports_to IS NOT DISTINCT FROM OLD.reports_to -- Don't allow changing reports_to
-    -- Allow changing name, e_code, location
+    NEW.email IS NOT DISTINCT FROM OLD.email AND -- Prevent users from changing critical fields
+    NEW.role IS NOT DISTINCT FROM OLD.role AND
+    NEW.reports_to IS NOT DISTINCT FROM OLD.reports_to
   );
 
 CREATE POLICY "CHR can update any user record"
@@ -188,7 +191,7 @@ CREATE POLICY "CHR can delete any user record"
   USING (public.get_my_role() = 'CHR');
 
 
--- RLS for BRANCHES table
+-- RLS for 'branches' table
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.branches FORCE ROW LEVEL SECURITY;
 
@@ -207,7 +210,7 @@ CREATE POLICY "CHR can manage branches"
   WITH CHECK (public.get_my_role() = 'CHR');
 
 
--- RLS for ASSIGNMENTS table
+-- RLS for 'assignments' table
 ALTER TABLE public.assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assignments FORCE ROW LEVEL SECURITY;
 
@@ -217,7 +220,6 @@ DROP POLICY IF EXISTS "VHRs can view assignments in their vertical" ON public.as
 DROP POLICY IF EXISTS "CHR can view all assignments" ON public.assignments;
 DROP POLICY IF EXISTS "ZHRs can manage assignments for their BHRs" ON public.assignments;
 DROP POLICY IF EXISTS "CHR can manage all assignments" ON public.assignments;
-
 
 CREATE POLICY "BHRs can view their own assignments"
   ON public.assignments FOR SELECT
@@ -258,8 +260,7 @@ CREATE POLICY "ZHRs can manage assignments for their BHRs"
   )
   WITH CHECK (
     public.get_my_role() = 'ZHR' AND
-    NEW.bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR')
-    -- Additional check: ensure branch_id is valid and perhaps within ZHR's zone if that logic exists
+    bhr_id IN (SELECT id FROM public.users WHERE reports_to = auth.uid() AND role = 'BHR')
   );
 
 CREATE POLICY "CHR can manage all assignments"
@@ -269,26 +270,20 @@ CREATE POLICY "CHR can manage all assignments"
   WITH CHECK (public.get_my_role() = 'CHR');
 
 
--- RLS for VISITS table
+-- RLS for 'visits' table
 ALTER TABLE public.visits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.visits FORCE ROW LEVEL SECURITY;
 
--- Drop old policies for visits table to apply new ones cleanly
 DROP POLICY IF EXISTS "BHRs can insert their own visits" ON public.visits;
 DROP POLICY IF EXISTS "BHRs can select their own visits" ON public.visits;
 DROP POLICY IF EXISTS "BHRs can update their own draft/submitted visits" ON public.visits;
-DROP POLICY IF EXISTS "BHRs can delete their own draft visits" ON public.visits;
-
+DROP POLICY IF EXISTS "BHRs can delete their draft visits" ON public.visits;
 DROP POLICY IF EXISTS "ZHRs can select visits of their BHRs" ON public.visits;
 DROP POLICY IF EXISTS "ZHRs can update status of submitted visits by their BHRs" ON public.visits;
-
 DROP POLICY IF EXISTS "VHRs can select visits in their vertical" ON public.visits;
 DROP POLICY IF EXISTS "VHRs can update status of visits in their vertical" ON public.visits;
-
 DROP POLICY IF EXISTS "CHR can manage all visits" ON public.visits;
 
-
--- BHR Policies for 'visits' table
 CREATE POLICY "BHRs can insert their own visits"
   ON public.visits FOR INSERT
   TO authenticated
@@ -322,13 +317,15 @@ CREATE POLICY "BHRs can update their own draft/submitted visits"
     NOT (NEW.status IN ('approved', 'rejected'))
   );
 
-CREATE POLICY "BHRs can delete their own draft visits"
+CREATE POLICY "BHRs can delete their draft visits"
   ON public.visits FOR DELETE
   TO authenticated
-  USING (public.get_my_role() = 'BHR' AND bhr_id = auth.uid() AND status = 'draft');
+  USING (
+    public.get_my_role() = 'BHR' AND
+    bhr_id = auth.uid() AND
+    status = 'draft'
+  );
 
-
--- ZHR Policies for 'visits' table
 CREATE POLICY "ZHRs can select visits of their BHRs"
   ON public.visits FOR SELECT
   TO authenticated
@@ -353,8 +350,6 @@ CREATE POLICY "ZHRs can update status of submitted visits by their BHRs"
     NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
   );
 
-
--- VHR Policies for 'visits' table
 CREATE POLICY "VHRs can select visits in their vertical"
   ON public.visits FOR SELECT
   TO authenticated
@@ -387,32 +382,27 @@ CREATE POLICY "VHRs can update status of visits in their vertical"
     NEW.visit_date IS NOT DISTINCT FROM OLD.visit_date
   );
 
-
--- CHR Policy for 'visits' table
 CREATE POLICY "CHR can manage all visits"
   ON public.visits FOR ALL
   TO authenticated
   USING (public.get_my_role() = 'CHR')
   WITH CHECK (public.get_my_role() = 'CHR');
 
--- Grant basic permissions (RLS will further restrict)
--- Note: Supabase handles default grants for 'anon' and 'authenticated' roles.
--- These are just examples if you needed more explicit control.
--- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO service_role;
--- GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
--- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
--- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO authenticated;
+-- Grant basic privileges - RLS will refine these
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 
 
 --------------------------------------------------------------------------------
--- Seed Data
+-- Seed Data (Example)
 --------------------------------------------------------------------------------
-
--- Seed Data for Branches
--- You should generate UUIDs for 'id' or let the default gen_random_uuid() work if you omit the id column in INSERTs.
--- For consistency with mock data if you've hardcoded UUIDs elsewhere, you might want to specify them.
--- Using default gen_random_uuid() for simplicity here.
-
+-- Branches Seed Data
 INSERT INTO public.branches (name, location, category, code) VALUES
 ('North Star Branch', 'New York', 'Metro Tier A', 'NY001'),
 ('Southern Cross Branch', 'Los Angeles', 'Metro Tier A', 'LA001'),
@@ -420,17 +410,15 @@ INSERT INTO public.branches (name, location, category, code) VALUES
 ('West End Branch', 'Houston', 'Urban Tier A', 'HO001'),
 ('Central Hub', 'Phoenix', 'Urban Tier B', 'PH001'),
 ('Metro Point', 'Philadelphia', 'Metro Tier B', 'PL001')
-ON CONFLICT (code) DO NOTHING; -- Avoid errors if script is run multiple times and codes exist
+ON CONFLICT (code) DO NOTHING; -- Avoid errors if run multiple times
 
--- Note: Seeding users, assignments, and visits would require knowing the UUIDs generated for users and branches.
--- It's often best to create initial CHR/VHR/ZHR users through your application's signup process first.
--- Then, use the application to create BHRs, assign them to branches, and log visits.
--- Or, if you need complex seed data, write a separate script that queries existing IDs.
+-- Note: Users should be seeded via the application's signup flow to ensure auth.users records are created.
+-- Note: Assignments and Visits should be created via the application after users and branches exist.
 
--- Example of how you might seed a CHR user if you knew their auth.uid()
--- Assuming you manually signed up a CHR with email 'alice@hrview.com' and got their auth.uid()
--- INSERT INTO public.users (id, name, email, role) VALUES
--- ('<alice_auth_uid_here>', 'Alice Wonderland', 'alice@hrview.com', 'CHR')
--- ON CONFLICT (email) DO NOTHING;
--- (Repeat for VHR, ZHR, BHR to build a hierarchy for testing)
-
+-- Example user inserts (ONLY if NOT using app signup for initial CHR/VHR/ZHR setup):
+-- Ensure these IDs match if you are pre-seeding auth.users via Supabase dashboard
+-- INSERT INTO public.users (id, name, email, role) VALUES ('your-chr-auth-uuid', 'Alice Wonderland', 'alice@example.com', 'CHR');
+-- INSERT INTO public.users (id, name, email, role, reports_to) VALUES ('your-vhr-auth-uuid', 'Bob Builder', 'bob@example.com', 'VHR', 'your-chr-auth-uuid');
+-- INSERT INTO public.users (id, name, email, role, reports_to) VALUES ('your-zhr-auth-uuid', 'Charlie Brown', 'charlie@example.com', 'ZHR', 'your-vhr-auth-uuid');
+-- INSERT INTO public.users (id, name, email, role, reports_to) VALUES ('your-bhr-auth-uuid', 'David Copperfield', 'david@example.com', 'BHR', 'your-zhr-auth-uuid');
+-- ... then create assignments and visits linking to these IDs ...

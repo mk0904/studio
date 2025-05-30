@@ -7,7 +7,8 @@ import { PageTitle } from '@/components/shared/page-title';
 import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit, VisitStatus, Branch } from '@/types';
-import { getVisibleVisits, mockBranches } from '@/lib/mock-data';
+// import { getVisibleVisits, mockBranches } from '@/lib/mock-data'; // Removed mock
+import { supabase } from '@/lib/supabaseClient'; // Added Supabase
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,18 +16,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow, getMonth, getYear, parseISO } from 'date-fns';
-import { Search, FileText, Eye, CheckCircle2, Trash2, Clock, PlusCircle, FileQuestion } from 'lucide-react';
+import { Search, FileText, Eye, CheckCircle2, Trash2, Clock, PlusCircle, FileQuestion, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const columns: ColumnConfig<Visit>[] = [
   {
-    accessorKey: 'branch_name',
+    accessorKey: 'branch_name', // Assumes branch_name is denormalized in Visit
     header: 'Branch',
   },
   {
     accessorKey: 'visit_date',
     header: 'Visit Date',
-    cell: (row) => {
-      const date = parseISO(row.visit_date);
+    cell: (visit) => { // Changed from ({row}) to (visit)
+      const date = parseISO(visit.visit_date);
       return (
         <div className="flex flex-col">
           <span>{format(date, 'PPP')}</span>
@@ -40,26 +42,26 @@ const columns: ColumnConfig<Visit>[] = [
   {
     accessorKey: 'status',
     header: 'Status',
-    cell: (row) => {
-      if (!row.status) return <Badge variant="outline">Unknown</Badge>;
+    cell: (visit) => { // Changed from ({row}) to (visit)
+      if (!visit.status) return <Badge variant="outline">Unknown</Badge>;
       let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
-      if (row.status === 'approved') variant = 'default'; // default is primary color
-      if (row.status === 'submitted') variant = 'secondary';
-      if (row.status === 'rejected') variant = 'destructive';
-      return <Badge variant={variant} className="capitalize">{row.status}</Badge>;
+      if (visit.status === 'approved') variant = 'default'; 
+      if (visit.status === 'submitted') variant = 'secondary';
+      if (visit.status === 'rejected') variant = 'destructive';
+      return <Badge variant={variant} className="capitalize">{visit.status}</Badge>;
     }
   },
   {
     accessorKey: 'additional_remarks',
     header: 'Summary',
-    cell: (row) => <p className="max-w-sm whitespace-pre-wrap break-words truncate">{row.additional_remarks || row.notes || 'N/A'}</p>
+    cell: (visit) => <p className="max-w-sm whitespace-pre-wrap break-words truncate">{visit.additional_remarks || visit.notes || 'N/A'}</p>
   },
   {
     accessorKey: 'actions',
     header: 'Actions',
-    cell: (row) => (
+    cell: (visit) => ( // Changed from ({row}) to (visit)
       <Button variant="outline" size="sm" asChild>
-        <Link href={`/bhr/new-visit?visit_id=${row.id}`}>View/Edit</Link>
+        <Link href={`/bhr/new-visit?visit_id=${visit.id}`}>View/Edit</Link>
       </Button>
     )
   }
@@ -81,32 +83,68 @@ const monthOptions = [
 
 export default function MyVisitsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [myVisits, setMyVisits] = useState<Visit[]>([]);
+  const [allBranches, setAllBranches] = useState<Branch[]>([]); // For category filter
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeStatusTab, setActiveStatusTab] = useState<VisitStatus | 'all'>('all');
 
   const branchCategories = useMemo(() => {
-    const categories = new Set(mockBranches.map(b => b.category));
+    const categories = new Set(allBranches.map(b => b.category));
     return [{label: "All Categories", value: "all"}, ...Array.from(categories).map(c => ({label: c, value: c}))];
-  }, []);
+  }, [allBranches]);
 
   useEffect(() => {
-    if (user && user.role === 'BHR') {
-      const visits = getVisibleVisits(user).sort((a, b) => parseISO(b.visit_date).getTime() - parseISO(a.visit_date).getTime());
-      setMyVisits(visits);
-    }
-  }, [user]);
+    const fetchVisitsAndBranches = async () => {
+      if (user && user.role === 'BHR') {
+        setIsLoading(true);
+        try {
+          // Fetch visits
+          const { data: visitsData, error: visitsError } = await supabase
+            .from('visits')
+            .select('*')
+            .eq('bhr_id', user.id)
+            .order('visit_date', { ascending: false });
+
+          if (visitsError) throw visitsError;
+          setMyVisits(visitsData || []);
+
+          // Fetch all branches for category filter (could be optimized if needed)
+          const { data: branchesData, error: branchesError } = await supabase
+            .from('branches')
+            .select('id, name, category, location'); // Only select needed fields
+          
+          if (branchesError) throw branchesError;
+          setAllBranches(branchesData || []);
+
+        } catch (error: any) {
+          console.error("Error fetching visits or branches:", error);
+          toast({ title: "Error", description: `Failed to load data: ${error.message}`, variant: "destructive" });
+          setMyVisits([]);
+          setAllBranches([]);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false); // If no user or not BHR
+        setMyVisits([]);
+        setAllBranches([]);
+      }
+    };
+    fetchVisitsAndBranches();
+  }, [user, toast]);
 
   const filteredVisits = useMemo(() => {
     return myVisits.filter(visit => {
       const visitDate = parseISO(visit.visit_date);
-      const branch = mockBranches.find(b => b.id === visit.branch_id);
+      const branch = allBranches.find(b => b.id === visit.branch_id);
 
       const matchesSearch = searchTerm === '' ||
-        visit.branch_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        branch?.location.toLowerCase().includes(searchTerm.toLowerCase());
+        (visit.branch_name && visit.branch_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (branch?.location && branch.location.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesMonth = selectedMonth === 'all' || getMonth(visitDate) === parseInt(selectedMonth);
       
@@ -116,9 +154,18 @@ export default function MyVisitsPage() {
 
       return matchesSearch && matchesMonth && matchesCategory && matchesStatus;
     });
-  }, [myVisits, searchTerm, selectedMonth, selectedCategory, activeStatusTab]);
+  }, [myVisits, allBranches, searchTerm, selectedMonth, selectedCategory, activeStatusTab]);
 
-  if (!user) return null;
+  if (!user) return null; // Or a different loading/auth state
+
+  if (isLoading) {
+    return (
+        <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="ml-2 text-muted-foreground">Loading your visits...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -149,7 +196,7 @@ export default function MyVisitsPage() {
                 {monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={branchCategories.length <= 1}>
               <SelectTrigger><SelectValue placeholder="All Categories" /></SelectTrigger>
               <SelectContent>
                  {branchCategories.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
@@ -196,3 +243,4 @@ export default function MyVisitsPage() {
     </div>
   );
 }
+

@@ -89,7 +89,7 @@ const visitFormSchema = z.object({
   message: "Total participants cannot exceed total employees invited.",
   path: ["hr_connect_participants"],
 }).refine(data => {
-  if (data.hr_connect_conducted && (data.hr_connect_participants || 0) > 0 && (data.hr_connect_employees_invited || 0) === 0) {
+  if (data.hr_connect_conducted && (data.hr_connect_participants || 0) > 0 && (data.hr_connect_employees_invited === undefined || data.hr_connect_employees_invited === 0)) {
      return false;
   }
   return true;
@@ -124,7 +124,7 @@ export default function NewVisitPage() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(true);
   const [assignedBranches, setAssignedBranches] = useState<Branch[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedBranchInfo, setSelectedBranchInfo] = useState<{ category: string, code: string } | null>(null);
+  const [selectedBranchInfo, setSelectedBranchInfo] = useState<{ category: string, code: string, name: string } | null>(null);
   const [coveragePercentage, setCoveragePercentage] = useState(0);
   
   const form = useForm<VisitFormValues>({
@@ -171,6 +171,7 @@ export default function NewVisitPage() {
           setIsLoadingBranches(false);
           return;
         }
+        console.log("NewVisitPage: Fetched assignments:", assignments);
 
         if (!assignments || assignments.length === 0) {
           console.log("NewVisitPage: No assignments found for BHR:", user.id);
@@ -210,7 +211,7 @@ export default function NewVisitPage() {
     if (watchedBranchId) {
       const branch = assignedBranches.find(b => b.id === watchedBranchId);
       if (branch) {
-        setSelectedBranchInfo({ category: branch.category, code: branch.code });
+        setSelectedBranchInfo({ category: branch.category, code: branch.code, name: branch.name });
       } else {
         setSelectedBranchInfo(null);
       }
@@ -234,9 +235,9 @@ export default function NewVisitPage() {
     }
     setIsSubmitting(true);
     
-    const selectedBranch = assignedBranches.find(b => b.id === data.branch_id);
-    if (!selectedBranch) {
-        toast({ title: "Error", description: "Selected branch not found.", variant: "destructive" });
+    const currentSelectedBranchInfo = assignedBranches.find(b => b.id === data.branch_id);
+    if (!currentSelectedBranchInfo) {
+        toast({ title: "Error", description: "Selected branch details not found. Please re-select the branch.", variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
@@ -244,7 +245,9 @@ export default function NewVisitPage() {
     const visitDataToInsert = {
       bhr_id: user.id,
       branch_id: data.branch_id,
-      visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // Ensure ISO 8601 format
+      bhr_name: user.name, // Added
+      branch_name: currentSelectedBranchInfo.name, // Added
+      visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
       status: statusToSet,
       hr_connect_conducted: data.hr_connect_conducted,
       hr_connect_employees_invited: data.hr_connect_conducted ? data.hr_connect_employees_invited : null,
@@ -266,9 +269,6 @@ export default function NewVisitPage() {
       qual_comfortable_escalate: data.qual_comfortable_escalate,
       qual_inclusive_culture: data.qual_inclusive_culture,
       additional_remarks: data.additional_remarks,
-      // branch_name, bhr_name, branch_category, branch_code are not directly inserted
-      // as they can be derived or joined. If your RLS needs them, you might need to use a function call.
-      // Or, your table might not store these denormalized fields.
     };
 
     console.log("NewVisitPage: Submitting visit data:", visitDataToInsert);
@@ -277,13 +277,13 @@ export default function NewVisitPage() {
 
     if (error) {
       console.error("NewVisitPage: Error inserting visit:", error);
-      toast({ title: "Error", description: `Failed to submit visit: ${error.message}`, variant: "destructive" });
+      toast({ title: "Error inserting visit", description: error.message, variant: "destructive" });
     } else {
       toast({
         title: statusToSet === 'draft' ? "Visit Saved as Draft!" : "Visit Submitted Successfully!",
-        description: `${statusToSet === 'draft' ? 'Draft for' : 'Visit to'} ${selectedBranch?.name} on ${format(data.visit_date, "PPP")} has been recorded.`,
+        description: `${statusToSet === 'draft' ? 'Draft for' : 'Visit to'} ${currentSelectedBranchInfo?.name} on ${format(data.visit_date, "PPP")} has been recorded.`,
       });
-      if (statusToSet !== 'draft') { // Only reset form if not saving as draft
+      if (statusToSet !== 'draft') {
         form.reset();
         setSelectedBranchInfo(null); 
         setCoveragePercentage(0);
@@ -328,7 +328,7 @@ export default function NewVisitPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Branch</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingBranches || assignedBranches.length === 0}>
+                      <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingBranches || assignedBranches.length === 0}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder={isLoadingBranches ? "Loading branches..." : (assignedBranches.length === 0 ? "No branches assigned" : "Select a branch")} />
@@ -338,7 +338,7 @@ export default function NewVisitPage() {
                           {assignedBranches.map(branch => (
                             <SelectItem key={branch.id} value={branch.id}>{branch.name} - {branch.location}</SelectItem>
                           ))}
-                           {assignedBranches.length === 0 && !isLoadingBranches && <SelectItem value="no-branch" disabled>No branches assigned to you</SelectItem>}
+                           {assignedBranches.length === 0 && !isLoadingBranches && <SelectItem value="no-branch-placeholder" disabled>No branches assigned to you</SelectItem>}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -462,7 +462,7 @@ export default function NewVisitPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{metric.split('_').map(s => s.charAt(0).toUpperCase() + s.substring(1)).join(' ')} (%)</FormLabel>
-                      <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} /></FormControl>
+                      <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -474,7 +474,7 @@ export default function NewVisitPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>No. of CWT Cases</FormLabel>
-                    <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} /></FormControl>
+                    <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -485,7 +485,7 @@ export default function NewVisitPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Performance</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select performance level" /></SelectTrigger></FormControl>
                       <SelectContent>
                         {performanceLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
@@ -510,7 +510,7 @@ export default function NewVisitPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Total</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} /></FormControl>
+                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -521,7 +521,7 @@ export default function NewVisitPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Covered</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} /></FormControl>
+                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -537,7 +537,7 @@ export default function NewVisitPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Total</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/></FormControl>
+                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -548,7 +548,7 @@ export default function NewVisitPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Covered</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))}/></FormControl>
+                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -572,7 +572,7 @@ export default function NewVisitPage() {
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
-                          value={field.value || ""} // Ensure value is not undefined for RadioGroup
+                          value={field.value || ""} 
                           className="flex space-x-4"
                         >
                           <FormItem className="flex items-center space-x-2">
@@ -618,7 +618,7 @@ export default function NewVisitPage() {
           </Card>
           
           <div className="flex flex-col sm:flex-row justify-end gap-4 pt-4">
-            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={isSubmitting || isLoadingBranches} className="w-full sm:w-auto">
+            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0} className="w-full sm:w-auto">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save as Draft
             </Button>
