@@ -33,17 +33,19 @@ export default function CHRVisitsMadePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { 
-    selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions,
-    selectedZhrIds: globalSelectedZhrIds, zhrOptions: globalZhrOptions,
-    allUsersForContext, isLoadingAllUsers
+    selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions, // Use global VHR filter
+    allUsersForContext, isLoadingAllUsers 
   } = useChrFilter();
 
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [allSubmittedVisitsGlobal, setAllSubmittedVisitsGlobal] = useState<Visit[]>([]);
-  // allUsersGlobal is now allUsersForContext
   const [allBranchesGlobal, setAllBranchesGlobal] = useState<Branch[]>([]);
 
-  // Local BHR and Branch filters, dependent on global VHR/ZHR
+  // Local filters for ZHR, BHR, Branch
+  const [selectedZhrIds, setSelectedZhrIds] = useState<string[]>([]);
+  const [zhrOptions, setZhrOptions] = useState<FilterOption[]>([]);
+  const [isLoadingZhrOptions, setIsLoadingZhrOptions] = useState(false);
+
   const [selectedBhrIds, setSelectedBhrIds] = useState<string[]>([]);
   const [bhrOptions, setBhrOptions] = useState<FilterOption[]>([]);
   const [isLoadingBhrOptions, setIsLoadingBhrOptions] = useState(false);
@@ -60,7 +62,7 @@ export default function CHRVisitsMadePage() {
 
   useEffect(() => {
     if (user && user.role === 'CHR') {
-      if (isLoadingAllUsers) return; // Wait for context users
+      if (isLoadingAllUsers) return; 
       const fetchPageData = async () => {
         setIsLoadingPageData(true);
         try {
@@ -90,14 +92,30 @@ export default function CHRVisitsMadePage() {
     }
   }, [user, toast, isLoadingAllUsers]);
 
+  // Populate ZHR options based on global VHR selection
+  useEffect(() => {
+    setIsLoadingZhrOptions(true);
+    if (allUsersForContext.length > 0) {
+      let potentialZhrs = allUsersForContext.filter(u => u.role === 'ZHR');
+      if (globalSelectedVhrIds.length > 0) {
+        potentialZhrs = potentialZhrs.filter(zhr => zhr.reports_to && globalSelectedVhrIds.includes(zhr.reports_to));
+      }
+      setZhrOptions(potentialZhrs.map(z => ({ value: z.id, label: z.name })));
+    } else {
+      setZhrOptions([]);
+    }
+    setSelectedZhrIds([]);
+    setIsLoadingZhrOptions(false);
+  }, [globalSelectedVhrIds, allUsersForContext]);
 
+  // Populate BHR options based on local ZHR selection (and global VHR if ZHRs empty)
   useEffect(() => {
     setIsLoadingBhrOptions(true);
     if (allUsersForContext.length > 0) {
       let potentialBhrs = allUsersForContext.filter(u => u.role === 'BHR');
-      if (globalSelectedZhrIds.length > 0) {
-        potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to));
-      } else if (globalSelectedVhrIds.length > 0) {
+      if (selectedZhrIds.length > 0) {
+        potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
+      } else if (globalSelectedVhrIds.length > 0) { // Only if no ZHRs are selected, but VHRs are
         const zhrsUnderSelectedVhrs = allUsersForContext
           .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
           .map(z => z.id);
@@ -109,36 +127,39 @@ export default function CHRVisitsMadePage() {
     }
     setSelectedBhrIds([]);
     setIsLoadingBhrOptions(false);
-  }, [globalSelectedZhrIds, globalSelectedVhrIds, allUsersForContext]);
+  }, [selectedZhrIds, globalSelectedVhrIds, allUsersForContext]);
 
+  // Reset branch selection if higher filters change
   useEffect(() => {
     setSelectedBranchIds([]);
-  }, [selectedBhrIds, globalSelectedZhrIds, globalSelectedVhrIds]);
+  }, [selectedBhrIds, selectedZhrIds, globalSelectedVhrIds]);
 
 
   const filteredVisits = useMemo(() => {
     let visits = allSubmittedVisitsGlobal;
 
     let relevantBhrIds = new Set<string>();
-    if (selectedBhrIds.length > 0) {
+    if (selectedBhrIds.length > 0) { // If specific BHRs are selected locally
         selectedBhrIds.forEach(id => relevantBhrIds.add(id));
-    } else if (globalSelectedZhrIds.length > 0) {
+    } else if (selectedZhrIds.length > 0) { // If specific ZHRs are selected locally (and no BHRs)
         allUsersForContext
-            .filter(u => u.role === 'BHR' && u.reports_to && globalSelectedZhrIds.includes(u.reports_to))
+            .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
-    } else if (globalSelectedVhrIds.length > 0) {
+    } else if (globalSelectedVhrIds.length > 0) { // If specific VHRs are selected globally (and no local ZHR/BHR)
         const zhrsInSelectedVhrs = allUsersForContext
             .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
             .map(z => z.id);
         allUsersForContext
             .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
-    } else { 
+    } else { // No global VHR, local ZHR, or local BHR selected - consider all BHRs
         allUsersForContext.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
 
-    if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || globalSelectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
-      if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || globalSelectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
+    // Apply BHR filter only if some BHRs were identified by the above logic or if specific filter was set
+    // If a filter is active (VHR, ZHR, BHR) but no BHRs match it, visits should be empty.
+    if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
+      if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
         visits = [];
       } else if (relevantBhrIds.size > 0) {
         visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
@@ -183,7 +204,7 @@ export default function CHRVisitsMadePage() {
     allUsersForContext, 
     allBranchesGlobal, 
     globalSelectedVhrIds, 
-    globalSelectedZhrIds, 
+    selectedZhrIds, 
     selectedBhrIds, 
     selectedBranchIds, 
     dateRange,
@@ -257,6 +278,7 @@ export default function CHRVisitsMadePage() {
   };
   
   const handleClearAllLocalFilters = () => {
+    setSelectedZhrIds([]);
     setSelectedBhrIds([]);
     setSelectedBranchIds([]);
     setDateRange(undefined);
@@ -279,29 +301,17 @@ export default function CHRVisitsMadePage() {
   
   const pageTitleText = useMemo(() => {
     let title = "Submitted Visits";
-    let filterParts: string[] = [];
     if (globalSelectedVhrIds.length > 0) {
       if (globalSelectedVhrIds.length === 1) {
-        filterParts.push(globalVhrOptions.find(v => v.value === globalSelectedVhrIds[0])?.label || "VHR");
+        title += ` (${globalVhrOptions.find(v => v.value === globalSelectedVhrIds[0])?.label || "Selected VHR"})`;
       } else {
-        filterParts.push(`${globalSelectedVhrIds.length} VHRs`);
+        title += ` (${globalSelectedVhrIds.length} VHRs)`;
       }
-    }
-     if (globalSelectedZhrIds.length > 0) {
-      if (globalSelectedZhrIds.length === 1) {
-        filterParts.push(globalZhrOptions.find(z => z.value === globalSelectedZhrIds[0])?.label || "ZHR");
-      } else {
-        filterParts.push(`${globalSelectedZhrIds.length} ZHRs`);
-      }
-    }
-
-    if (filterParts.length > 0) {
-        title += ` (${filterParts.join(' > ')})`;
     } else {
-        title += " (All)";
+      title += " (All)";
     }
     return title;
-  }, [globalSelectedVhrIds, globalVhrOptions, globalSelectedZhrIds, globalZhrOptions]);
+  }, [globalSelectedVhrIds, globalVhrOptions]);
 
   return (
     <div className="space-y-8">
@@ -310,10 +320,41 @@ export default function CHRVisitsMadePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Local Filters</CardTitle>
-          <CardDescription>Refine visits by BHR, Branch, Date Range, and Search Term. Applied with global VHR/ZHR filters.</CardDescription>
+          <CardDescription>Refine visits by ZHR, BHR, Branch, Date Range, and Search Term. Applied with global VHR filter.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4"> {/* BHR and Branch filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* ZHR Filter */}
+            <div className="relative flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between pr-10">
+                    {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                  <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                  zhrOptions.length > 0 ? zhrOptions.map(option => (
+                    <DropdownMenuCheckboxItem
+                      key={option.value}
+                      checked={selectedZhrIds.includes(option.value)}
+                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
+                </DropdownMenuContent>
+              </DropdownMenu>
+               {selectedZhrIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+              )}
+            </div>
             {/* BHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>

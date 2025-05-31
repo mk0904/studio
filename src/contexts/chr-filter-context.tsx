@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@/types';
 import { useAuth } from './auth-context';
 
-interface FilterOption { // Renamed VhrOption to FilterOption for reusability
+interface FilterOption {
   value: string;
   label: string;
 }
@@ -17,12 +17,7 @@ interface ChrFilterContextType {
   vhrOptions: FilterOption[];
   isLoadingVhrOptions: boolean;
 
-  selectedZhrIds: string[];
-  setSelectedZhrIds: (zhrIds: string[]) => void;
-  zhrOptions: FilterOption[];
-  isLoadingZhrOptions: boolean;
-
-  allUsersForContext: User[];
+  allUsersForContext: User[]; // To allow CHR pages to build further local filters
   isLoadingAllUsers: boolean;
 }
 
@@ -37,10 +32,6 @@ export function ChrFilterProvider({ children }: { children: ReactNode }) {
   const [selectedVhrIds, setSelectedVhrIdsInternal] = useState<string[]>([]);
   const [vhrOptions, setVhrOptions] = useState<FilterOption[]>([]);
   const [isLoadingVhrOptions, setIsLoadingVhrOptions] = useState<boolean>(false);
-
-  const [selectedZhrIds, setSelectedZhrIdsInternal] = useState<string[]>([]);
-  const [zhrOptions, setZhrOptions] = useState<FilterOption[]>([]);
-  const [isLoadingZhrOptions, setIsLoadingZhrOptions] = useState<boolean>(false);
 
   const fetchAllUsersForContext = useCallback(async () => {
     if (user?.role !== 'CHR') {
@@ -76,33 +67,9 @@ export function ChrFilterProvider({ children }: { children: ReactNode }) {
     setVhrOptions(vhrs.map(vhr => ({ value: vhr.id, label: vhr.name })));
     setIsLoadingVhrOptions(false);
   }, [allUsersForContext, isLoadingAllUsers, user]);
-
+  
   const setSelectedVhrIds = (vhrIds: string[]) => {
     setSelectedVhrIdsInternal(vhrIds);
-    setSelectedZhrIdsInternal([]); // Reset ZHR selection when VHR selection changes
-  };
-
-  useEffect(() => {
-    if (isLoadingAllUsers || user?.role !== 'CHR') {
-      setZhrOptions([]);
-      setIsLoadingZhrOptions(false);
-      return;
-    }
-    setIsLoadingZhrOptions(true);
-    let potentialZhrs: User[];
-    if (selectedVhrIds.length > 0) {
-      potentialZhrs = allUsersForContext.filter(
-        u => u.role === 'ZHR' && u.reports_to && selectedVhrIds.includes(u.reports_to)
-      );
-    } else {
-      potentialZhrs = allUsersForContext.filter(u => u.role === 'ZHR');
-    }
-    setZhrOptions(potentialZhrs.map(zhr => ({ value: zhr.id, label: zhr.name })));
-    setIsLoadingZhrOptions(false);
-  }, [allUsersForContext, isLoadingAllUsers, user, selectedVhrIds]);
-  
-  const setSelectedZhrIds = (zhrIds: string[]) => {
-    setSelectedZhrIdsInternal(zhrIds);
   };
 
   return (
@@ -112,10 +79,6 @@ export function ChrFilterProvider({ children }: { children: ReactNode }) {
         setSelectedVhrIds, 
         vhrOptions, 
         isLoadingVhrOptions,
-        selectedZhrIds,
-        setSelectedZhrIds,
-        zhrOptions,
-        isLoadingZhrOptions,
         allUsersForContext,
         isLoadingAllUsers
       }}
