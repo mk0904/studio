@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LucideIcon } from 'lucide-react';
+import { cn } from "@/lib/utils"; // Added import for cn
 
 interface StatCardProps {
   title: string;
@@ -30,13 +31,5 @@ export function StatCard({ title, value, icon: Icon, description, className }: S
     </Card>
   );
 }
-
-// Helper cn function if not already available globally in this component's context
-// (It's typically in lib/utils.ts)
-// import { clsx, type ClassValue } from "clsx"
-// import { twMerge } from "tailwind-merge"
-// function cn(...inputs: ClassValue[]) {
-//   return twMerge(clsx(inputs))
-// }
 
     
