@@ -13,7 +13,7 @@ import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-// BhrSubmissionsListModal import removed
+import { BhrSubmissionsListModal } from '@/components/shared/bhr-submissions-list-modal';
 
 export default function VHRTeamStructurePage() {
   const { user: currentUser } = useAuth();
@@ -25,9 +25,8 @@ export default function VHRTeamStructurePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  // State and handler for submissions modal removed
-  // const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
-  // const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
+  const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
+  const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -36,11 +35,10 @@ export default function VHRTeamStructurePage() {
     return () => clearTimeout(timerId);
   }, [searchTerm]);
 
-  // handleShowSubmissions function removed
-  // const handleShowSubmissions = (bhr: User) => {
-  //   setSelectedBhrForModal(bhr);
-  //   setIsSubmissionsModalOpen(true);
-  // };
+  const handleShowSubmissions = (bhr: User) => {
+    setSelectedBhrForModal(bhr);
+    setIsSubmissionsModalOpen(true);
+  };
 
   const fetchDataAndBuildInitialHierarchy = useCallback(async () => {
     if (!currentUser || currentUser.role !== 'VHR') {
@@ -216,10 +214,26 @@ export default function VHRTeamStructurePage() {
 
       <div className="space-y-3">
         {displayedRootUserNodes.map(node => (
-          <HierarchyNode key={node.id} node={node} level={0} />
+          <HierarchyNode 
+            key={node.id} 
+            node={node} 
+            level={0} 
+            onShowSubmissions={handleShowSubmissions}
+          />
         ))}
       </div>
-      {/* BhrSubmissionsListModal and its trigger logic removed */}
+      
+      {selectedBhrForModal && (
+        <BhrSubmissionsListModal
+          bhrUser={selectedBhrForModal}
+          isOpen={isSubmissionsModalOpen}
+          onClose={() => {
+            setIsSubmissionsModalOpen(false);
+            setSelectedBhrForModal(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+

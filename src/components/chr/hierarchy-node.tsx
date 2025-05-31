@@ -5,7 +5,7 @@ import React from 'react';
 import type { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User as UserIcon, Briefcase, Users, Shield, Building, Info } from 'lucide-react';
+import { User as UserIcon, Briefcase, Users, Shield, Building, ListChecks } from 'lucide-react';
 import { Button } from '../ui/button';
 
 export interface UserNode extends User {
@@ -16,7 +16,7 @@ export interface UserNode extends User {
 interface HierarchyNodeProps {
   node: UserNode;
   level: number;
-  // onShowSubmissions prop removed
+  onShowSubmissions?: (bhr: User) => void;
 }
 
 const roleIcons: Record<User['role'], React.ElementType> = {
@@ -33,7 +33,7 @@ const roleColors: Record<User['role'], string> = {
   BHR: 'bg-green-500 hover:bg-green-600',
 };
 
-export function HierarchyNode({ node, level }: HierarchyNodeProps) {
+export function HierarchyNode({ node, level, onShowSubmissions }: HierarchyNodeProps) {
   const Icon = roleIcons[node.role] || UserIcon;
 
   return (
@@ -46,7 +46,7 @@ export function HierarchyNode({ node, level }: HierarchyNodeProps) {
           </div>
           <Badge variant="outline" className="text-xs">{node.role}</Badge>
         </CardHeader>
-        <CardContent className="px-4 pb-3 pt-1 text-xs text-muted-foreground space-y-0.5">
+        <CardContent className="px-4 pb-3 pt-1 text-xs text-muted-foreground space-y-1">
           <p>Email: {node.email}</p>
           {node.e_code && <p>E-Code: {node.e_code}</p>}
           {node.location && <p>Location: {node.location}</p>}
@@ -60,16 +60,31 @@ export function HierarchyNode({ node, level }: HierarchyNodeProps) {
               </div>
             </div>
           )}
-          {/* "Show Submissions" button removed */}
+          {node.role === 'BHR' && onShowSubmissions && (
+             <Button 
+                variant="outline" 
+                size="xs" // Assuming a smaller size variant exists or can be added
+                className="mt-2 text-xs h-auto py-1 px-2"
+                onClick={() => onShowSubmissions(node)}
+            >
+                <ListChecks className="mr-1.5 h-3 w-3" /> Show Submissions
+            </Button>
+          )}
         </CardContent>
       </Card>
       {node.children && node.children.length > 0 && (
         <div className="mt-2 pl-5 border-l-2 border-border/70">
           {node.children.map(childNode => (
-            <HierarchyNode key={childNode.id} node={childNode} level={level + 1} />
+            <HierarchyNode 
+                key={childNode.id} 
+                node={childNode} 
+                level={level + 1} 
+                onShowSubmissions={onShowSubmissions} 
+            />
           ))}
         </div>
       )}
     </div>
   );
 }
+
