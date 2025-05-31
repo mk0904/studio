@@ -8,7 +8,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  reports_to?: string; // UUID of manager
+  reports_to?: string | null; // UUID of manager, allow null
   e_code?: string;
   location?: string;
 }
@@ -100,4 +100,6 @@ export interface UserProfileUpdateData {
   newPassword?: string;
   e_code?: string | null;
   location?: string | null;
+  reports_to?: string | null;
 }
+

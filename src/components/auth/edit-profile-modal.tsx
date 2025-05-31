@@ -24,27 +24,37 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from '@/contexts/auth-context';
-import type { User, UserProfileUpdateData } from '@/types';
+import type { User, UserProfileUpdateData, UserRole } from '@/types';
 import { Loader2, Save, Eye } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { useToast } from '@/hooks/use-toast';
 
 const editProfileFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
   e_code: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
+  reports_to: z.string().optional().nullable(),
   newPassword: z.string().optional(),
   confirmNewPassword: z.string().optional(),
 }).refine(data => {
   if (data.newPassword && data.newPassword.length < 6) {
-    return false; // Fails if newPassword is provided but too short
+    return false;
   }
   return true;
 }, {
   message: 'New password must be at least 6 characters.',
   path: ['newPassword'],
 }).refine(data => {
-    if (data.newPassword && !data.confirmNewPassword) return false; // Require confirm if new is set
+    if (data.newPassword && !data.confirmNewPassword) return false;
     return true;
 }, {
     message: 'Please confirm your new password.',
@@ -64,9 +74,12 @@ interface EditProfileModalProps {
 }
 
 export function EditProfileModal({ currentUser, isOpen, onClose }: EditProfileModalProps) {
-  const { updateUser, isLoading } = useAuth();
+  const { updateUser, isLoading: isAuthLoading } = useAuth();
+  const { toast } = useToast();
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [potentialManagers, setPotentialManagers] = useState<User[]>([]);
+  const [isLoadingManagers, setIsLoadingManagers] = useState(false);
 
   const form = useForm<EditProfileFormValues>({
     resolver: zodResolver(editProfileFormSchema),
@@ -75,10 +88,45 @@ export function EditProfileModal({ currentUser, isOpen, onClose }: EditProfileMo
       email: currentUser.email || '',
       e_code: currentUser.e_code || '',
       location: currentUser.location || '',
+      reports_to: currentUser.reports_to || '',
       newPassword: '',
       confirmNewPassword: '',
     },
   });
+
+  useEffect(() => {
+    const fetchPotentialManagers = async () => {
+      if (!currentUser || currentUser.role === 'CHR' || !isOpen) {
+        setPotentialManagers([]);
+        return;
+      }
+      setIsLoadingManagers(true);
+      let targetRole: UserRole | null = null;
+      if (currentUser.role === 'BHR') targetRole = 'ZHR';
+      else if (currentUser.role === 'ZHR') targetRole = 'VHR';
+      else if (currentUser.role === 'VHR') targetRole = 'CHR';
+
+      if (targetRole) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, name, role')
+          .eq('role', targetRole)
+          .not('id', 'eq', currentUser.id); // Prevent self-reporting
+
+        if (error) {
+          toast({ title: "Error", description: `Could not load managers list for ${targetRole}.`, variant: "destructive" });
+          setPotentialManagers([]);
+        } else {
+          setPotentialManagers(data as User[]);
+        }
+      } else {
+        setPotentialManagers([]);
+      }
+      setIsLoadingManagers(false);
+    };
+
+    fetchPotentialManagers();
+  }, [currentUser, isOpen, toast]);
 
   useEffect(() => {
     if (currentUser && isOpen) {
@@ -87,6 +135,7 @@ export function EditProfileModal({ currentUser, isOpen, onClose }: EditProfileMo
         email: currentUser.email || '',
         e_code: currentUser.e_code || '',
         location: currentUser.location || '',
+        reports_to: currentUser.reports_to || '',
         newPassword: '',
         confirmNewPassword: '',
       });
@@ -99,6 +148,7 @@ export function EditProfileModal({ currentUser, isOpen, onClose }: EditProfileMo
       email: values.email,
       e_code: values.e_code,
       location: values.location,
+      reports_to: values.reports_to === '' ? null : values.reports_to, // Send null if empty string
     };
     if (values.newPassword) {
       updateData.newPassword = values.newPassword;
@@ -106,9 +156,8 @@ export function EditProfileModal({ currentUser, isOpen, onClose }: EditProfileMo
     
     try {
       await updateUser(currentUser.id, updateData);
-      onClose(); // Close modal on success
+      onClose();
     } catch (error) {
-      // Toast is handled by updateUser in AuthContext
       console.error("Failed to update profile:", error);
     }
   }
@@ -172,6 +221,40 @@ export function EditProfileModal({ currentUser, isOpen, onClose }: EditProfileMo
                 )}
                 />
             </div>
+
+            {currentUser.role !== 'CHR' && (
+              <FormField
+                control={form.control}
+                name="reports_to"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reports To</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
+                      value={field.value || 'none'}
+                      disabled={isLoadingManagers}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingManagers ? "Loading managers..." : "Select manager"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None (Clear Selection)</SelectItem>
+                        {potentialManagers.map(manager => (
+                          <SelectItem key={manager.id} value={manager.id}>{manager.name} ({manager.role})</SelectItem>
+                        ))}
+                        {!isLoadingManagers && potentialManagers.length === 0 && currentUser.role !== 'CHR' && (
+                            <SelectItem value="no-managers" disabled>No eligible managers found</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">Change Password (Optional)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -239,8 +322,8 @@ export function EditProfileModal({ currentUser, isOpen, onClose }: EditProfileMo
               <DialogClose asChild>
                 <Button type="button" variant="outline">Cancel</Button>
               </DialogClose>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              <Button type="submit" disabled={isAuthLoading || isLoadingManagers}>
+                {(isAuthLoading || isLoadingManagers) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
               </Button>
             </DialogFooter>

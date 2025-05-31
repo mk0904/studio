@@ -18,7 +18,7 @@ interface AuthContextType {
     password?: string, 
     e_code?: string,
     location?: string,
-    reports_to?: string
+    reports_to?: string | null // Allow null
   ) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userId: string, data: UserProfileUpdateData) => Promise<void>;
@@ -49,8 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (userProfile) {
         setUser(userProfile as User);
       } else {
-        // This case can happen if a user exists in auth.users but not in public.users
-        // For example, if profile creation failed after signup or was manually deleted.
         console.warn('User profile not found in public.users table for an authenticated user.');
         setUser(null); 
       }
@@ -75,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [toast]); // Removed fetchUserAndSetSession from dependency array as it's defined outside and stable
+  }, [toast]);
 
   useEffect(() => {
     if (!isLoading && !user && !pathname.startsWith('/auth')) {
@@ -123,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password?: string,
     e_code?: string,
     location?: string,
-    reports_to?: string
+    reports_to?: string | null // Allow null
   ) => {
     setIsLoading(true);
     if (!password) {
@@ -204,9 +202,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const profileDataToUpdate: Partial<User> = {};
     if (data.name) profileDataToUpdate.name = data.name;
-    if (data.email) profileDataToUpdate.email = data.email; // Keep email in sync with auth
+    if (data.email) profileDataToUpdate.email = data.email;
     if (data.e_code !== undefined) profileDataToUpdate.e_code = data.e_code ?? undefined;
     if (data.location !== undefined) profileDataToUpdate.location = data.location ?? undefined;
+    if (data.reports_to !== undefined) profileDataToUpdate.reports_to = data.reports_to; // Can be string or null
     
     if (Object.keys(profileDataToUpdate).length > 0) {
         const { error: profileUpdateError } = await supabase
@@ -221,7 +220,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    // Re-fetch the user profile to update context
     const { data: updatedUserProfile, error: fetchError } = await supabase
       .from('users')
       .select('*')
@@ -254,3 +252,4 @@ export function useAuth() {
   }
   return context;
 }
+
