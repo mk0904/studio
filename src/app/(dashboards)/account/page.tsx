@@ -11,6 +11,7 @@ import { EditProfileModal } from '@/components/auth/edit-profile-modal';
 import { Loader2, LogOut, Pencil, UserCircle2, Mail, Briefcase, Hash, MapPin, Users } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@/types';
+import { Badge } from '@/components/ui/badge'; // Added import
 
 interface DetailRowProps {
   icon: React.ElementType;
