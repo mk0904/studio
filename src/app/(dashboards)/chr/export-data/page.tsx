@@ -19,8 +19,8 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Aliased to avoid conflict
 import { format, parseISO } from 'date-fns';
 
 interface FilterOption { value: string; label: string; }
@@ -38,11 +38,14 @@ export default function CHRExportDataPage() {
   const [zhrOptions, setZhrOptions] = useState<FilterOption[]>([]);
   const [bhrOptions, setBhrOptions] = useState<FilterOption[]>([]);
   const [branchOptions, setBranchOptions] = useState<FilterOption[]>([]);
+  const [branchCategoryOptions, setBranchCategoryOptions] = useState<string[]>(['all']);
+
 
   const [selectedVhrIds, setSelectedVhrIds] = useState<string[]>([]);
   const [selectedZhrIds, setSelectedZhrIds] = useState<string[]>([]);
   const [selectedBhrIds, setSelectedBhrIds] = useState<string[]>([]);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [selectedBranchCategory, setSelectedBranchCategory] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [error, setError] = useState<string | null>(null);
 
@@ -60,8 +63,13 @@ export default function CHRExportDataPage() {
       setVhrOptions((usersRes.data || []).filter(u => u.role === 'VHR').map(u => ({ value: u.id, label: u.name })));
 
       if (branchesRes.error) throw branchesRes.error;
-      setAllBranches(branchesRes.data || []);
-      setBranchOptions((branchesRes.data || []).map(b => ({ value: b.id, label: `${b.name} (${b.code})` })));
+      const fetchedBranches = branchesRes.data || [];
+      setAllBranches(fetchedBranches);
+      setBranchOptions(fetchedBranches.map(b => ({ value: b.id, label: `${b.name} (${b.code})` })));
+      
+      const uniqueCategories = Array.from(new Set(fetchedBranches.map(b => b.category).filter(Boolean)));
+      setBranchCategoryOptions(['all', ...uniqueCategories]);
+
 
     } catch (e: any) {
       console.error("Error fetching initial filter data:", e);
@@ -109,8 +117,8 @@ export default function CHRExportDataPage() {
     try {
       let query = supabase.from('visits').select(`
         *,
-        bhr_user:users!visits_bhr_id_fkey (id, name, e_code, location),
-        branch:branches (id, name, code, location, category)
+        bhr_user:users!visits_bhr_id_fkey (id, name, e_code, location, role),
+        branch:branches!visits_branch_id_fkey (id, name, code, location, category)
       `).eq('status', 'submitted');
 
       let targetBhrIds: string[] | null = null;
@@ -123,21 +131,29 @@ export default function CHRExportDataPage() {
         if (zhrIds.length > 0) {
             targetBhrIds = allUsers.filter(u => u.role === 'BHR' && u.reports_to && zhrIds.includes(u.reports_to)).map(u => u.id);
         } else {
-             targetBhrIds = [];
+             targetBhrIds = []; // No ZHRs under VHRs means no BHRs.
         }
       }
       
-      if (targetBhrIds !== null && targetBhrIds.length === 0) {
-        toast({ title: "No Data", description: "No BHRs match the selected hierarchy filters. Cannot export.", variant: "default" });
-        setIsExporting(false);
-        return;
-      } else if (targetBhrIds !== null) {
+      if (targetBhrIds !== null) { // If any hierarchy filter is active
+        if (targetBhrIds.length === 0) { // And it results in no BHRs
+          toast({ title: "No Data", description: "No BHRs match the selected hierarchy filters. Cannot export.", variant: "default" });
+          setIsExporting(false);
+          return;
+        }
         query = query.in('bhr_id', targetBhrIds);
       }
 
       if (selectedBranchIds.length > 0) {
         query = query.in('branch_id', selectedBranchIds);
       }
+      
+      // Filter by branch category - this requires a filter on the joined 'branches' table
+      if (selectedBranchCategory !== 'all') {
+         // The join is defined in the select, so Supabase should handle filtering on the joined table.
+        query = query.eq('branch.category', selectedBranchCategory);
+      }
+
       if (dateRange?.from) {
         query = query.gte('visit_date', format(dateRange.from, 'yyyy-MM-dd'));
       }
@@ -157,9 +173,8 @@ export default function CHRExportDataPage() {
         return;
       }
       
-      // Proceed to CSV generation if data is found
       const headers = [
-        "Visit ID", "BHR Name", "BHR E-Code", "BHR Location",
+        "Visit ID", "BHR Name", "BHR E-Code", "BHR Location", "BHR Role",
         "Branch Name", "Branch Code", "Branch Location", "Branch Category",
         "Visit Date", "Status", "HR Connect Conducted", "HR Connect Invited", "HR Connect Participants",
         "Manning %", "Attrition %", "Non-Vendor %", "ER %", "CWT Cases", "Performance Level",
@@ -172,12 +187,12 @@ export default function CHRExportDataPage() {
       const csvRows = [headers.join(',')];
 
       fetchedDataForExport.forEach(visit => {
-        const bhrUser = visit.bhr_user as User | null;
-        const branchData = visit.branch as Branch | null;
+        const bhrUser = visit.bhr_user as User | null; // Explicitly type cast
+        const branchData = visit.branch as Branch | null; // Explicitly type cast
 
         const row = [
           visit.id,
-          bhrUser?.name || 'N/A', bhrUser?.e_code || 'N/A', bhrUser?.location || 'N/A',
+          bhrUser?.name || 'N/A', bhrUser?.e_code || 'N/A', bhrUser?.location || 'N/A', bhrUser?.role || 'N/A',
           branchData?.name || 'N/A', branchData?.code || 'N/A', branchData?.location || 'N/A', branchData?.category || 'N/A',
           visit.visit_date ? format(parseISO(visit.visit_date), 'yyyy-MM-dd') : 'N/A',
           visit.status || 'N/A',
@@ -234,7 +249,7 @@ export default function CHRExportDataPage() {
     defaultText: string, 
     pluralName: string
   ) => {
-    if (isLoadingPage && options.length === 0) return `Loading ${pluralName}...`;
+    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return `Loading ${pluralName}...`;
     if (selectedIds.length === 0) return defaultText;
     if (selectedIds.length === 1) {
       const selectedOption = options.find(opt => opt.value === selectedIds[0]);
@@ -259,7 +274,9 @@ export default function CHRExportDataPage() {
     setSelectedZhrIds([]);
     setSelectedBhrIds([]);
     setSelectedBranchIds([]);
+    setSelectedBranchCategory('all');
     setDateRange(undefined);
+    setError(null);
   };
 
   if (isLoadingPage && allUsers.length === 0 && allBranches.length === 0) {
@@ -281,7 +298,7 @@ export default function CHRExportDataPage() {
           <CardDescription>Select criteria to refine the data before exporting.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
                 <Label className="text-sm font-medium mb-1 block">Filter by VHR</Label>
                 <DropdownMenu>
@@ -337,7 +354,7 @@ export default function CHRExportDataPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
                 <Label className="text-sm font-medium mb-1 block">Filter by Branch</Label>
                  <DropdownMenu>
@@ -354,6 +371,22 @@ export default function CHRExportDataPage() {
                     </DropdownMenuContent>
                 </DropdownMenu>
                 {selectedBranchIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs" onClick={() => setSelectedBranchIds([])}>Clear Branches</Button>}
+            </div>
+             <div>
+                <Label className="text-sm font-medium mb-1 block">Filter by Branch Category</Label>
+                <ShadcnSelect value={selectedBranchCategory} onValueChange={setSelectedBranchCategory} disabled={branchCategoryOptions.length <= 1 && !isLoadingPage}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select Category"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                        {branchCategoryOptions.map(category => (
+                            <SelectItem key={category} value={category}>
+                                {category === 'all' ? 'All Categories' : category}
+                            </SelectItem>
+                        ))}
+                         {branchCategoryOptions.length <= 1 && <SelectItem value="no-cat" disabled>No categories found</SelectItem>}
+                    </SelectContent>
+                </ShadcnSelect>
             </div>
             <div>
                 <Label className="text-sm font-medium mb-1 block">Filter by Visit Date</Label>
