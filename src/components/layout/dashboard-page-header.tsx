@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, Filter, ChevronsUpDown, XCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useChrFilter } from '@/contexts/chr-filter-context';
+import { useVhrFilter } from '@/contexts/vhr-filter-context'; // Import VHR filter hook
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,29 +23,36 @@ export function DashboardPageHeader() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
 
-  // Only use ChrFilter hook if the user is CHR, otherwise provide defaults
-  const chrFilterHook = user?.role === 'CHR' ? useChrFilter : () => ({
-    selectedVhrIds: [],
-    setSelectedVhrIds: () => {},
-    vhrOptions: [],
-    isLoadingVhrOptions: false,
-    // Ensure allUsersForContext and isLoadingAllUsers are also part of the default to prevent errors
-    allUsersForContext: [], 
-    isLoadingAllUsers: true,
-  });
+  const isChr = user?.role === 'CHR';
+  const isVhr = user?.role === 'VHR';
 
+  // CHR Filter Hook
+  const chrFilterHook = isChr ? useChrFilter : () => ({
+    selectedVhrIds: [], setSelectedVhrIds: () => {}, vhrOptions: [], isLoadingVhrOptions: false,
+    allUsersForContext: [], isLoadingAllUsers: true,
+  });
   const { 
     selectedVhrIds, setSelectedVhrIds, vhrOptions, isLoadingVhrOptions 
   } = chrFilterHook();
 
-  const handleVhrFilterChange = (vhrId: string) => {
+  // VHR Filter Hook (for ZHR filter when user is VHR)
+  const vhrFilterHookForZhr = isVhr ? useVhrFilter : () => ({
+    selectedZhrIds: [], setSelectedZhrIds: () => {}, zhrOptions: [], isLoadingZhrOptions: false,
+    allBhrsInVhrVertical: [], isLoadingBhrsInVhrVertical: true,
+  });
+  const {
+    selectedZhrIds, setSelectedZhrIds, zhrOptions, isLoadingZhrOptions: isLoadingZhrOptionsForVhr
+  } = vhrFilterHookForZhr();
+
+
+  const handleChrVhrFilterChange = (vhrId: string) => {
     const newSelectedVhrIds = selectedVhrIds.includes(vhrId)
       ? selectedVhrIds.filter(id => id !== vhrId)
       : [...selectedVhrIds, vhrId];
     setSelectedVhrIds(newSelectedVhrIds);
   };
   
-  const getVhrFilterButtonText = () => {
+  const getChrVhrFilterButtonText = () => {
     if (isLoadingVhrOptions) return "Loading VHRs...";
     if (selectedVhrIds.length === 0) return "All VHR Verticals";
     if (selectedVhrIds.length === 1) {
@@ -54,7 +62,26 @@ export function DashboardPageHeader() {
     return `${selectedVhrIds.length} VHRs Selected`;
   };
 
-  const showGlobalChrFilters = user?.role === 'CHR' && pathname !== '/chr/oversee-channel';
+  const handleVhrZhrFilterChange = (zhrId: string) => {
+    const newSelectedZhrIds = selectedZhrIds.includes(zhrId)
+      ? selectedZhrIds.filter(id => id !== zhrId)
+      : [...selectedZhrIds, zhrId];
+    setSelectedZhrIds(newSelectedZhrIds);
+  };
+
+  const getVhrZhrFilterButtonText = () => {
+    if (isLoadingZhrOptionsForVhr) return "Loading ZHRs...";
+    if (selectedZhrIds.length === 0) return "All ZHRs in Vertical";
+    if (selectedZhrIds.length === 1) {
+      const selectedOption = zhrOptions.find(opt => opt.value === selectedZhrIds[0]);
+      return selectedOption ? selectedOption.label : "1 ZHR Selected";
+    }
+    return `${selectedZhrIds.length} ZHRs Selected`;
+  };
+
+
+  const showGlobalChrVhrFilter = isChr && pathname !== '/chr/oversee-channel';
+  const showGlobalVhrZhrFilter = isVhr; // VHR ZHR filter is shown on all VHR pages
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:px-6">
@@ -62,50 +89,92 @@ export function DashboardPageHeader() {
         <SidebarTrigger className="md:hidden" />
       </div>
       <div className="flex items-center gap-x-2">
-        {showGlobalChrFilters && (
-          <>
-            {/* VHR Filter */}
-            <div className="relative flex items-center">
-              <Filter className="h-4 w-4 text-muted-foreground mr-1" />
-              {isLoadingVhrOptions ? (
-                <Skeleton className="h-9 w-40 rounded-md" />
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-auto min-w-[150px] h-9 bg-background/70 border-border text-sm justify-between pr-8">
-                      {getVhrFilterButtonText()}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-popover text-popover-foreground border-border max-h-72 overflow-y-auto">
-                    <DropdownMenuLabel>Filter by VHR Vertical</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {vhrOptions.length > 0 ? (
-                      vhrOptions.map(option => (
-                        <DropdownMenuCheckboxItem
-                          key={option.value}
-                          checked={selectedVhrIds.includes(option.value)}
-                          onCheckedChange={() => handleVhrFilterChange(option.value)}
-                          className="text-sm"
-                          onSelect={(e) => e.preventDefault()} // Keep dropdown open on item click
-                        >
-                          {option.label}
-                        </DropdownMenuCheckboxItem>
-                      ))
-                    ) : (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No VHRs available</div>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {selectedVhrIds.length > 0 && !isLoadingVhrOptions && (
-                <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedVhrIds([]); }} aria-label="Clear VHR filter">
-                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                </Button>
-              )}
-            </div>
-          </>
+        {/* CHR's VHR Filter */}
+        {showGlobalChrVhrFilter && (
+          <div className="relative flex items-center">
+            <Filter className="h-4 w-4 text-muted-foreground mr-1" />
+            {isLoadingVhrOptions ? (
+              <Skeleton className="h-9 w-40 rounded-md" />
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-auto min-w-[150px] h-9 bg-background/70 border-border text-sm justify-between pr-8">
+                    {getChrVhrFilterButtonText()}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-popover text-popover-foreground border-border max-h-72 overflow-y-auto">
+                  <DropdownMenuLabel>Filter by VHR Vertical</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {vhrOptions.length > 0 ? (
+                    vhrOptions.map(option => (
+                      <DropdownMenuCheckboxItem
+                        key={option.value}
+                        checked={selectedVhrIds.includes(option.value)}
+                        onCheckedChange={() => handleChrVhrFilterChange(option.value)}
+                        className="text-sm"
+                        onSelect={(e) => e.preventDefault()} 
+                      >
+                        {option.label}
+                      </DropdownMenuCheckboxItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No VHRs available</div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {selectedVhrIds.length > 0 && !isLoadingVhrOptions && (
+              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedVhrIds([]); }} aria-label="Clear VHR filter">
+                <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+              </Button>
+            )}
+          </div>
         )}
+
+        {/* VHR's ZHR Filter */}
+        {showGlobalVhrZhrFilter && (
+          <div className="relative flex items-center">
+            <Filter className="h-4 w-4 text-muted-foreground mr-1" />
+            {isLoadingZhrOptionsForVhr ? (
+              <Skeleton className="h-9 w-40 rounded-md" />
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-auto min-w-[150px] h-9 bg-background/70 border-border text-sm justify-between pr-8">
+                    {getVhrZhrFilterButtonText()}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-popover text-popover-foreground border-border max-h-72 overflow-y-auto">
+                  <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {zhrOptions.length > 0 ? (
+                    zhrOptions.map(option => (
+                      <DropdownMenuCheckboxItem
+                        key={option.value}
+                        checked={selectedZhrIds.includes(option.value)}
+                        onCheckedChange={() => handleVhrZhrFilterChange(option.value)}
+                        className="text-sm"
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {option.label}
+                      </DropdownMenuCheckboxItem>
+                    ))
+                  ) : (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No ZHRs in your vertical.</div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {selectedZhrIds.length > 0 && !isLoadingZhrOptionsForVhr && (
+              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
+                <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+              </Button>
+            )}
+          </div>
+        )}
+
         {user && (
           <Button variant="ghost" size="sm" onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" /> Logout

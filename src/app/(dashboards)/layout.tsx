@@ -8,7 +8,8 @@ import { Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebarContent } from '@/components/layout/app-sidebar-content';
 import { DashboardPageHeader } from '@/components/layout/dashboard-page-header'; 
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChrFilterProvider } from '@/contexts/chr-filter-context'; // Import the provider
+import { ChrFilterProvider } from '@/contexts/chr-filter-context';
+import { VhrFilterProvider } from '@/contexts/vhr-filter-context'; // Import VHR provider
 
 export default function DashboardLayout({
   children,
@@ -48,6 +49,10 @@ export default function DashboardLayout({
 
   if (user.role === 'CHR') {
     return <ChrFilterProvider>{content}</ChrFilterProvider>;
+  }
+  
+  if (user.role === 'VHR') {
+    return <VhrFilterProvider>{content}</VhrFilterProvider>;
   }
 
   return content;
