@@ -264,7 +264,20 @@ export default function CHRAnalyticsPage() {
     });
   };
 
-  const metricTrendChartData = useMemo(() => {
+const metricTrendChartData = useMemo(() => {
+    // --- START HARDCODED TEST DATA ---
+    // console.log("CHR Analytics: USING HARDCODED DATA FOR METRIC TRENDS CHART"); 
+    return [
+        { date: '2023-01-01', manning_percentage: 50, attrition_percentage: 10, non_vendor_percentage: null, er_percentage: 5, cwt_cases: 2 },
+        { date: '2023-01-02', manning_percentage: 55, attrition_percentage: null, non_vendor_percentage: 20, er_percentage: 6, cwt_cases: 1 },
+        { date: '2023-01-03', manning_percentage: null, attrition_percentage: 12, non_vendor_percentage: 22, er_percentage: null, cwt_cases: 3 },
+        { date: '2023-01-04', manning_percentage: 60, attrition_percentage: 11, non_vendor_percentage: 18, er_percentage: 7, cwt_cases: null },
+        { date: '2023-01-05', manning_percentage: 65, attrition_percentage: null, non_vendor_percentage: null, er_percentage: 5, cwt_cases: 2 },
+    ];
+    // --- END HARDCODED TEST DATA ---
+
+    // Original logic commented out for this test
+    /*
     const filteredByAllSelections = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
     if (filteredByAllSelections.length === 0) return [];
     const aggregatedData: Record<string, { [key: string]: { sum: number; count: number } }> = {};
@@ -296,7 +309,10 @@ export default function CHRAnalyticsPage() {
     let dateRangeForChart: Date[] = [];
     try {
        dateRangeForChart = eachDayOfInterval({ start: startOfDay(minDate), end: endOfDay(maxDate) });
-    } catch (e) { return []; }
+    } catch (e) { 
+      console.error("Error in eachDayOfInterval for CHR chart:", e);
+      return []; // Return empty if interval is invalid
+    }
     if (dateRangeForChart.length === 0) return [];
 
 
@@ -307,7 +323,7 @@ export default function CHRAnalyticsPage() {
       METRIC_CONFIGS.forEach(m => {
         if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
           point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
-          if (m.key === 'cwt_cases') {
+          if (m.key === 'cwt_cases') { // For CWT cases, we want the sum, not average
             point[m.key] = dayData[m.key].sum;
           }
         } else {
@@ -316,7 +332,9 @@ export default function CHRAnalyticsPage() {
       });
       return point;
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [filteredVisitsData, globalTimeframe]);
+    */
+}, []); // Empty dependency array for hardcoded data test
+
 
   const qualitativeSpiderChartData = useMemo(() => {
     const filteredByAllSelections = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
@@ -557,7 +575,7 @@ export default function CHRAnalyticsPage() {
       <Card className="shadow-xl">
         <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Metric Trends</CardTitle>
-            <CardDescription>Trendlines for selected metrics from submitted visits, reflecting all active filters and the global timeframe.</CardDescription>
+            <CardDescription>Trendlines for selected metrics from submitted visits, reflecting all active filters and the global timeframe. (Using test data for CHR page)</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
@@ -570,9 +588,9 @@ export default function CHRAnalyticsPage() {
           </div>
           {metricTrendChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={metricTrendChartData}>
+              <LineChart data={metricTrendChartData} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="date" tickFormatter={(tick) => format(parseISO(tick), 'MMM d')} stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }}/>
+                <XAxis dataKey="date" type="category" tickFormatter={(tick) => format(parseISO(tick), 'MMM d')} stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }}/>
                 <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" orientation="left" tick={{ fontSize: 12 }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                 <YAxis yAxisId="right" stroke="hsl(var(--muted-foreground))" orientation="right" tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}} labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }} formatter={(value: number, name) => METRIC_CONFIGS.find(m=>m.label===name)?.key.includes('percentage') ? [`${value}%`, name] : [value, name]}/>
