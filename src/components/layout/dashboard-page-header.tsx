@@ -80,7 +80,11 @@ export function DashboardPageHeader() {
     return `${vhrSelectedZhrIds.length} ZHRs Selected`;
   };
 
-  const showGlobalChrVhrFilter = isChr && pathname !== '/chr/oversee-channel' && pathname !== '/account';
+  const showGlobalChrVhrFilter = isChr && 
+    pathname !== '/chr/oversee-channel' && 
+    pathname !== '/account' &&
+    pathname !== '/chr/export-data'; // Added /chr/export-data here
+
   const showGlobalVhrZhrFilter = isVhr && pathname !== '/account' && pathname !== '/vhr/team-structure';
 
   return (
