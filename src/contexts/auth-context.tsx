@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { User, UserRole } from '@/types';
+import type { User, UserRole, UserProfileUpdateData } from '@/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
@@ -21,6 +21,7 @@ interface AuthContextType {
     reports_to?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (userId: string, data: UserProfileUpdateData) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -33,31 +34,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchUserAndSetSession = async (sessionUser: SupabaseAuthUser | null) => {
-      if (sessionUser) {
-        const { data: userProfile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', sessionUser.id)
-          .single();
+  const fetchUserAndSetSession = async (sessionUser: SupabaseAuthUser | null) => {
+    if (sessionUser) {
+      const { data: userProfile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', sessionUser.id)
+        .single();
 
-        if (error && error.code !== 'PGRST116') { 
-          console.error('Error fetching user profile:', error);
-          toast({ title: "Error", description: "Could not fetch user profile.", variant: "destructive" });
-          setUser(null);
-        } else if (userProfile) {
-          setUser(userProfile as User);
-        } else {
-          console.warn('User profile not found in public.users table for an authenticated user.');
-          setUser(null); 
-        }
-      } else {
+      if (error && error.code !== 'PGRST116') { 
+        console.error('Error fetching user profile:', error);
+        toast({ title: "Error", description: "Could not fetch user profile.", variant: "destructive" });
         setUser(null);
+      } else if (userProfile) {
+        setUser(userProfile as User);
+      } else {
+        // This case can happen if a user exists in auth.users but not in public.users
+        // For example, if profile creation failed after signup or was manually deleted.
+        console.warn('User profile not found in public.users table for an authenticated user.');
+        setUser(null); 
       }
-      setIsLoading(false);
-    };
-    
+    } else {
+      setUser(null);
+    }
+    setIsLoading(false);
+  };
+  
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
         fetchUserAndSetSession(session?.user ?? null);
     });
@@ -72,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [toast]);
+  }, [toast]); // Removed fetchUserAndSetSession from dependency array as it's defined outside and stable
 
   useEffect(() => {
     if (!isLoading && !user && !pathname.startsWith('/auth')) {
@@ -109,9 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     if (data.user) {
-      // onAuthStateChange will handle fetching profile and setting user state
-      // No need to call setIsLoading(false) here, as onAuthStateChange will trigger it
-      // navigateToDashboard will also be handled by the useEffect listening to user changes
        toast({ title: "Login Successful", description: `Welcome back!` });
     }
   };
@@ -166,21 +166,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         toast({ title: "Profile Creation Failed", description: detailedMessage, variant: "destructive" });
         console.error("Error creating user profile:", profileError);
-        // Attempt to clean up the auth user if profile creation fails. This might not always be desired.
-        // Consider manual cleanup or a different strategy for production.
-        // await supabase.auth.deleteUser(authData.user.id); // This requires admin privileges, not suitable for client-side.
-        // For now, just log and let the user exist in auth.users.
         setIsLoading(false);
         throw profileError;
       }
       toast({ title: "Signup Successful", description: "Account created! If email confirmation is enabled in Supabase, please check your email."});
-      // onAuthStateChange will handle setting user state if auto-signin occurs or after email confirm
-      // For now, after successful signup, we might want to redirect to login or a "check your email" page
-      // if email confirmation is on. If off, onAuthStateChange should pick up the new user.
     } else {
         toast({ title: "Signup Issue", description: "User not returned after signup, or email confirmation may be pending.", variant: "destructive" });
     }
-    setIsLoading(false); // Explicitly set false here
+    setIsLoading(false); 
   };
 
   const logout = async () => {
@@ -194,8 +187,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false); 
   };
 
+  const updateUser = async (userId: string, data: UserProfileUpdateData) => {
+    setIsLoading(true);
+    let authUpdates: any = {};
+    if (data.email) authUpdates.email = data.email;
+    if (data.newPassword) authUpdates.password = data.newPassword;
+
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authUpdateError } = await supabase.auth.updateUser(authUpdates);
+      if (authUpdateError) {
+        toast({ title: "Auth Update Failed", description: authUpdateError.message, variant: "destructive" });
+        setIsLoading(false);
+        throw authUpdateError;
+      }
+    }
+
+    const profileDataToUpdate: Partial<User> = {};
+    if (data.name) profileDataToUpdate.name = data.name;
+    if (data.email) profileDataToUpdate.email = data.email; // Keep email in sync with auth
+    if (data.e_code !== undefined) profileDataToUpdate.e_code = data.e_code ?? undefined;
+    if (data.location !== undefined) profileDataToUpdate.location = data.location ?? undefined;
+    
+    if (Object.keys(profileDataToUpdate).length > 0) {
+        const { error: profileUpdateError } = await supabase
+        .from('users')
+        .update(profileDataToUpdate)
+        .eq('id', userId);
+
+      if (profileUpdateError) {
+        toast({ title: "Profile Update Failed", description: profileUpdateError.message, variant: "destructive" });
+        setIsLoading(false);
+        throw profileUpdateError;
+      }
+    }
+    
+    // Re-fetch the user profile to update context
+    const { data: updatedUserProfile, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error re-fetching user profile:', fetchError);
+      toast({ title: "Update Complete", description: "Profile updated, but UI may not reflect all changes immediately.", variant: "default" });
+    } else if (updatedUserProfile) {
+      setUser(updatedUserProfile as User);
+      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+    }
+    
+    setIsLoading(false);
+  };
+
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -93,3 +93,11 @@ export interface ChartData {
   value: number;
   fill?: string;
 }
+
+export interface UserProfileUpdateData {
+  name?: string;
+  email?: string;
+  newPassword?: string;
+  e_code?: string | null;
+  location?: string | null;
+}
