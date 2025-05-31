@@ -18,8 +18,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
-export function DashboardPageHeader() {
+interface DashboardPageHeaderProps {
+  className?: string;
+}
+
+export function DashboardPageHeader({ className }: DashboardPageHeaderProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
 
@@ -91,7 +96,10 @@ export function DashboardPageHeader() {
     pathname !== '/vhr/export-data';
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:px-6">
+    <header className={cn(
+      "sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:px-6",
+      className
+    )}>
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
       </div>

@@ -25,7 +25,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import type { User, UserRole } from '@/types';
 // import { mockUsers } from '@/lib/mock-data'; // Will fetch from Supabase later or pass as props if needed for reports_to
-import { Loader2, Eye, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient'; // For fetching users for 'reports_to'
 
@@ -175,152 +175,182 @@ export function SignupForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         <FormField
           control={form.control}
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel className="text-sm font-medium text-gray-700">Email</FormLabel>
               <FormControl>
-                <Input placeholder="youremail@example.com" {...field} />
+                <Input 
+                  placeholder="youremail@hdfclife.com" 
+                  className="h-11" 
+                  {...field} 
+                />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-xs font-medium text-red-500 mt-1.5" />
             </FormItem>
           )}
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField
+          <FormField
             control={form.control}
             name="password"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Password</FormLabel>
+              <FormItem>
+                <FormLabel className="text-sm font-medium text-gray-700">Password</FormLabel>
                 <FormControl>
-                    <div className="relative">
+                  <div className="relative">
                     <Input 
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        {...field} 
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="••••••••" 
+                      className="h-11 pr-11 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0" 
+                      {...field} 
                     />
                     <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute right-0 top-0 h-11 w-11 px-3 text-gray-500 hover:text-[#004C8F] transition-all duration-200 hover:scale-110 hover:bg-blue-50/50 rounded-full overflow-hidden group"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                     >
-                        <Eye className="h-4 w-4" />
+                      {showPassword ? (
+                        <EyeOff className="h-[18px] w-[18px] transform transition-all duration-200 rotate-0 group-hover:rotate-12" />
+                      ) : (
+                        <Eye className="h-[18px] w-[18px] transform transition-all duration-200 rotate-0 group-hover:-rotate-12" />
+                      )}
                     </Button>
-                    </div>
+                  </div>
                 </FormControl>
-                <FormMessage />
-                </FormItem>
+                <FormMessage className="text-xs font-medium text-red-500" />
+              </FormItem>
             )}
-            />
-            <FormField
+          />
+          <FormField
             control={form.control}
             name="confirmPassword"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Confirm Password</FormLabel>
+              <FormItem>
+                <FormLabel className="text-sm font-medium text-gray-700">Confirm Password</FormLabel>
                 <FormControl>
-                    <div className="relative">
+                  <div className="relative">
                     <Input 
-                        type={showConfirmPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        {...field} 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      placeholder="••••••••" 
+                      className="h-11 pr-11 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0" 
+                      {...field} 
                     />
                     <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute right-0 top-0 h-11 w-11 px-3 text-gray-500 hover:text-[#004C8F] transition-all duration-200 hover:scale-110 hover:bg-blue-50/50 rounded-full overflow-hidden group"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                     >
-                        <Eye className="h-4 w-4" />
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-[18px] w-[18px] transform transition-all duration-200 rotate-0 group-hover:rotate-12" />
+                      ) : (
+                        <Eye className="h-[18px] w-[18px] transform transition-all duration-200 rotate-0 group-hover:-rotate-12" />
+                      )}
                     </Button>
-                    </div>
+                  </div>
                 </FormControl>
-                <FormMessage />
-                </FormItem>
+                <FormMessage className="text-xs font-medium text-red-500" />
+              </FormItem>
             )}
-            />
+          />
         </div>
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel className="text-sm font-medium text-gray-700">Full Name</FormLabel>
               <FormControl>
-                <Input placeholder="Your Name" {...field} />
+                <Input 
+                  placeholder="Enter your full name" 
+                  className="h-11" 
+                  {...field} 
+                />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-xs font-medium text-red-500 mt-1.5" />
             </FormItem>
           )}
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField
+          <FormField
             control={form.control}
             name="e_code"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>E-Code (Optional)</FormLabel>
+              <FormItem>
+                <FormLabel className="text-sm font-medium text-gray-700">E-Code</FormLabel>
                 <FormControl>
-                    <Input placeholder="E12345" {...field} />
+                  <Input 
+                    placeholder="E12345" 
+                    className="h-11" 
+                    {...field} 
+                  />
                 </FormControl>
-                <FormMessage />
-                </FormItem>
+                <FormMessage className="text-xs font-medium text-red-500 mt-1.5" />
+              </FormItem>
             )}
-            />
-            <FormField
+          />
+          <FormField
             control={form.control}
             name="role"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Role</FormLabel>
+              <FormItem>
+                <FormLabel className="text-sm font-medium text-gray-700">Role</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
+                  <FormControl>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Select a role" />
                     </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                    <SelectItem value="BHR">BHR (Branch HR)</SelectItem>
-                    <SelectItem value="ZHR">ZHR (Zonal HR)</SelectItem>
-                    <SelectItem value="VHR">VHR (Vertical HR)</SelectItem>
-                    <SelectItem value="CHR">CHR (Chief HR)</SelectItem>
-                    </SelectContent>
+                  </FormControl>
+                  <SelectContent className="rounded-lg border-gray-200">
+                    <SelectItem value="BHR" className="focus:bg-blue-50">BHR (Branch HR)</SelectItem>
+                    <SelectItem value="ZHR" className="focus:bg-blue-50">ZHR (Zonal HR)</SelectItem>
+                    <SelectItem value="VHR" className="focus:bg-blue-50">VHR (Vertical HR)</SelectItem>
+                    <SelectItem value="CHR" className="focus:bg-blue-50">CHR (Chief HR)</SelectItem>
+                  </SelectContent>
                 </Select>
-                <FormMessage />
-                </FormItem>
+                <FormMessage className="text-xs font-medium text-red-500 mt-1.5" />
+              </FormItem>
             )}
-            />
+          />
         </div>
         <FormField
-            control={form.control}
-            name="location"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Location (Optional)</FormLabel>
-                <FormControl>
-                    <Input placeholder="e.g., Delhi" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm font-medium text-gray-700">Location</FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="e.g., Delhi" 
+                  className="h-11" 
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage className="text-xs font-medium text-red-500 mt-1.5" />
+            </FormItem>
+          )}
         />
         
         {renderReportsToField()}
 
-        <Button type="submit" className="w-full" variant="default" disabled={isLoading}>
+        <Button 
+          type="submit" 
+          className="w-full h-11 bg-[#004C8F] hover:bg-[#003972] text-white font-medium rounded-lg inline-flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004C8F] focus-visible:ring-offset-2 disabled:opacity-50 shadow-sm hover:shadow disabled:hover:shadow-none" 
+          disabled={isLoading}
+        >
           {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="mr-2 h-[18px] w-[18px] animate-spin" />
           ) : (
-            <UserPlus className="mr-2 h-4 w-4" />
+            <UserPlus className="mr-2 h-[18px] w-[18px]" />
           )}
           Create Account
         </Button>

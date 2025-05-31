@@ -1,12 +1,11 @@
-
 'use client';
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
-import { Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { AppSidebarContent } from '@/components/layout/app-sidebar-content';
-import { DashboardPageHeader } from '@/components/layout/dashboard-page-header'; 
+import { SidebarNavigation } from '@/components/layout/sidebar-navigation';
+import { DashboardPageHeader } from '@/components/layout/dashboard-page-header';
+import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChrFilterProvider } from '@/contexts/chr-filter-context';
 import { VhrFilterProvider } from '@/contexts/vhr-filter-context'; // Import VHR provider
@@ -34,16 +33,16 @@ export default function DashboardLayout({
   }
 
   const content = (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar collapsible="icon" variant="sidebar" side="left" className="border-r">
-        <AppSidebarContent />
-      </Sidebar>
-      <SidebarInset className="flex flex-col">
-        <DashboardPageHeader />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          {children}
-        </main>
-      </SidebarInset>
+    <div className="min-h-screen bg-background">
+      <SidebarNavigation />
+      <main className={cn(
+        "flex-1 overflow-y-auto p-4 md:p-6 xl:p-8",
+        "pb-24 sm:pb-24 xl:pb-8", // Add bottom padding for mobile nav
+        "xl:ml-[72px]" // Only add left margin on xl breakpoint
+      )}>
+        <DashboardPageHeader className="lg:block hidden" /> {/* Hide header on mobile/tablet */}
+        {children}
+      </main>
     </div>
   );
 
