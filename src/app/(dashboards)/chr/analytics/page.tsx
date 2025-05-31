@@ -101,18 +101,19 @@ interface FilterOption { value: string; label: string; }
 export default function CHRAnalyticsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions } = useChrFilter();
+  const { 
+    selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions,
+    selectedZhrIds: globalSelectedZhrIds, zhrOptions: globalZhrOptions, // Consume global ZHR selections
+    allUsersForContext, isLoadingAllUsers 
+  } = useChrFilter();
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   
   const [allSubmittedVisitsGlobal, setAllSubmittedVisitsGlobal] = useState<Visit[]>([]);
-  const [allUsersGlobal, setAllUsersGlobal] = useState<User[]>([]);
+  // allUsersGlobal is now allUsersForContext from context
   const [allBranchesGlobal, setAllBranchesGlobal] = useState<Branch[]>([]);
 
-  const [selectedZhrIds, setSelectedZhrIds] = useState<string[]>([]);
-  const [zhrOptions, setZhrOptions] = useState<FilterOption[]>([]);
-  const [isLoadingZhrOptions, setIsLoadingZhrOptions] = useState(false);
-
+  // Local BHR and Branch filters will depend on global VHR/ZHR selections
   const [selectedBhrIds, setSelectedBhrIds] = useState<string[]>([]);
   const [bhrOptions, setBhrOptions] = useState<FilterOption[]>([]);
   const [isLoadingBhrOptions, setIsLoadingBhrOptions] = useState(false);
@@ -132,12 +133,10 @@ export default function CHRAnalyticsPage() {
   useEffect(() => {
     if (user && user.role === 'CHR') {
       const fetchData = async () => {
-        setIsLoading(true);
+        if (isLoadingAllUsers) return; // Wait for allUsersForContext to be ready
+        setIsLoadingPageData(true);
         try {
-          const { data: usersData, error: usersError } = await supabase.from('users').select('id, name, role, reports_to');
-          if (usersError) throw usersError;
-          setAllUsersGlobal(usersData || []);
-
+          // users are from context (allUsersForContext)
           const { data: branchesData, error: branchesError } = await supabase.from('branches').select('id, name, category, location');
           if (branchesError) throw branchesError;
           setAllBranchesGlobal(branchesData || []);
@@ -153,108 +152,80 @@ export default function CHRAnalyticsPage() {
           setAllSubmittedVisitsGlobal(visitsData || []);
 
         } catch (error: any) {
-          console.error("CHR Analytics: Error fetching global data:", error);
+          console.error("CHR Analytics: Error fetching page data (branches/visits):", error);
           toast({ title: "Error", description: `Failed to load analytics data: ${error.message}`, variant: "destructive" });
         } finally {
-          setIsLoading(false);
+          setIsLoadingPageData(false);
         }
       };
       fetchData();
     } else {
-      setIsLoading(false);
+      setIsLoadingPageData(false);
     }
-  }, [user, toast]);
+  }, [user, toast, isLoadingAllUsers]);
 
-  useEffect(() => {
-    setIsLoadingZhrOptions(true);
-    if (allUsersGlobal.length > 0) {
-      let potentialZhrs = allUsersGlobal.filter(u => u.role === 'ZHR');
-      if (globalSelectedVhrIds.length > 0) {
-        potentialZhrs = potentialZhrs.filter(zhr => zhr.reports_to && globalSelectedVhrIds.includes(zhr.reports_to));
-      }
-      setZhrOptions(potentialZhrs.map(z => ({ value: z.id, label: z.name })));
-    } else {
-      setZhrOptions([]);
-    }
-    setSelectedZhrIds([]); 
-    setIsLoadingZhrOptions(false);
-  }, [globalSelectedVhrIds, allUsersGlobal]);
-
+  // Update BHR options based on global VHR & ZHR selections
   useEffect(() => {
     setIsLoadingBhrOptions(true);
-    if (allUsersGlobal.length > 0) {
-      let potentialBhrs = allUsersGlobal.filter(u => u.role === 'BHR');
-      if (selectedZhrIds.length > 0) {
-        potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
+    if (allUsersForContext.length > 0) {
+      let potentialBhrs = allUsersForContext.filter(u => u.role === 'BHR');
+      if (globalSelectedZhrIds.length > 0) {
+        potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to));
       } else if (globalSelectedVhrIds.length > 0) {
-        // If no ZHRs selected, but VHRs are, filter BHRs by those VHRs
-        const zhrsUnderSelectedVhrs = allUsersGlobal
+        const zhrsUnderSelectedVhrs = allUsersForContext
           .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
           .map(z => z.id);
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && zhrsUnderSelectedVhrs.includes(bhr.reports_to));
       }
-      // If no ZHRs and no VHRs selected, all BHRs are potential (done by initial filter `allUsersGlobal.filter(u => u.role === 'BHR')`)
       setBhrOptions(potentialBhrs.map(b => ({ value: b.id, label: b.name })));
     } else {
       setBhrOptions([]);
     }
     setSelectedBhrIds([]); 
     setIsLoadingBhrOptions(false);
-  }, [selectedZhrIds, globalSelectedVhrIds, allUsersGlobal]);
+  }, [globalSelectedZhrIds, globalSelectedVhrIds, allUsersForContext]);
   
   useEffect(() => {
-    // Reset branch selection if any higher filter changes
     setSelectedBranchIds([]);
-  }, [selectedBhrIds, selectedZhrIds, globalSelectedVhrIds]);
+  }, [selectedBhrIds, globalSelectedZhrIds, globalSelectedVhrIds]);
 
 
   const filteredVisitsData = useMemo(() => {
     let visits = allSubmittedVisitsGlobal;
     
-    // Determine the set of BHR IDs to filter by, based on the hierarchy of selected filters
     let relevantBhrIds = new Set<string>();
 
     if (selectedBhrIds.length > 0) {
-        // If specific BHRs are selected, use them directly
         selectedBhrIds.forEach(id => relevantBhrIds.add(id));
-    } else if (selectedZhrIds.length > 0) {
-        // If no BHRs but ZHRs are selected, get BHRs under these ZHRs
-        allUsersGlobal
-            .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
+    } else if (globalSelectedZhrIds.length > 0) {
+        allUsersForContext
+            .filter(u => u.role === 'BHR' && u.reports_to && globalSelectedZhrIds.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
     } else if (globalSelectedVhrIds.length > 0) {
-        // If no BHRs/ZHRs but VHRs are selected, get BHRs under these VHRs (via ZHRs)
-        const zhrsInSelectedVhrs = allUsersGlobal
+        const zhrsInSelectedVhrs = allUsersForContext
             .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
             .map(z => z.id);
-        allUsersGlobal
+        allUsersForContext
             .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
     } else {
-        // No specific VHR, ZHR, or BHR selected; means consider all BHRs for initial visit pool
-        allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
+        allUsersForContext.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
     
-    // Filter visits by these relevant BHRs
-    // This step is crucial: if a filter is active (VHR, ZHR, or BHR selected) but results in no relevant BHRs, 
-    // then visits should be empty. Otherwise, if no filters are active, all BHRs are relevant.
-    if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
-      if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
-        // A filter is active (ZHR or BHR specifically, or VHR resulting in no BHRs) but no BHRs match it.
+    if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || globalSelectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
+      if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || globalSelectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
         visits = []; 
       } else if (relevantBhrIds.size > 0) {
         visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
       }
-      // If relevantBhrIds is empty AND no filters were active, it means we started with all BHRs, so all visits pass this stage.
     }
-
 
     if (selectedBranchIds.length > 0) {
       visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
     }
 
     return visits;
-  }, [allSubmittedVisitsGlobal, allUsersGlobal, globalSelectedVhrIds, selectedZhrIds, selectedBhrIds, selectedBranchIds]);
+  }, [allSubmittedVisitsGlobal, allUsersForContext, globalSelectedVhrIds, globalSelectedZhrIds, selectedBhrIds, selectedBranchIds]);
 
 
   const filterVisitsByTimeframe = (visits: Visit[], timeframe: TimeframeKey): Visit[] => {
@@ -407,7 +378,6 @@ export default function CHRAnalyticsPage() {
   };
 
   const handleClearAllLocalFilters = () => {
-    setSelectedZhrIds([]);
     setSelectedBhrIds([]);
     setSelectedBranchIds([]);
     setGlobalTimeframe('past_month');
@@ -415,19 +385,30 @@ export default function CHRAnalyticsPage() {
   
   const pageTitleText = useMemo(() => {
     let title = "CHR Analytics";
+    let filterParts: string[] = [];
     if (globalSelectedVhrIds.length > 0) {
       if (globalSelectedVhrIds.length === 1) {
-        const vhrName = globalVhrOptions.find(v => v.value === globalSelectedVhrIds[0])?.label || "Selected VHR";
-        title += ` (${vhrName})`;
+        filterParts.push(globalVhrOptions.find(v => v.value === globalSelectedVhrIds[0])?.label || "VHR");
       } else {
-        title += ` (${globalSelectedVhrIds.length} VHRs)`;
+        filterParts.push(`${globalSelectedVhrIds.length} VHRs`);
       }
+    }
+    if (globalSelectedZhrIds.length > 0) {
+       if (globalSelectedZhrIds.length === 1) {
+        filterParts.push(globalZhrOptions.find(z => z.value === globalSelectedZhrIds[0])?.label || "ZHR");
+      } else {
+        filterParts.push(`${globalSelectedZhrIds.length} ZHRs`);
+      }
+    }
+    if (filterParts.length > 0) {
+        title += ` (${filterParts.join(' > ')})`;
     } else {
-      title += " (Global)";
+        title += " (Global)";
     }
     return title;
-  }, [globalSelectedVhrIds, globalVhrOptions]);
+  }, [globalSelectedVhrIds, globalVhrOptions, globalSelectedZhrIds, globalZhrOptions]);
 
+  const isLoading = isLoadingAllUsers || isLoadingPageData;
 
   if (isLoading) {
     return (
@@ -449,50 +430,10 @@ export default function CHRAnalyticsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Additional Filters</CardTitle>
-          <CardDescription>Refine analytics by ZHR, BHR, specific Branches, and Timeframe. These filters are applied in conjunction with the global VHR filter in the header.</CardDescription>
+          <CardDescription>Refine analytics by BHR, specific Branches, and Timeframe. These are applied with the global VHR/ZHR filters from the header.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* ZHR Filter */}
-            <div className="relative flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
-                    {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                  zhrOptions.length > 0 ? zhrOptions.map(option => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={selectedZhrIds.includes(option.value)}
-                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => setSelectedZhrIds([])} disabled={selectedZhrIds.length === 0}>Show All ZHRs</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {selectedZhrIds.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10"
-                    onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }}
-                    aria-label="Clear ZHR filter"
-                  >
-                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
-              )}
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4"> {/* Reduced to 2 columns for BHR and Branch */}
             {/* BHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
@@ -515,7 +456,7 @@ export default function CHRAnalyticsPage() {
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No BHRs match current ZHR/VHR filter.</DropdownMenuLabel>}
+                  )) : <DropdownMenuLabel>No BHRs match current VHR/ZHR filter.</DropdownMenuLabel>}
                    <DropdownMenuSeparator />
                    <DropdownMenuItem onSelect={() => setSelectedBhrIds([])} disabled={selectedBhrIds.length === 0}>Show All BHRs</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -590,7 +531,6 @@ export default function CHRAnalyticsPage() {
             <CardDescription>Trendlines for selected metrics from submitted visits, reflecting all active filters and the global timeframe.</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* TimeframeButtons removed from here */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
             {METRIC_CONFIGS.map(metric => (
               <div key={metric.key} className="flex items-center space-x-2">
@@ -624,7 +564,6 @@ export default function CHRAnalyticsPage() {
             <CardDescription>Average scores for qualitative questions from submitted visits (0-5 scale), reflecting all active filters and the global timeframe.</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* TimeframeButtons removed from here */}
             {qualitativeSpiderChartData.length > 0 && qualitativeSpiderChartData.some(d => d.score > 0) ? (
               <ResponsiveContainer width="100%" height={350}>
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderChartData}>
@@ -646,7 +585,6 @@ export default function CHRAnalyticsPage() {
                     <CardDescription>Distribution of submitted visits by branch category, reflecting current filters and global timeframe (hidden if specific branches are selected).</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {/* TimeframeButtons removed from here */}
                     {branchCategoryPieChartData.length > 0 ? (
                         <PlaceholderPieChart data={branchCategoryPieChartData} title="" dataKey="value" nameKey="name"/>
                     ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No category data for current filter combination.</p></div>)}
@@ -663,7 +601,6 @@ export default function CHRAnalyticsPage() {
                 <CardDescription>Branches with the most submitted HR visits, reflecting current filters and global timeframe (hidden if specific branches are selected).</CardDescription>
               </CardHeader>
               <CardContent>
-                {/* TimeframeButtons removed from here */}
                 {topPerformingBranchesChartData.length > 0 ? (
                     <PlaceholderBarChart data={topPerformingBranchesChartData} title="" xAxisKey="name" dataKey="value" />
                 ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><BarChartBig className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No branch visit data for current filter combination.</p></div>)}
@@ -686,4 +623,3 @@ export default function CHRAnalyticsPage() {
     </div>
   );
 }
-
