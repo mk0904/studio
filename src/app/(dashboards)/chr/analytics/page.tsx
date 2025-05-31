@@ -11,12 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, TrendingUp, ShieldQuestion, Target, PieChart as PieChartIcon, BarChartBig, Filter as FilterIcon, ChevronsUpDown, Check as CheckIcon } from 'lucide-react';
+import { Loader2, TrendingUp, ShieldQuestion, Target, PieChart as PieChartIcon, BarChartBig, Filter as FilterIcon, ChevronsUpDown, XCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
+  DropdownMenuItem, // Added for clear option
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -144,7 +145,7 @@ export default function CHRAnalyticsPage() {
           const { data: branchesData, error: branchesError } = await supabase.from('branches').select('id, name, category, location');
           if (branchesError) throw branchesError;
           setAllBranchesGlobal(branchesData || []);
-          setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: b.name }))); // Static branch options for now
+          setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: b.name }))); 
 
           const { data: visitsData, error: visitsError } = await supabase
             .from('visits')
@@ -178,7 +179,7 @@ export default function CHRAnalyticsPage() {
     } else {
       setZhrOptions([]);
     }
-    setSelectedZhrIds([]); // Reset ZHR selection when VHRs change
+    setSelectedZhrIds([]); 
     setIsLoadingZhrOptions(false);
   }, [globalSelectedVhrIds, allUsersGlobal]);
 
@@ -190,7 +191,6 @@ export default function CHRAnalyticsPage() {
       if (selectedZhrIds.length > 0) {
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
       } else if (globalSelectedVhrIds.length > 0) {
-        // If no ZHRs selected, but VHRs are, filter BHRs under those VHRs
         const zhrsUnderSelectedVhrs = allUsersGlobal
           .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
           .map(z => z.id);
@@ -200,7 +200,7 @@ export default function CHRAnalyticsPage() {
     } else {
       setBhrOptions([]);
     }
-    setSelectedBhrIds([]); // Reset BHR selection when ZHRs change
+    setSelectedBhrIds([]); 
     setIsLoadingBhrOptions(false);
   }, [selectedZhrIds, globalSelectedVhrIds, allUsersGlobal]);
   
@@ -212,31 +212,47 @@ export default function CHRAnalyticsPage() {
 
   const filteredVisitsData = useMemo(() => {
     let visits = allSubmittedVisitsGlobal;
+    const bhrIdsToFilterBy = new Set<string>();
 
-    // Filter by VHRs (global context)
+    // Determine relevant BHRs based on VHR, ZHR selections
     if (globalSelectedVhrIds.length > 0) {
-      const zhrIdsInSelectedVhrs = allUsersGlobal
-        .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
-        .map(z => z.id);
-      const bhrIdsInSelectedVhrs = allUsersGlobal
-        .filter(u => u.role === 'BHR' && u.reports_to && zhrIdsInSelectedVhrs.includes(u.reports_to))
-        .map(b => b.id);
-      visits = visits.filter(visit => bhrIdsInSelectedVhrs.includes(visit.bhr_id));
+        const zhrsInSelectedVhrs = allUsersGlobal
+            .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
+            .map(z => z.id);
+        allUsersGlobal
+            .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
+            .forEach(b => bhrIdsToFilterBy.add(b.id));
+    } else {
+        // If no VHRs selected, consider all BHRs initially
+        allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => bhrIdsToFilterBy.add(b.id));
     }
 
-    // Filter by ZHRs (local selection)
     if (selectedZhrIds.length > 0) {
-      const bhrIdsInSelectedZhrs = allUsersGlobal
-        .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
-        .map(b => b.id);
-      visits = visits.filter(visit => bhrIdsInSelectedZhrs.includes(visit.bhr_id));
-    }
-
-    // Filter by BHRs (local selection)
-    if (selectedBhrIds.length > 0) {
-      visits = visits.filter(visit => selectedBhrIds.includes(visit.bhr_id));
+        const bhrIdsInSelectedZhrs = new Set<string>();
+        allUsersGlobal
+            .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
+            .forEach(b => bhrIdsInSelectedZhrs.add(b.id));
+        // Intersect with existing bhrIdsToFilterBy
+        const currentBhrIds = Array.from(bhrIdsToFilterBy);
+        bhrIdsToFilterBy.clear();
+        currentBhrIds.filter(id => bhrIdsInSelectedZhrs.has(id)).forEach(id => bhrIdsToFilterBy.add(id));
     }
     
+    if (selectedBhrIds.length > 0) {
+        // Intersect with explicitly selected BHRs
+        const currentBhrIds = Array.from(bhrIdsToFilterBy);
+        bhrIdsToFilterBy.clear();
+        currentBhrIds.filter(id => selectedBhrIds.includes(id)).forEach(id => bhrIdsToFilterBy.add(id));
+    }
+
+    if (bhrIdsToFilterBy.size > 0) {
+      visits = visits.filter(visit => bhrIdsToFilterBy.has(visit.bhr_id));
+    } else if (globalSelectedVhrIds.length > 0 || selectedZhrIds.length > 0 || selectedBhrIds.length > 0) {
+      // If any HR filter is active but results in no BHRs, then no visits
+      visits = [];
+    }
+    // else, if no HR filters are active, 'visits' remains allSubmittedVisitsGlobal (pre-branch filter)
+
     // Filter by Branches (local selection)
     if (selectedBranchIds.length > 0) {
       visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
@@ -372,9 +388,10 @@ export default function CHRAnalyticsPage() {
     selectedIds: string[], 
     defaultText: string, 
     singularName: string,
-    pluralName: string
+    pluralName: string,
+    isLoadingOptions: boolean
   ) => {
-    if (isLoadingZhrOptions || isLoadingBhrOptions || isLoadingBranchOptions) return `Loading ${pluralName}...`; // General loading
+    if (isLoadingOptions) return `Loading ${pluralName}...`;
     if (selectedIds.length === 0) return defaultText;
     if (selectedIds.length === 1) {
       const selectedOption = options.find(opt => opt.value === selectedIds[0]);
@@ -392,6 +409,12 @@ export default function CHRAnalyticsPage() {
       ? currentSelectedIds.filter(selectedId => selectedId !== id)
       : [...currentSelectedIds, id];
     setter(newSelectedIds);
+  };
+
+  const handleClearAllLocalFilters = () => {
+    setSelectedZhrIds([]);
+    setSelectedBhrIds([]);
+    setSelectedBranchIds([]);
   };
   
   const pageTitleText = useMemo(() => {
@@ -432,12 +455,12 @@ export default function CHRAnalyticsPage() {
           <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Additional Filters</CardTitle>
           <CardDescription>Refine analytics by ZHR, BHR, and specific Branches. These filters are applied in conjunction with the global VHR filter in the header.</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
           {/* ZHR Filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full justify-between">
-                {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs")}
+                {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
                 <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -454,6 +477,10 @@ export default function CHRAnalyticsPage() {
                   {option.label}
                 </DropdownMenuCheckboxItem>
               )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setSelectedZhrIds([])} disabled={selectedZhrIds.length === 0}>
+                 <XCircle className="mr-2 h-4 w-4" /> Show All ZHRs
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -461,7 +488,7 @@ export default function CHRAnalyticsPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full justify-between">
-                 {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs")}
+                 {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
                 <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -478,6 +505,10 @@ export default function CHRAnalyticsPage() {
                   {option.label}
                 </DropdownMenuCheckboxItem>
               )) : <DropdownMenuLabel>No BHRs match current ZHR/VHR filter.</DropdownMenuLabel>}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setSelectedBhrIds([])} disabled={selectedBhrIds.length === 0}>
+                 <XCircle className="mr-2 h-4 w-4" /> Show All BHRs
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -485,7 +516,7 @@ export default function CHRAnalyticsPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full justify-between">
-                {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches")}
+                {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
                 <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -502,8 +533,15 @@ export default function CHRAnalyticsPage() {
                   {option.label}
                 </DropdownMenuCheckboxItem>
               )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setSelectedBranchIds([])} disabled={selectedBranchIds.length === 0}>
+                <XCircle className="mr-2 h-4 w-4" /> Show All Branches
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button variant="outline" onClick={handleClearAllLocalFilters} className="w-full">
+            <XCircle className="mr-2 h-4 w-4" /> Clear All Local Filters
+          </Button>
         </CardContent>
       </Card>
 
