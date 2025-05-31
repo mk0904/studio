@@ -12,19 +12,33 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button'; // Added import
+import { Button } from '@/components/ui/button';
 import { useChrFilter } from '@/contexts/chr-filter-context';
 
 export default function OverseeChannelPage() {
   const { user: currentUser } = useAuth();
   const { selectedVhrIds } = useChrFilter();
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [rootUserNodes, setRootUserNodes] = useState<UserNode[]>([]);
+  const [initialRootUserNodes, setInitialRootUserNodes] = useState<UserNode[]>([]);
+  const [displayedRootUserNodes, setDisplayedRootUserNodes] = useState<UserNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const buildHierarchyTree = useCallback((usersList: User[], parentId: string | null = null): UserNode[] => {
+  // Debounce search term
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms delay
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchTerm]);
+
+  const buildHierarchyTree = useCallback((usersList: User[], parentId: string | null): UserNode[] => {
     return usersList
       .filter(user => user.reports_to === parentId)
       .map(user => ({
@@ -33,7 +47,7 @@ export default function OverseeChannelPage() {
       }));
   }, []);
 
-  const fetchDataAndBuildHierarchy = useCallback(async () => {
+  const fetchDataAndBuildInitialHierarchy = useCallback(async () => {
     if (!currentUser || currentUser.role !== 'CHR') {
       setError("Access Denied. You must be a CHR to view this page.");
       setIsLoading(false);
@@ -48,83 +62,71 @@ export default function OverseeChannelPage() {
         .from('users')
         .select('id, name, email, role, reports_to, e_code, location');
 
-      if (fetchError) {
-        throw fetchError;
-      }
+      if (fetchError) throw fetchError;
       setAllUsers(fetchedUsers || []);
 
-      let usersToProcess = fetchedUsers || [];
-
-      // 1. Filter by Global VHR (selectedVhrIds from context)
+      let roots: User[] = [];
       if (selectedVhrIds.length > 0) {
-        const vhrAndTheirTeams = new Set<string>();
-        selectedVhrIds.forEach(vhrId => vhrAndTheirTeams.add(vhrId));
-
-        const zhrsInSelectedVhrs = usersToProcess.filter(u => u.role === 'ZHR' && u.reports_to && selectedVhrIds.includes(u.reports_to)).map(z => z.id);
-        zhrsInSelectedVhrs.forEach(zhrId => vhrAndTheirTeams.add(zhrId));
-        
-        const bhrsInSelectedVhrs = usersToProcess.filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to)).map(b => b.id);
-        bhrsInSelectedVhrs.forEach(bhrId => vhrAndTheirTeams.add(bhrId));
-
-        // Include the CHR if they are the one viewing - only relevant if CHR is part of displayed hierarchy
-        // if (currentUser?.id) vhrAndTheirTeams.add(currentUser.id); // CHR is not displayed, so this line is not strictly needed for filtering displayable nodes
-
-        usersToProcess = usersToProcess.filter(u => vhrAndTheirTeams.has(u.id) || u.reports_to === null || (u.role === 'CHR' && u.id === currentUser.id) );
-      }
-      
-      // 2. Filter by Search Term (applied to all users before hierarchy building)
-      const lowerSearchTerm = searchTerm.toLowerCase();
-      if (lowerSearchTerm) {
-        usersToProcess = usersToProcess.filter(u =>
-          u.name.toLowerCase().includes(lowerSearchTerm) ||
-          u.email.toLowerCase().includes(lowerSearchTerm) ||
-          u.role.toLowerCase().includes(lowerSearchTerm) ||
-          (u.e_code && u.e_code.toLowerCase().includes(lowerSearchTerm)) ||
-          (u.location && u.location.toLowerCase().includes(lowerSearchTerm))
-        );
-      }
-      
-      // Determine the root for hierarchy display
-      let displayRoots: UserNode[] = [];
-      const chrUser = usersToProcess.find(u => u.role === 'CHR' && u.id === currentUser.id);
-
-      if (selectedVhrIds.length > 0) {
-        // If VHRs are selected, build trees starting from these selected VHRs (who must be in usersToProcess)
-        displayRoots = usersToProcess
-            .filter(u => u.role === 'VHR' && selectedVhrIds.includes(u.id))
-            .map(vhr => ({
-                ...vhr,
-                children: buildHierarchyTree(usersToProcess, vhr.id)
-            }));
-      } else if (chrUser) {
-        // If no VHR selected, start from CHR's direct reports
-        displayRoots = buildHierarchyTree(usersToProcess, chrUser.id);
+        // If VHRs are selected, they are the roots
+        roots = (fetchedUsers || []).filter(u => selectedVhrIds.includes(u.id) && u.role === 'VHR');
       } else {
-        // Fallback: if no CHR found (e.g., searched out or data issue) and no VHRs selected,
-        // try to build from any top-level users or show empty based on usersToProcess.
-        // This case might indicate that the current user (CHR) was filtered out by search,
-        // or a data consistency issue. For now, if CHR is not in usersToProcess, default to top-level available.
-        if (!usersToProcess.find(u => u.id === currentUser.id)) {
-             // CHR was filtered out, so no specific starting point relative to CHR.
-             // Could display top-level users from usersToProcess or an empty state/message.
-             // For now, we show what remains. If usersToProcess is empty, message will reflect that.
-             displayRoots = buildHierarchyTree(usersToProcess, null); // Show all remaining top-level hierarchies
+        // Otherwise, CHR's direct reports are roots
+        const chrUser = (fetchedUsers || []).find(u => u.id === currentUser.id && u.role === 'CHR');
+        if (chrUser) {
+          roots = (fetchedUsers || []).filter(u => u.reports_to === chrUser.id);
         }
       }
-      setRootUserNodes(displayRoots);
+      
+      const builtInitialRoots = roots.map(rootUser => ({
+        ...rootUser,
+        children: buildHierarchyTree(fetchedUsers || [], rootUser.id)
+      }));
+      setInitialRootUserNodes(builtInitialRoots);
 
     } catch (err: any) {
       console.error("Error fetching or building hierarchy:", err);
       setError(err.message || "Failed to load user hierarchy.");
-      setRootUserNodes([]);
+      setInitialRootUserNodes([]);
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser, buildHierarchyTree, searchTerm, selectedVhrIds]);
+  }, [currentUser, selectedVhrIds, buildHierarchyTree]);
 
   useEffect(() => {
-    fetchDataAndBuildHierarchy();
-  }, [fetchDataAndBuildHierarchy]);
+    fetchDataAndBuildInitialHierarchy();
+  }, [fetchDataAndBuildInitialHierarchy]);
+
+
+  const filterUserTree = useCallback((nodes: UserNode[], term: string): UserNode[] => {
+    if (!term.trim()) {
+      return nodes; // Return all nodes if search term is empty
+    }
+    const lowerTerm = term.toLowerCase();
+
+    return nodes.map(node => {
+      const selfMatches = 
+        node.name.toLowerCase().includes(lowerTerm) ||
+        node.email.toLowerCase().includes(lowerTerm) ||
+        node.role.toLowerCase().includes(lowerTerm) ||
+        (node.e_code && node.e_code.toLowerCase().includes(lowerTerm)) ||
+        (node.location && node.location.toLowerCase().includes(lowerTerm));
+
+      const filteredChildren = node.children ? filterUserTree(node.children, term) : [];
+
+      if (selfMatches || filteredChildren.length > 0) {
+        return { ...node, children: filteredChildren };
+      }
+      return null;
+    }).filter(node => node !== null) as UserNode[];
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      const filtered = filterUserTree(initialRootUserNodes, debouncedSearchTerm);
+      setDisplayedRootUserNodes(filtered);
+    }
+  }, [initialRootUserNodes, debouncedSearchTerm, isLoading, filterUserTree]);
+
 
   const pageTitle = useMemo(() => {
     if (selectedVhrIds.length === 0) return "Oversee Channel (Global)";
@@ -174,14 +176,14 @@ export default function OverseeChannelPage() {
         </Alert>
       )}
 
-      {!isLoading && !error && rootUserNodes.length === 0 && (
+      {!isLoading && !error && displayedRootUserNodes.length === 0 && (
         <Card className="shadow-md">
             <CardContent className="py-12 flex flex-col items-center justify-center text-center space-y-3">
                  <Search className="h-12 w-12 text-muted-foreground/70" />
                 <h3 className="text-xl font-semibold">No Hierarchy to Display</h3>
                 <p className="text-muted-foreground max-w-md">
-                {searchTerm ? "No users match your search criteria within the selected VHR vertical(s)." : 
-                 (selectedVhrIds.length > 0 ? "No users found for the selected VHR vertical(s)." : 
+                {debouncedSearchTerm ? "No users match your search criteria within the selected VHR vertical(s)." : 
+                 (selectedVhrIds.length > 0 ? "No users found for the selected VHR vertical(s), or they have no direct reports." : 
                  "The CHR has no direct reports, or no users were found in the system.")
                 }
                 </p>
@@ -191,7 +193,7 @@ export default function OverseeChannelPage() {
       )}
 
       <div className="space-y-3">
-        {rootUserNodes.map(node => (
+        {displayedRootUserNodes.map(node => (
           <HierarchyNode key={node.id} node={node} level={0} />
         ))}
       </div>
