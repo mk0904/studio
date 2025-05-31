@@ -6,14 +6,14 @@ import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Branch, Assignment } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, Search, ListChecks } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { HierarchyNode, type UserNode } from '@/components/chr/hierarchy-node';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BhrSubmissionsListModal } from '@/components/shared/bhr-submissions-list-modal';
+// BhrSubmissionsListModal import removed
 
 export default function OverseeChannelPage() {
   const { user: currentUser } = useAuth();
@@ -25,8 +25,9 @@ export default function OverseeChannelPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
-  const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
+  // State and handler for submissions modal removed
+  // const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
+  // const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -38,10 +39,11 @@ export default function OverseeChannelPage() {
     };
   }, [searchTerm]);
 
-  const handleShowSubmissions = (bhr: User) => {
-    setSelectedBhrForModal(bhr);
-    setIsSubmissionsModalOpen(true);
-  };
+  // handleShowSubmissions function removed
+  // const handleShowSubmissions = (bhr: User) => {
+  //   setSelectedBhrForModal(bhr);
+  //   setIsSubmissionsModalOpen(true);
+  // };
 
   const fetchDataAndBuildInitialHierarchy = useCallback(async () => {
     if (!currentUser || currentUser.role !== 'CHR') {
@@ -211,19 +213,10 @@ export default function OverseeChannelPage() {
 
       <div className="space-y-3">
         {displayedRootUserNodes.map(node => (
-          <HierarchyNode key={node.id} node={node} level={0} onShowSubmissions={handleShowSubmissions} />
+          <HierarchyNode key={node.id} node={node} level={0} />
         ))}
       </div>
-      {selectedBhrForModal && (
-        <BhrSubmissionsListModal
-          bhrUser={selectedBhrForModal}
-          isOpen={isSubmissionsModalOpen}
-          onClose={() => {
-            setIsSubmissionsModalOpen(false);
-            setSelectedBhrForModal(null);
-          }}
-        />
-      )}
+      {/* BhrSubmissionsListModal and its trigger logic removed */}
     </div>
   );
 }

@@ -5,20 +5,23 @@ import React from 'react';
 import type { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User as UserIcon, Briefcase, Users, Shield, Building } from 'lucide-react'; // Added UserIcon for CHR, Shield for VHR
+import { User as UserIcon, Briefcase, Users, Shield, Building, Info } from 'lucide-react';
+import { Button } from '../ui/button';
 
 export interface UserNode extends User {
   children: UserNode[];
+  assignedBranchNames?: string[];
 }
 
 interface HierarchyNodeProps {
   node: UserNode;
   level: number;
+  // onShowSubmissions prop removed
 }
 
 const roleIcons: Record<User['role'], React.ElementType> = {
-  CHR: Shield, // Changed to Shield for top level
-  VHR: Users,  // Changed to Users for VHR
+  CHR: Shield,
+  VHR: Users,
   ZHR: Briefcase,
   BHR: Building,
 };
@@ -43,10 +46,21 @@ export function HierarchyNode({ node, level }: HierarchyNodeProps) {
           </div>
           <Badge variant="outline" className="text-xs">{node.role}</Badge>
         </CardHeader>
-        <CardContent className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
+        <CardContent className="px-4 pb-3 pt-1 text-xs text-muted-foreground space-y-0.5">
           <p>Email: {node.email}</p>
           {node.e_code && <p>E-Code: {node.e_code}</p>}
           {node.location && <p>Location: {node.location}</p>}
+          {node.role === 'BHR' && node.assignedBranchNames && node.assignedBranchNames.length > 0 && (
+            <div className="pt-1">
+              <p className="font-medium text-foreground/90 mb-0.5">Assigned Branches:</p>
+              <div className="flex flex-wrap gap-1">
+                {node.assignedBranchNames.map(branchName => (
+                  <Badge key={branchName} variant="secondary" className="text-xs">{branchName}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* "Show Submissions" button removed */}
         </CardContent>
       </Card>
       {node.children && node.children.length > 0 && (

@@ -6,14 +6,14 @@ import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Branch, Assignment } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, Search, ListChecks } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { HierarchyNode, type UserNode } from '@/components/chr/hierarchy-node';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BhrSubmissionsListModal } from '@/components/shared/bhr-submissions-list-modal';
+// BhrSubmissionsListModal import removed
 
 
 export default function ZHRTeamStructurePage() {
@@ -26,8 +26,9 @@ export default function ZHRTeamStructurePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
-  const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
+  // State and handler for submissions modal removed
+  // const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
+  // const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -36,10 +37,11 @@ export default function ZHRTeamStructurePage() {
     return () => clearTimeout(timerId);
   }, [searchTerm]);
 
-  const handleShowSubmissions = (bhr: User) => {
-    setSelectedBhrForModal(bhr);
-    setIsSubmissionsModalOpen(true);
-  };
+  // handleShowSubmissions function removed
+  // const handleShowSubmissions = (bhr: User) => {
+  //   setSelectedBhrForModal(bhr);
+  //   setIsSubmissionsModalOpen(true);
+  // };
 
   const fetchDataAndBuildInitialHierarchy = useCallback(async () => {
     if (!currentUser || currentUser.role !== 'ZHR') {
@@ -51,14 +53,12 @@ export default function ZHRTeamStructurePage() {
     setIsLoading(true);
     setError(null);
 
-    // Define buildHierarchyTree INSIDE fetchDataAndBuildInitialHierarchy
     const buildTreeRecursive = (
       usersList: User[], 
       parentId: string | null,
       _allBranches: Branch[],
       _allAssignments: Assignment[]
     ): UserNode[] => {
-      // For ZHR view, BHRs typically don't have children reporting to them in this hierarchy.
       return usersList
         .filter(user => user.reports_to === parentId)
         .map(user => {
@@ -80,7 +80,6 @@ export default function ZHRTeamStructurePage() {
 
 
     try {
-      // 1. Get BHRs reporting to current ZHR
       const { data: bhrUsers, error: bhrError } = await supabase
         .from('users')
         .select('id, name, email, role, reports_to, e_code, location')
@@ -89,21 +88,16 @@ export default function ZHRTeamStructurePage() {
       if (bhrError) throw bhrError;
       const allUsersInZone = bhrUsers || [];
       
-      // Fetch all branches (locally)
       const { data: branchesData, error: branchesError } = await supabase.from('branches').select('id, name');
       if (branchesError) throw branchesError;
       const localAllBranches = branchesData || [];
 
-      // Fetch all assignments (locally)
       const { data: assignmentsData, error: assignmentsError } = await supabase.from('assignments').select('id, bhr_id, branch_id');
       if (assignmentsError) throw assignmentsError;
       const localAllAssignments = assignmentsData || [];
 
-      // Roots are the BHRs reporting to the ZHR
-      const roots = allUsersInZone; // BHRs are the direct reports and roots for ZHR's view
+      const roots = allUsersInZone; 
     
-      // Since BHRs are roots, they don't have children in this specific view.
-      // The buildTreeRecursive function will effectively just map them with assignedBranchNames.
       const builtInitialRoots = roots.map(rootUser => {
          let currentAssignedBranchNames: string[] = [];
          const bhrAssignments = localAllAssignments.filter(a => a.bhr_id === rootUser.id);
@@ -114,7 +108,7 @@ export default function ZHRTeamStructurePage() {
         return {
           ...rootUser,
           assignedBranchNames: currentAssignedBranchNames,
-          children: [] // BHRs don't have children reporting to them shown in ZHR's team structure
+          children: [] 
         };
       });
       setInitialRootUserNodes(builtInitialRoots);
@@ -144,7 +138,6 @@ export default function ZHRTeamStructurePage() {
         node.role.toLowerCase().includes(lowerTerm) ||
         (node.e_code && node.e_code.toLowerCase().includes(lowerTerm)) ||
         (node.location && node.location.toLowerCase().includes(lowerTerm));
-      // BHRs won't have children in this view, but keeping structure for consistency
       const filteredChildren = node.children ? filterUserTree(node.children, term) : [];
       if (selfMatches || filteredChildren.length > 0) {
         return { ...node, children: filteredChildren };
@@ -221,19 +214,10 @@ export default function ZHRTeamStructurePage() {
 
       <div className="space-y-3">
         {displayedRootUserNodes.map(node => (
-          <HierarchyNode key={node.id} node={node} level={0} onShowSubmissions={handleShowSubmissions}/>
+          <HierarchyNode key={node.id} node={node} level={0}/>
         ))}
       </div>
-      {selectedBhrForModal && (
-        <BhrSubmissionsListModal
-          bhrUser={selectedBhrForModal}
-          isOpen={isSubmissionsModalOpen}
-          onClose={() => {
-            setIsSubmissionsModalOpen(false);
-            setSelectedBhrForModal(null);
-          }}
-        />
-      )}
+      {/* BhrSubmissionsListModal and its trigger logic removed */}
     </div>
   );
 }

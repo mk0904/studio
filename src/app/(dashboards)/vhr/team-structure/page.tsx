@@ -6,14 +6,14 @@ import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Branch, Assignment } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, Search, ListChecks } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { HierarchyNode, type UserNode } from '@/components/chr/hierarchy-node';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BhrSubmissionsListModal } from '@/components/shared/bhr-submissions-list-modal';
+// BhrSubmissionsListModal import removed
 
 export default function VHRTeamStructurePage() {
   const { user: currentUser } = useAuth();
@@ -25,8 +25,9 @@ export default function VHRTeamStructurePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
-  const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
+  // State and handler for submissions modal removed
+  // const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
+  // const [selectedBhrForModal, setSelectedBhrForModal] = useState<User | null>(null);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -35,10 +36,11 @@ export default function VHRTeamStructurePage() {
     return () => clearTimeout(timerId);
   }, [searchTerm]);
 
-  const handleShowSubmissions = (bhr: User) => {
-    setSelectedBhrForModal(bhr);
-    setIsSubmissionsModalOpen(true);
-  };
+  // handleShowSubmissions function removed
+  // const handleShowSubmissions = (bhr: User) => {
+  //   setSelectedBhrForModal(bhr);
+  //   setIsSubmissionsModalOpen(true);
+  // };
 
   const fetchDataAndBuildInitialHierarchy = useCallback(async () => {
     if (!currentUser || currentUser.role !== 'VHR') {
@@ -50,8 +52,6 @@ export default function VHRTeamStructurePage() {
     setIsLoading(true);
     setError(null);
 
-    // Define buildHierarchyTree INSIDE fetchDataAndBuildInitialHierarchy
-    // to ensure it uses the fresh localAllBranches and localAllAssignments
     const buildTreeRecursive = (
       usersList: User[], 
       parentId: string | null,
@@ -78,7 +78,6 @@ export default function VHRTeamStructurePage() {
     };
 
     try {
-      // 1. Get ZHRs reporting to current VHR
       const { data: zhrUsers, error: zhrError } = await supabase
         .from('users')
         .select('id, name, email, role, reports_to, e_code, location')
@@ -89,7 +88,6 @@ export default function VHRTeamStructurePage() {
       let bhrUsers: User[] = [];
       const zhrIds = (zhrUsers || []).map(z => z.id);
       if (zhrIds.length > 0) {
-        // 2. Get BHRs reporting to these ZHRs
         const { data: fetchedBhrs, error: bhrError } = await supabase
           .from('users')
           .select('id, name, email, role, reports_to, e_code, location')
@@ -99,25 +97,20 @@ export default function VHRTeamStructurePage() {
         bhrUsers = fetchedBhrs || [];
       }
 
-      // All relevant users for this VHR's view
       const relevantUsers = [...(zhrUsers || []), ...bhrUsers];
-      // setAllUsersInVertical(relevantUsers); // Not directly used elsewhere if tree is primary display
-
-      // Fetch all branches (locally)
+      
       const { data: branchesData, error: branchesError } = await supabase.from('branches').select('id, name');
       if (branchesError) throw branchesError;
       const localAllBranches = branchesData || [];
 
-      // Fetch all assignments (locally)
       const { data: assignmentsData, error: assignmentsError } = await supabase.from('assignments').select('id, bhr_id, branch_id');
       if (assignmentsError) throw assignmentsError;
       const localAllAssignments = assignmentsData || [];
       
-      // Roots are the ZHRs reporting to the VHR
       const roots = zhrUsers || [];
     
       const builtInitialRoots = roots.map(rootUser => ({
-        ...rootUser, // ZHR node
+        ...rootUser, 
         children: buildTreeRecursive(relevantUsers, rootUser.id, localAllBranches, localAllAssignments)
       }));
       setInitialRootUserNodes(builtInitialRoots);
@@ -223,19 +216,10 @@ export default function VHRTeamStructurePage() {
 
       <div className="space-y-3">
         {displayedRootUserNodes.map(node => (
-          <HierarchyNode key={node.id} node={node} level={0} onShowSubmissions={handleShowSubmissions} />
+          <HierarchyNode key={node.id} node={node} level={0} />
         ))}
       </div>
-      {selectedBhrForModal && (
-        <BhrSubmissionsListModal
-          bhrUser={selectedBhrForModal}
-          isOpen={isSubmissionsModalOpen}
-          onClose={() => {
-            setIsSubmissionsModalOpen(false);
-            setSelectedBhrForModal(null);
-          }}
-        />
-      )}
+      {/* BhrSubmissionsListModal and its trigger logic removed */}
     </div>
   );
 }
