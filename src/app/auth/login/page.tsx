@@ -13,13 +13,13 @@ export default function AuthPage() {
   const [activeTab, setActiveTab] = useState('login');
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
       <div className="mb-8">
         <Logo className="text-3xl" /> {/* Primary color will be picked up from theme */}
       </div>
-      <Card className="w-full max-w-md shadow-2xl rounded-lg">
-        <CardHeader className="text-center pt-8 pb-6">
-          <CardTitle className="text-2xl font-bold text-primary">Welcome back</CardTitle>
+      <Card className="w-full max-w-md shadow-xl rounded-lg">
+        <CardHeader className="text-center pt-8 pb-4">
+          <CardTitle className="text-3xl font-bold text-primary">Welcome back</CardTitle>
           <CardDescription className="text-muted-foreground mt-1">
             Enter your credentials to access your account
           </CardDescription>
