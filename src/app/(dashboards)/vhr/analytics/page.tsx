@@ -128,6 +128,24 @@ export default function VHRAnalyticsPage() {
     METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {})
   );
 
+  const pageTitleText = useMemo(() => {
+    let title = `VHR Analytics`;
+    if (user) { 
+      if (globalSelectedZhrIds.length > 0) {
+          if (globalSelectedZhrIds.length === 1) {
+              const zhr = globalZhrOptions.find(z => z.value === globalSelectedZhrIds[0]);
+              title += ` (${zhr?.label || 'Selected ZHR'})`;
+          } else {
+              title += ` (${globalSelectedZhrIds.length} ZHRs)`;
+          }
+      } else {
+          title += ` (${user.name})`;
+      }
+    }
+    return title;
+  }, [globalSelectedZhrIds, globalZhrOptions, user]);
+
+
   useEffect(() => {
     if (user && user.role === 'VHR') {
       if (isLoadingBhrsInVhrVertical) return; 
@@ -334,43 +352,37 @@ export default function VHRAnalyticsPage() {
       .slice(0, 10);
   }, [filteredVisitsData, globalTimeframe, allBranchesForLookup]);
 
-  const visitsByBHRChartData = useMemo(() => {
-    const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
-    const bhrsInCurrentScope = globalSelectedZhrIds.length > 0
-        ? allBhrsInVhrVertical.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to))
-        : allBhrsInVhrVertical;
+  const visitsByZHRChartData = useMemo(() => {
+    const timeFilteredVisits = filterVisitsByTimeframe(allVisitsInVertical, globalTimeframe);
+    if (timeFilteredVisits.length === 0 || globalZhrOptions.length === 0) return [];
 
-    if (visitsForChart.length === 0 || bhrsInCurrentScope.length === 0) return [];
-    
-    const visitsPerBHR: Record<string, number> = {};
-    const bhrNameMap = new Map(bhrsInCurrentScope.map(bhr => [bhr.id, bhr.name]));
-
-    visitsForChart.forEach(visit => {
-      if (bhrNameMap.has(visit.bhr_id)) {
-        const bhrName = bhrNameMap.get(visit.bhr_id) || 'Unknown BHR';
-        visitsPerBHR[bhrName] = (visitsPerBHR[bhrName] || 0) + 1;
+    const bhrToZhrMap = new Map<string, string>();
+    allBhrsInVhrVertical.forEach(bhr => {
+      if (bhr.reports_to) {
+        bhrToZhrMap.set(bhr.id, bhr.reports_to);
       }
     });
-    return Object.entries(visitsPerBHR).map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` }));
-  }, [filteredVisitsData, globalTimeframe, allBhrsInVhrVertical, globalSelectedZhrIds]);
-  
-  const pageTitleText = useMemo(() => {
-    let title = `VHR Analytics`;
-    if (user) { 
-      if (globalSelectedZhrIds.length > 0) {
-          if (globalSelectedZhrIds.length === 1) {
-              const zhr = globalZhrOptions.find(z => z.value === globalSelectedZhrIds[0]);
-              title += ` (${zhr?.label || 'Selected ZHR'})`;
-          } else {
-              title += ` (${globalSelectedZhrIds.length} ZHRs)`;
-          }
-      } else {
-          title += ` (${user.name})`;
-      }
-    }
-    return title;
-  }, [globalSelectedZhrIds, globalZhrOptions, user]);
 
+    const visitsPerZhr: Record<string, number> = {};
+    timeFilteredVisits.forEach(visit => {
+      const zhrId = bhrToZhrMap.get(visit.bhr_id);
+      if (zhrId) {
+        const zhrOption = globalZhrOptions.find(z => z.value === zhrId);
+        if (zhrOption) {
+          visitsPerZhr[zhrOption.label] = (visitsPerZhr[zhrOption.label] || 0) + 1;
+        }
+      }
+    });
+
+    return Object.entries(visitsPerZhr)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        fill: `hsl(var(--chart-${(index % 5) + 1}))`,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [allVisitsInVertical, globalTimeframe, allBhrsInVhrVertical, globalZhrOptions]);
+  
   const handleMetricToggle = (metricKey: string) => {
     setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
   };
@@ -594,17 +606,29 @@ export default function VHRAnalyticsPage() {
             </Card>
           )}
         
-        <Card className="shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Visits by BHR</CardTitle>
-            <CardDescription>Distribution of submitted visits by BHRs, reflecting active filters.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             {visitsByBHRChartData.length > 0 ? (
-                <PlaceholderPieChart data={visitsByBHRChartData} title="" dataKey="value" nameKey="name"/>
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><Users className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No BHR visit data for current filter combination.</p></div>)}
-          </CardContent>
-        </Card>
+        {globalSelectedZhrIds.length === 0 ? (
+          <Card className="shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Visits by ZHR</CardTitle>
+              <CardDescription>Distribution of submitted visits by ZHRs in your vertical, reflecting the global timeframe.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {visitsByZHRChartData.length > 0 ? (
+                  <PlaceholderPieChart data={visitsByZHRChartData} title="" dataKey="value" nameKey="name"/>
+              ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><Users className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No ZHR visit data for the current timeframe.</p></div>)}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="shadow-xl">
+            <CardHeader>
+                <CardTitle>Visits by ZHR Chart Hidden</CardTitle>
+                <CardDescription>This chart is hidden when specific ZHRs are selected in the global filter. Clear the ZHR filter to see the overall distribution by ZHR.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center h-40">
+                <Users className="w-12 h-12 text-muted-foreground opacity-50"/>
+            </CardContent>
+          </Card>
+        )}
       </div>
       {!showBranchSpecificCharts && (
         <Card className="shadow-xl mt-8">
