@@ -9,7 +9,7 @@ import type { User, Visit, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
 import { Users, CalendarDays, Globe2, BarChartBig, TrendingUp, Loader2 } from 'lucide-react';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
-import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
+// import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart'; // Removed
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +30,7 @@ export default function CHRDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [allBranches, setAllBranches] = useState<Branch[]>([]);
+  const [allBranches, setAllBranches] = useState<Branch[]>([]); // Still needed for unique branch count in avg visits
   const [allSubmittedVisits, setAllSubmittedVisits] = useState<Visit[]>([]);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export default function CHRDashboardPage() {
   }, [user, toast]); 
 
   const filteredUsers = useMemo(() => {
-    if (selectedVhrIds.length === 0) return allUsers; 
+    if (selectedVhrIds.length === 0) return allUsers; // "All" VHRs selected
     
     const directVhrTargets = new Set(selectedVhrIds);
     const zhrsInSelectedVerticals = new Set<string>();
@@ -150,7 +150,7 @@ export default function CHRDashboardPage() {
                  visitsPerEntity[entityName] = (visitsPerEntity[entityName] || 0) + 1;
             }
         });
-    } else { 
+    } else { // Multiple VHRs selected
         selectedVhrIds.forEach(vhrId => {
             const vhrUser = allUsers.find(u => u.id === vhrId && u.role === 'VHR');
             if (vhrUser) entityNameMap.set(vhrUser.id, vhrUser.name);
@@ -173,25 +173,6 @@ export default function CHRDashboardPage() {
       fill: `hsl(var(--chart-${(index % 5) + 1}))`,
     })).sort((a,b) => b.value - a.value);
   }, [allUsers, filteredSubmittedVisits, selectedVhrIds]);
-
-  const visitsByBranchLocationData = useMemo(() => {
-    if (!allBranches.length || !filteredSubmittedVisits.length) return [];
-    const visitsPerLocation: Record<string, number> = {};
-    const branchLocationMap = new Map(allBranches.map(b => [b.id, b.location]));
-
-    filteredSubmittedVisits.forEach(visit => {
-      const location = branchLocationMap.get(visit.branch_id);
-      if (location) {
-        visitsPerLocation[location] = (visitsPerLocation[location] || 0) + 1;
-      }
-    });
-    return Object.entries(visitsPerLocation)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([name, value], index) => ({
-        name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-      }));
-  }, [allBranches, filteredSubmittedVisits]);
   
   const selectedVhrDetailsText = useMemo(() => {
     if (selectedVhrIds.length === 0) return { name: 'Global', descriptionSuffix: 'across all verticals' };
@@ -199,7 +180,8 @@ export default function CHRDashboardPage() {
       const vhr = vhrOptions.find(opt => opt.value === selectedVhrIds[0]);
       return vhr ? { name: vhr.label, descriptionSuffix: `for ${vhr.label}'s vertical` } : { name: 'Selected Vertical', descriptionSuffix: 'for the selected vertical'};
     }
-    return { name: `${selectedVhrIds.length} Verticals`, descriptionSuffix: `for ${selectedVhrIds.length} selected verticals` };
+    const selectedNames = selectedVhrIds.map(id => vhrOptions.find(opt => opt.value === id)?.label || `ID: ${id.substring(0,4)}`).join(', ');
+    return { name: `${selectedVhrIds.length} Verticals`, descriptionSuffix: `for ${selectedNames}` };
   }, [selectedVhrIds, vhrOptions]);
 
 
@@ -229,8 +211,8 @@ export default function CHRDashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         <StatCard title="Total ZHRs" value={zhrCount} icon={Users} description={`In ${selectedVhrDetailsText.name}`}/>
         <StatCard title="Total BHRs" value={bhrCount} icon={Users} description={`In ${selectedVhrDetailsText.name}`}/>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+      {/* </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2"> */}
         <StatCard title="Submitted Visits" value={totalSubmittedVisits} icon={CalendarDays} description={`In ${selectedVhrDetailsText.name}`}/>
         <StatCard 
             title="Avg Visits / Visited Branch" 
@@ -247,7 +229,7 @@ export default function CHRDashboardPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6"> {/* Changed to lg:grid-cols-1 */}
         {visitsByVerticalChartData.length > 0 ? (
             <PlaceholderBarChart
             data={visitsByVerticalChartData}
@@ -264,22 +246,7 @@ export default function CHRDashboardPage() {
                 </div>
             </Card>
         )}
-        {visitsByBranchLocationData.length > 0 ? (
-            <PlaceholderPieChart
-            data={visitsByBranchLocationData}
-            title={`Submitted Visits by Branch Location (Top 5 for ${selectedVhrDetailsText.name})`}
-            description={`Top 5 branch locations by submitted visits for ${selectedVhrDetailsText.name}.`}
-            dataKey="value"
-            nameKey="name"
-            />
-        ) : (
-             <Card className="shadow-lg flex items-center justify-center min-h-[300px]">
-                <div className="text-center text-muted-foreground">
-                    <Users className="mx-auto h-12 w-12 mb-2" />
-                    <p>No branch location visit data for {selectedVhrDetailsText.name}.</p>
-                </div>
-            </Card>
-        )}
+        {/* PlaceholderPieChart for branch locations removed */}
       </div>
     </div>
   );
