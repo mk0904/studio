@@ -493,36 +493,23 @@ export default function ZHRAnalyticsPage() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                {/* Temporarily hardcode one line for 'manning_percentage' for debugging */}
-                {activeMetrics['manning_percentage'] && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="manning_percentage" 
-                      name="Manning %" 
-                      stroke="hsl(var(--chart-1))"
-                      strokeWidth={2}
-                      connectNulls={true}
-                      dot={{ r: 3, fill: "hsl(var(--chart-1))" }}
-                      activeDot={{ r: 6 }}
-                      yAxisId="left"
-                    />
-                  )}
-                {/* {METRIC_CONFIGS.map(metric =>
+                {METRIC_CONFIGS.map(metric =>
                   activeMetrics[metric.key] && (
                     <Line
                       key={metric.key}
-                      type="monotone"
+                      type="linear"
                       dataKey={metric.key.toString()}
                       name={metric.label}
                       stroke={metric.color}
                       strokeWidth={2}
                       connectNulls={true} 
                       yAxisId={metric.yAxisId || 'left'}
-                      dot={{ r: 3, fill: metric.color }} 
-                      activeDot={{ r: 6 }} 
+                      strokeDasharray={metric.strokeDasharray}
+                      dot={{ r: 2, fill: metric.color, strokeWidth: 0 }} 
+                      activeDot={{ r: 5, stroke: 'hsl(var(--background))', strokeWidth: 1 }} 
                     />
                   )
-                )} */}
+                )}
               </LineChart>
             </ResponsiveContainer>
           ) : (
