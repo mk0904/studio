@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import {
-  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, LogOut, Network, FileText
+  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, FileText, Network, Settings, LogOut
 } from 'lucide-react';
 
 const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
@@ -50,13 +50,13 @@ export function SidebarNavigation() {
   const pathname = usePathname();
 
   if (!user) {
-    return null; // Or a loading state/skeleton
+    return null; 
   }
 
   const navLinks = ALL_NAV_LINKS[user.role] || [];
 
   return (
-    <SidebarMenu>
+    <SidebarMenu className="flex-grow">
       {navLinks.map((item) => (
         <SidebarMenuItem key={item.href}>
           <Link href={item.href} passHref legacyBehavior>
@@ -64,23 +64,27 @@ export function SidebarNavigation() {
               isActive={pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`))}
               aria-current={pathname === item.href ? "page" : undefined}
               tooltip={item.label}
+              className="group-data-[collapsible=icon]:justify-center"
             >
-              <item.icon aria-hidden="true" />
-              <span>{item.label}</span>
+              <item.icon aria-hidden="true" className="shrink-0" />
+              <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
             </SidebarMenuButton>
           </Link>
         </SidebarMenuItem>
       ))}
-      <SidebarMenuItem className="mt-auto">
+      {/* Moved Account settings to SidebarUserItem, Logout remains here or in user item */}
+      <SidebarMenuItem className="mt-auto"> 
           <SidebarMenuButton
             onClick={logout}
             tooltip="Logout"
+            className="group-data-[collapsible=icon]:justify-center text-destructive-foreground/80 hover:bg-destructive/20 hover:text-destructive"
           >
-            <LogOut aria-hidden="true" />
-            <span>Logout</span>
+            <LogOut aria-hidden="true" className="shrink-0" />
+            <span className="truncate group-data-[collapsible=icon]:hidden">Logout</span>
           </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
   );
 }
 
+    

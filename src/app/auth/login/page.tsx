@@ -13,15 +13,15 @@ export default function AuthPage() {
   const [activeTab, setActiveTab] = useState('login');
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-muted/30 p-4 animate-fade-in">
       <div className="mb-8">
-        <Logo className="text-3xl" /> {/* Primary color will be picked up from theme */}
+        <Logo className="text-3xl" />
       </div>
-      <Card className="w-full max-w-md shadow-xl rounded-lg">
+      <Card className="w-full max-w-md shadow-strong rounded-lg animate-scale-in">
         <CardHeader className="text-center pt-8 pb-4">
-          <CardTitle className="text-3xl font-bold text-primary">Welcome back</CardTitle>
+          <CardTitle className="text-3xl font-bold text-primary">Welcome</CardTitle>
           <CardDescription className="text-muted-foreground mt-1">
-            Enter your credentials to access your account
+            {activeTab === 'login' ? "Enter your credentials to access your account" : "Create a new account to get started"}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-6 pb-8 pt-2">
@@ -29,13 +29,13 @@ export default function AuthPage() {
             <TabsList className="grid w-full grid-cols-2 bg-muted p-1 rounded-md">
               <TabsTrigger 
                 value="login" 
-                className="data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-sm"
+                className="data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-medium rounded-sm py-2 text-sm"
               >
                 Login
               </TabsTrigger>
               <TabsTrigger 
                 value="signup"
-                className="data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-sm"
+                className="data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-medium rounded-sm py-2 text-sm"
               >
                 Sign Up
               </TabsTrigger>
@@ -71,3 +71,5 @@ export default function AuthPage() {
     </div>
   );
 }
+
+    
