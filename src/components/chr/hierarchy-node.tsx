@@ -3,55 +3,58 @@
 
 import type { User } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { Building, Briefcase, UserCircle, ShieldCheck, Gem, Network, MapPin, Fingerprint } from 'lucide-react'; // Added MapPin, Fingerprint
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Building, Briefcase, UserCircle, ShieldCheck, Gem, Network, MapPin, Fingerprint } from 'lucide-react';
 
-export interface UserNode extends User {
-  children: UserNode[];
+interface HierarchicalUserNode extends User {
+  children: HierarchicalUserNode[];
 }
 
 interface HierarchyNodeProps {
-  node: UserNode;
+  node: HierarchicalUserNode;
+  level: number;
 }
 
 const roleIcons: Record<User['role'], React.ElementType> = {
-    CHR: ShieldCheck, 
+    CHR: ShieldCheck,
     VHR: Gem,
     ZHR: Briefcase,
     BHR: Building,
 };
 
-export function HierarchyNode({ node }: HierarchyNodeProps) {
+export function HierarchyNode({ node, level }: HierarchyNodeProps) {
   const RoleIcon = roleIcons[node.role] || UserCircle;
+  const indentClass = `ml-${level * 6}`; // Tailwind class for indentation (ml-0, ml-6, ml-12, etc.)
 
   return (
-    <div className="flex flex-col items-center p-1 m-1 relative">
-      {/* Node Information */}
-      <div className="border border-primary/30 rounded-lg p-3 shadow-md bg-card text-card-foreground min-w-[180px] text-center space-y-1">
-        <div className="flex items-center justify-center gap-2">
-          <RoleIcon className="h-5 w-5 text-primary" />
-          <p className="text-base font-semibold text-primary">{node.name}</p>
-        </div>
-        <Badge variant="secondary" className="capitalize text-xs">{node.role}</Badge>
-        {node.e_code && (
-          <div className="flex items-center justify-center text-xs text-muted-foreground gap-1 pt-0.5">
-            <Fingerprint className="h-3 w-3" />
-            <span>{node.e_code}</span>
+    <div className={`my-2 ${indentClass}`}>
+      <Card className="shadow-md border-primary/30 hover:shadow-lg transition-shadow bg-card text-card-foreground">
+        <CardHeader className="flex flex-row items-center justify-between p-3 border-b border-primary/10">
+          <div className="flex items-center gap-1.5">
+            <RoleIcon className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base font-semibold text-primary">{node.name}</CardTitle>
           </div>
-        )}
-        {node.location && (
-           <div className="flex items-center justify-center text-xs text-muted-foreground gap-1">
-            <MapPin className="h-3 w-3" />
-            <span>{node.location}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Children Container */}
+          <Badge variant="secondary" className="capitalize text-xs">{node.role}</Badge>
+        </CardHeader>
+        <CardContent className="p-3 text-xs space-y-1">
+          {node.e_code && (
+            <div className="flex items-center text-muted-foreground gap-1">
+              <Fingerprint className="h-3.5 w-3.5" />
+              <span>{node.e_code}</span>
+            </div>
+          )}
+          {node.location && (
+             <div className="flex items-center text-muted-foreground gap-1">
+              <MapPin className="h-3.5 w-3.5" />
+              <span>{node.location}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       {node.children && node.children.length > 0 && (
-        <div className="flex flex-row justify-center items-start gap-x-4 mt-4 pt-4 relative">
-           {/* Pseudo-elements for lines would be complex here without a library */}
+        <div className="mt-1">
           {node.children.map((child) => (
-            <HierarchyNode key={child.id} node={child} />
+            <HierarchyNode key={child.id} node={child} level={level + 1} />
           ))}
         </div>
       )}

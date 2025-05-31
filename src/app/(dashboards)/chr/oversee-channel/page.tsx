@@ -1,20 +1,33 @@
 
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabaseClient';
-import type { User } from '@/types';
+import type { User as UserType } from '@/types'; // Renamed to avoid conflict with component
 import { Loader2, AlertCircle, Users, Network } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { HierarchyNode, type UserNode } from '@/components/chr/hierarchy-node';
+import { HierarchyNode } from '@/components/chr/hierarchy-node'; // Use the simplified node
+
+interface HierarchicalUser extends UserType {
+  children: HierarchicalUser[];
+}
 
 export default function OverseeChannelPage() {
   const { user } = useAuth();
+  const [rootUserNode, setRootUserNode] = useState<HierarchicalUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [rootUserNode, setRootUserNode] = useState<UserNode | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const buildHierarchy = (users: UserType[], parentId: string | null | undefined): HierarchicalUser[] => {
+    return users
+      .filter(u => u.reports_to === parentId)
+      .map(u => ({
+        ...u,
+        children: buildHierarchy(users, u.id),
+      }));
+  };
 
   const fetchAndBuildHierarchy = useCallback(async () => {
     if (!user || user.role !== 'CHR') {
@@ -30,52 +43,30 @@ export default function OverseeChannelPage() {
         .from('users')
         .select('id, name, email, role, reports_to, e_code, location');
 
-      if (usersError) {
-        throw usersError;
-      }
-
+      if (usersError) throw usersError;
       if (!allUsersData || allUsersData.length === 0) {
-        setRootUserNode(null);
+        setError("No user data found.");
         setIsLoading(false);
         return;
       }
 
-      const usersMap: Map<string, UserNode> = new Map();
-      const allUsersTyped = allUsersData as User[];
-
-      allUsersTyped.forEach(u => {
-        usersMap.set(u.id, { ...u, children: [] });
-      });
-
-      const roots: UserNode[] = [];
-      allUsersTyped.forEach(u => {
-        const node = usersMap.get(u.id)!;
-        if (u.reports_to && usersMap.has(u.reports_to)) {
-          const parentNode = usersMap.get(u.reports_to)!;
-          parentNode.children.push(node);
-        } else {
-          roots.push(node);
-        }
-      });
-      
-      usersMap.forEach(node => {
-          node.children.sort((a, b) => a.name.localeCompare(b.name));
-      });
-      roots.sort((a, b) => a.name.localeCompare(b.name));
-      
-      const chrNode = roots.find(r => r.role === 'CHR');
-      
-      if (chrNode) {
-        setRootUserNode(chrNode);
-      } else {
-        setError("CHR user not found. Cannot display the organizational structure starting from CHR.");
-        setRootUserNode(null);
+      const chrUser = allUsersData.find(u => u.role === 'CHR');
+      if (!chrUser) {
+        setError("CHR user not found. Cannot display the organizational structure.");
+        setIsLoading(false);
+        return;
       }
+      
+      // Build hierarchy starting from the CHR user
+      const hierarchyRoot: HierarchicalUser = {
+        ...(chrUser as UserType), // Cast to UserType
+        children: buildHierarchy(allUsersData as UserType[], chrUser.id),
+      };
+      setRootUserNode(hierarchyRoot);
 
     } catch (err: any) {
       console.error("Error fetching or building hierarchy:", err);
       setError(`Failed to load organizational hierarchy: ${err.message}`);
-      setRootUserNode(null);
     } finally {
       setIsLoading(false);
     }
@@ -85,73 +76,62 @@ export default function OverseeChannelPage() {
     fetchAndBuildHierarchy();
   }, [fetchAndBuildHierarchy]);
 
-  if (!user && !isLoading) {
-     return <PageTitle title="Access Denied" description="Please log in to view this page." />;
-  }
-
-  if (user && user.role !== 'CHR' && !isLoading) {
-    return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
-  }
-  
-  const directReportsOfChr = rootUserNode && rootUserNode.role === 'CHR' ? rootUserNode.children : [];
-
-  return (
-    <div className="space-y-8">
-      <PageTitle title="Oversee Channel - Organizational Hierarchy" description="Visual representation of the reporting structure. Scroll horizontally if the tree is wide." />
-
-      {isLoading && (
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <PageTitle title="Oversee Channel - Organizational Hierarchy" description="Loading organizational structure..." />
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="ml-3 text-muted-foreground">Loading hierarchy...</p>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {error && !isLoading && (
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <PageTitle title="Oversee Channel - Error" description="Could not load hierarchy." />
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
-
-      {!isLoading && !error && !rootUserNode && (
+      </div>
+    );
+  }
+  
+  if (!rootUserNode && !isLoading && !error) {
+     return (
+      <div className="space-y-8">
+        <PageTitle title="Oversee Channel - Organizational Hierarchy" description="Organizational structure." />
          <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <Network className="h-4 w-4" />
             <AlertTitle>No Hierarchy Data</AlertTitle>
-            <AlertDescription>Unable to load organizational data. Ensure users and reporting structures are correctly configured.</AlertDescription>
+            <AlertDescription>Unable to display organizational data. The CHR might not be set up correctly or data is missing.</AlertDescription>
         </Alert>
-      )}
+      </div>
+    );
+  }
+  
+  // Render direct reports of CHR (rootUserNode's children)
+  // The CHR node itself is not displayed as a card by default, the tree starts from its reports
+  const directReports = rootUserNode?.children || [];
 
-      {!isLoading && !error && rootUserNode && rootUserNode.role === 'CHR' && (
-        directReportsOfChr.length > 0 ? (
-          <div className="overflow-x-auto py-4 -mx-4 px-4">
-            <div className="flex flex-row items-start justify-center gap-x-8 p-4 min-w-max">
-              {directReportsOfChr.map(childNode => (
-                <HierarchyNode key={childNode.id} node={childNode} />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <Alert variant="default">
+  return (
+    <div className="space-y-8">
+      <PageTitle title="Oversee Channel - Organizational Hierarchy" description="Visual representation of the reporting structure below the CHR." />
+      {directReports.length > 0 ? (
+        <div className="p-4 bg-card rounded-lg shadow-md">
+          {directReports.map(childNode => (
+            <HierarchyNode key={childNode.id} node={childNode} level={0} />
+          ))}
+        </div>
+      ) : (
+         <Alert>
             <Users className="h-4 w-4" />
             <AlertTitle>No Direct Reports</AlertTitle>
-            <AlertDescription>The CHR currently has no direct reports in the system.</AlertDescription>
-          </Alert>
-        )
-      )}
-      
-      {!isLoading && !error && rootUserNode && rootUserNode.role !== 'CHR' && (
-        <Alert variant="default">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Hierarchy View Issue</AlertTitle>
-            <AlertDescription>
-                Could not display hierarchy starting from CHR. Displaying top-level users found.
-            </AlertDescription>
-            <div className="mt-4 space-y-2 overflow-x-auto py-4">
-                 <div className="flex flex-row items-start justify-center gap-x-8 p-4 min-w-max">
-                    <HierarchyNode node={rootUserNode} />
-                 </div>
-            </div>
+            <AlertDescription>The CHR currently has no direct reports in the system to display.</AlertDescription>
         </Alert>
       )}
     </div>
