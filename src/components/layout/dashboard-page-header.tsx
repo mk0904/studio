@@ -83,9 +83,12 @@ export function DashboardPageHeader() {
   const showGlobalChrVhrFilter = isChr && 
     pathname !== '/chr/oversee-channel' && 
     pathname !== '/account' &&
-    pathname !== '/chr/export-data'; // Added /chr/export-data here
+    pathname !== '/chr/export-data';
 
-  const showGlobalVhrZhrFilter = isVhr && pathname !== '/account' && pathname !== '/vhr/team-structure';
+  const showGlobalVhrZhrFilter = isVhr && 
+    pathname !== '/account' && 
+    pathname !== '/vhr/team-structure' &&
+    pathname !== '/vhr/export-data';
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:px-6">
@@ -188,3 +191,4 @@ export function DashboardPageHeader() {
     </header>
   );
 }
+

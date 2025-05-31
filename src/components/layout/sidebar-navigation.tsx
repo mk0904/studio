@@ -27,17 +27,19 @@ const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
     { href: '/zhr/branch-assignments', label: 'Branch Assignments', icon: Briefcase },
     { href: '/zhr/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/zhr/team-structure', label: 'Team Structure', icon: Network },
+    { href: '/zhr/export-data', label: 'Export Data', icon: FileText },
   ],
   VHR: [
     { href: '/vhr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/vhr/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/vhr/branch-visits', label: 'Branch Visits', icon: Building2 },
     { href: '/vhr/team-structure', label: 'Team Structure', icon: Network },
+    { href: '/vhr/export-data', label: 'Export Data', icon: FileText },
   ],
   CHR: [
     { href: '/chr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/chr/analytics', label: 'Analytics', icon: PieChart },
-    { href: '/chr/visits-made', label: 'Visits Made', icon: ListChecks }, // Changed from /chr/global-overview
+    { href: '/chr/visits-made', label: 'Visits Made', icon: ListChecks },
     { href: '/chr/oversee-channel', label: 'Oversee Channel', icon: Network },
     { href: '/chr/export-data', label: 'Export Data', icon: FileText },
   ],
@@ -81,3 +83,4 @@ export function SidebarNavigation() {
     </SidebarMenu>
   );
 }
+
