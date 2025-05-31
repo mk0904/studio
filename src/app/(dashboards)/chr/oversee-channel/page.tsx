@@ -13,11 +13,9 @@ import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useChrFilter } from '@/contexts/chr-filter-context';
 
 export default function OverseeChannelPage() {
   const { user: currentUser } = useAuth();
-  const { selectedVhrIds } = useChrFilter();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [initialRootUserNodes, setInitialRootUserNodes] = useState<UserNode[]>([]);
   const [displayedRootUserNodes, setDisplayedRootUserNodes] = useState<UserNode[]>([]);
@@ -65,16 +63,15 @@ export default function OverseeChannelPage() {
       if (fetchError) throw fetchError;
       setAllUsers(fetchedUsers || []);
 
+      // Always find the CHR user from the fetched users list
+      const chrUser = (fetchedUsers || []).find(u => u.id === currentUser.id && u.role === 'CHR');
       let roots: User[] = [];
-      if (selectedVhrIds.length > 0) {
-        // If VHRs are selected, they are the roots
-        roots = (fetchedUsers || []).filter(u => selectedVhrIds.includes(u.id) && u.role === 'VHR');
+
+      if (chrUser) {
+        // CHR's direct reports are the roots
+        roots = (fetchedUsers || []).filter(u => u.reports_to === chrUser.id);
       } else {
-        // Otherwise, CHR's direct reports are roots
-        const chrUser = (fetchedUsers || []).find(u => u.id === currentUser.id && u.role === 'CHR');
-        if (chrUser) {
-          roots = (fetchedUsers || []).filter(u => u.reports_to === chrUser.id);
-        }
+        console.warn("CHR user not found, cannot determine root nodes for hierarchy.");
       }
       
       const builtInitialRoots = roots.map(rootUser => ({
@@ -90,7 +87,7 @@ export default function OverseeChannelPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser, selectedVhrIds, buildHierarchyTree]);
+  }, [currentUser, buildHierarchyTree]);
 
   useEffect(() => {
     fetchDataAndBuildInitialHierarchy();
@@ -128,14 +125,7 @@ export default function OverseeChannelPage() {
   }, [initialRootUserNodes, debouncedSearchTerm, isLoading, filterUserTree]);
 
 
-  const pageTitle = useMemo(() => {
-    if (selectedVhrIds.length === 0) return "Oversee Channel (Global)";
-    if (selectedVhrIds.length === 1 && allUsers.length > 0) {
-      const vhr = allUsers.find(u => u.id === selectedVhrIds[0]);
-      return `Oversee Channel (${vhr?.name || 'Selected VHR'})`;
-    }
-    return `Oversee Channel (${selectedVhrIds.length} VHRs)`;
-  }, [selectedVhrIds, allUsers]);
+  const pageTitle = "Oversee Channel (Global)";
 
 
   if (isLoading) {
@@ -182,9 +172,8 @@ export default function OverseeChannelPage() {
                  <Search className="h-12 w-12 text-muted-foreground/70" />
                 <h3 className="text-xl font-semibold">No Hierarchy to Display</h3>
                 <p className="text-muted-foreground max-w-md">
-                {debouncedSearchTerm ? "No users match your search criteria within the selected VHR vertical(s)." : 
-                 (selectedVhrIds.length > 0 ? "No users found for the selected VHR vertical(s), or they have no direct reports." : 
-                 "The CHR has no direct reports, or no users were found in the system.")
+                {debouncedSearchTerm ? "No users match your search criteria." : 
+                 "The CHR has no direct reports, or no users were found in the system."
                 }
                 </p>
                  {searchTerm && <Button variant="outline" onClick={() => setSearchTerm('')}>Clear Search</Button>}
