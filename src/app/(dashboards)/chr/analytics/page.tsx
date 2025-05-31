@@ -264,20 +264,7 @@ export default function CHRAnalyticsPage() {
     });
   };
 
-const metricTrendChartData = useMemo(() => {
-    // --- START HARDCODED TEST DATA ---
-    // console.log("CHR Analytics: USING HARDCODED DATA FOR METRIC TRENDS CHART"); 
-    return [
-        { date: '2023-01-01', manning_percentage: 50, attrition_percentage: 10, non_vendor_percentage: null, er_percentage: 5, cwt_cases: 2 },
-        { date: '2023-01-02', manning_percentage: 55, attrition_percentage: null, non_vendor_percentage: 20, er_percentage: 6, cwt_cases: 1 },
-        { date: '2023-01-03', manning_percentage: null, attrition_percentage: 12, non_vendor_percentage: 22, er_percentage: null, cwt_cases: 3 },
-        { date: '2023-01-04', manning_percentage: 60, attrition_percentage: 11, non_vendor_percentage: 18, er_percentage: 7, cwt_cases: null },
-        { date: '2023-01-05', manning_percentage: 65, attrition_percentage: null, non_vendor_percentage: null, er_percentage: 5, cwt_cases: 2 },
-    ];
-    // --- END HARDCODED TEST DATA ---
-
-    // Original logic commented out for this test
-    /*
+  const metricTrendChartData = useMemo(() => {
     const filteredByAllSelections = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
     if (filteredByAllSelections.length === 0) return [];
     const aggregatedData: Record<string, { [key: string]: { sum: number; count: number } }> = {};
@@ -311,7 +298,7 @@ const metricTrendChartData = useMemo(() => {
        dateRangeForChart = eachDayOfInterval({ start: startOfDay(minDate), end: endOfDay(maxDate) });
     } catch (e) { 
       console.error("Error in eachDayOfInterval for CHR chart:", e);
-      return []; // Return empty if interval is invalid
+      return [];
     }
     if (dateRangeForChart.length === 0) return [];
 
@@ -323,7 +310,7 @@ const metricTrendChartData = useMemo(() => {
       METRIC_CONFIGS.forEach(m => {
         if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
           point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
-          if (m.key === 'cwt_cases') { // For CWT cases, we want the sum, not average
+          if (m.key === 'cwt_cases') { 
             point[m.key] = dayData[m.key].sum;
           }
         } else {
@@ -332,8 +319,7 @@ const metricTrendChartData = useMemo(() => {
       });
       return point;
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    */
-}, []); // Empty dependency array for hardcoded data test
+  }, [filteredVisitsData, globalTimeframe]);
 
 
   const qualitativeSpiderChartData = useMemo(() => {
@@ -575,7 +561,7 @@ const metricTrendChartData = useMemo(() => {
       <Card className="shadow-xl">
         <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Metric Trends</CardTitle>
-            <CardDescription>Trendlines for selected metrics from submitted visits, reflecting all active filters and the global timeframe. (Using test data for CHR page)</CardDescription>
+            <CardDescription>Trendlines for selected metrics from submitted visits, reflecting all active filters and the global timeframe.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">

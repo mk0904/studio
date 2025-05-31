@@ -545,7 +545,7 @@ export default function VHRAnalyticsPage() {
           </div>
           {metricTrendChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={metricTrendChartData}>
+              <LineChart data={metricTrendChartData} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tickFormatter={(tick) => format(parseISO(tick), 'MMM d')} stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }}/>
                 <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" orientation="left" tick={{ fontSize: 12 }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />

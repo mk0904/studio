@@ -468,7 +468,7 @@ export default function ZHRAnalyticsPage() {
           </div>
           {metricTrendChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={metricTrendChartData}>
+              <LineChart data={metricTrendChartData} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="date"
