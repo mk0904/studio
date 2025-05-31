@@ -577,7 +577,21 @@ export default function CHRAnalyticsPage() {
                 <YAxis yAxisId="right" stroke="hsl(var(--muted-foreground))" orientation="right" tick={{ fontSize: 12 }} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}} labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }} formatter={(value: number, name) => METRIC_CONFIGS.find(m=>m.label===name)?.key.includes('percentage') ? [`${value}%`, name] : [value, name]}/>
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                {METRIC_CONFIGS.map(metric => activeMetrics[metric.key] && (
+                {/* Temporarily hardcode one line for 'manning_percentage' for debugging */}
+                 {activeMetrics['manning_percentage'] && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="manning_percentage" 
+                      name="Manning %" 
+                      stroke="hsl(var(--chart-1))"
+                      strokeWidth={2}
+                      connectNulls={true}
+                      dot={{ r: 3, fill: "hsl(var(--chart-1))" }}
+                      activeDot={{ r: 6 }}
+                      yAxisId="left"
+                    />
+                  )}
+                 {/* {METRIC_CONFIGS.map(metric => activeMetrics[metric.key] && (
                     <Line 
                       key={metric.key} 
                       type="monotone" 
@@ -586,12 +600,11 @@ export default function CHRAnalyticsPage() {
                       stroke={metric.color} 
                       strokeWidth={2} 
                       yAxisId={metric.yAxisId || 'left'} 
-                      // strokeDasharray={metric.strokeDasharray} // Temporarily removed
-                      dot={{ r: 2, fill: metric.color, strokeWidth: 0 }}
-                      activeDot={{ r: 5, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
-                      connectNulls={true} // Explicitly true
+                      connectNulls={true}
+                      dot={{ r: 3, fill: metric.color }} // Slightly larger dots for visibility
+                      activeDot={{ r: 6 }} // Larger active dot
                     />
-                ))}
+                ))} */}
               </LineChart>
             </ResponsiveContainer>
           ) : ( <div className="flex flex-col items-center justify-center h-96 text-center p-4"><TrendingUp className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No metric data for current filter combination.</p></div> )}
@@ -664,5 +677,6 @@ export default function CHRAnalyticsPage() {
     </div>
   );
 }
+    
 
     
