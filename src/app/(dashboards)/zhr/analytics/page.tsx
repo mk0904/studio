@@ -254,7 +254,11 @@ export default function ZHRAnalyticsPage() {
       METRIC_CONFIGS.forEach(m => {
         if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
           point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
-          if (m.key === 'cwt_cases') point[m.key] = dayData[m.key].sum;
+          if (m.key === 'cwt_cases') {
+            point[m.key] = dayData[m.key].sum;
+          }
+        } else {
+          point[m.key] = null; // Explicitly set to null
         }
       });
       return point;

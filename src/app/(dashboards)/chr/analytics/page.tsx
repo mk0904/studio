@@ -230,12 +230,9 @@ export default function CHRAnalyticsPage() {
         allUsersForContext.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
     
-    // Apply BHR filter (if any hierarchy selected)
-    // If a filter (VHR, ZHR, or BHR) is active but results in no BHRs, then visits should be empty.
-    // If no filters are active, relevantBhrIds will contain all BHRs.
     if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
       if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
-        visits = []; // A filter is active but no BHRs match it
+        visits = []; 
       } else if (relevantBhrIds.size > 0) {
         visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
       }
@@ -311,7 +308,11 @@ export default function CHRAnalyticsPage() {
       METRIC_CONFIGS.forEach(m => {
         if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
           point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
-          if (m.key === 'cwt_cases') point[m.key] = dayData[m.key].sum;
+          if (m.key === 'cwt_cases') {
+            point[m.key] = dayData[m.key].sum;
+          }
+        } else {
+          point[m.key] = null; // Explicitly set to null
         }
       });
       return point;
