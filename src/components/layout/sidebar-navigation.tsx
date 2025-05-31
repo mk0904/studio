@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import {
-  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, LogOut, BarChartHorizontalBig, Settings, Users, Network
+  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, LogOut, Network, FileText // Added FileText
 } from 'lucide-react';
 
 const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
@@ -39,6 +39,7 @@ const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
     { href: '/chr/analytics', label: 'Analytics', icon: PieChart },
     { href: '/chr/visits-made', label: 'Visits Made', icon: ListChecks },
     { href: '/chr/oversee-channel', label: 'Oversee Channel', icon: Network },
+    { href: '/chr/export-data', label: 'Export Data', icon: FileText }, // Added Export Data link
   ],
 };
 
