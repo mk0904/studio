@@ -36,7 +36,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
-import { useVhrFilter } from '@/contexts/vhr-filter-context'; // Import VHR filter hook
+import { useVhrFilter } from '@/contexts/vhr-filter-context';
 
 interface MetricConfig {
   key: keyof Visit;
@@ -102,7 +102,7 @@ export default function VHRAnalyticsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { 
-    selectedZhrIds: globalSelectedZhrIds, // Use global ZHR filter from context
+    selectedZhrIds: globalSelectedZhrIds, 
     zhrOptions: globalZhrOptions, 
     isLoadingZhrOptions: isLoadingGlobalZhrOptions,
     allBhrsInVhrVertical,
@@ -114,7 +114,6 @@ export default function VHRAnalyticsPage() {
   const [allVisitsInVertical, setAllVisitsInVertical] = useState<Visit[]>([]);
   const [allBranchesForLookup, setAllBranchesForLookup] = useState<Branch[]>([]);
 
-  // Local filter states (BHR, Branch) - ZHR is now global
   const [selectedBhrIds, setSelectedBhrIds] = useState<string[]>([]);
   const [bhrOptions, setBhrOptions] = useState<FilterOption[]>([]);
   const [isLoadingBhrOptions, setIsLoadingBhrOptions] = useState(false);
@@ -129,15 +128,13 @@ export default function VHRAnalyticsPage() {
     METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {})
   );
 
-  // Fetch initial page data (visits, all branches for lookup)
   useEffect(() => {
     if (user && user.role === 'VHR') {
-      if (isLoadingBhrsInVhrVertical) return; // Wait for BHRs to be loaded by context
+      if (isLoadingBhrsInVhrVertical) return; 
 
       const fetchData = async () => {
         setIsLoadingPageData(true);
         try {
-          // Fetch all submitted visits by BHRs in the VHR's entire vertical
           const bhrIdsInEntireVertical = allBhrsInVhrVertical.map(b => b.id);
           if (bhrIdsInEntireVertical.length > 0) {
             const { data: visits, error: visitsError } = await supabase
@@ -151,7 +148,6 @@ export default function VHRAnalyticsPage() {
             setAllVisitsInVertical([]);
           }
 
-          // Fetch all branches for category and name lookup
           const { data: branches, error: branchesError } = await supabase
             .from('branches')
             .select('id, name, category');
@@ -173,24 +169,22 @@ export default function VHRAnalyticsPage() {
     }
   }, [user, toast, allBhrsInVhrVertical, isLoadingBhrsInVhrVertical]);
 
-  // Update BHR options based on global selected ZHRs
   useEffect(() => {
     setIsLoadingBhrOptions(true);
     if (allBhrsInVhrVertical.length > 0) {
       if (globalSelectedZhrIds.length > 0) {
         const filteredBhrs = allBhrsInVhrVertical.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to));
         setBhrOptions(filteredBhrs.map(b => ({ value: b.id, label: b.name })));
-      } else { // No ZHRs selected globally, so show all BHRs in the VHR's vertical
+      } else { 
         setBhrOptions(allBhrsInVhrVertical.map(b => ({ value: b.id, label: b.name })));
       }
     } else {
       setBhrOptions([]);
     }
-    setSelectedBhrIds([]); // Reset BHR selection when global ZHR selection changes
+    setSelectedBhrIds([]); 
     setIsLoadingBhrOptions(false);
   }, [globalSelectedZhrIds, allBhrsInVhrVertical]);
 
-  // Reset branch selection if BHR filter changes (which now depends on global ZHR)
   useEffect(() => {
     setSelectedBranchIds([]);
   }, [selectedBhrIds, globalSelectedZhrIds]);
@@ -198,26 +192,21 @@ export default function VHRAnalyticsPage() {
   const filteredVisitsData = useMemo(() => {
     let visits = allVisitsInVertical;
 
-    // Determine relevant BHR IDs based on global ZHR and local BHR filters
     let relevantBhrIds = new Set<string>();
     const bhrsConsideredForFiltering = globalSelectedZhrIds.length > 0
       ? allBhrsInVhrVertical.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to))
       : allBhrsInVhrVertical;
 
-    if (selectedBhrIds.length > 0) { // If specific BHRs are selected locally
-        // Ensure selected BHRs are within the scope of considered BHRs
+    if (selectedBhrIds.length > 0) { 
         const validSelectedBhrIds = selectedBhrIds.filter(id => bhrsConsideredForFiltering.some(b => b.id === id));
         validSelectedBhrIds.forEach(id => relevantBhrIds.add(id));
-    } else { // No BHRs selected locally, so all BHRs under the current ZHR scope (or all in vertical) are relevant
+    } else { 
         bhrsConsideredForFiltering.forEach(b => relevantBhrIds.add(b.id));
     }
     
-    // Apply BHR filter
-    // If a ZHR filter is active but results in no BHRs, visits should be empty.
-    // Or if a BHR filter is active but no selected BHRs are valid for the current ZHR scope.
     if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || globalSelectedZhrIds.length > 0) {
        if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || globalSelectedZhrIds.length > 0) ) {
-           visits = []; // A filter is active but no BHRs match
+           visits = []; 
        } else if (relevantBhrIds.size > 0) {
            visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
        }
@@ -347,7 +336,6 @@ export default function VHRAnalyticsPage() {
 
   const visitsByBHRChartData = useMemo(() => {
     const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
-    // Use allBhrsInVhrVertical for name mapping, but filter based on current scope
     const bhrsInCurrentScope = globalSelectedZhrIds.length > 0
         ? allBhrsInVhrVertical.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to))
         : allBhrsInVhrVertical;
@@ -358,7 +346,6 @@ export default function VHRAnalyticsPage() {
     const bhrNameMap = new Map(bhrsInCurrentScope.map(bhr => [bhr.id, bhr.name]));
 
     visitsForChart.forEach(visit => {
-      // Ensure the visit's BHR is within the current scope before counting
       if (bhrNameMap.has(visit.bhr_id)) {
         const bhrName = bhrNameMap.get(visit.bhr_id) || 'Unknown BHR';
         visitsPerBHR[bhrName] = (visitsPerBHR[bhrName] || 0) + 1;
@@ -367,6 +354,23 @@ export default function VHRAnalyticsPage() {
     return Object.entries(visitsPerBHR).map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` }));
   }, [filteredVisitsData, globalTimeframe, allBhrsInVhrVertical, globalSelectedZhrIds]);
   
+  const pageTitleText = useMemo(() => {
+    let title = `VHR Analytics`;
+    if (user) { 
+      if (globalSelectedZhrIds.length > 0) {
+          if (globalSelectedZhrIds.length === 1) {
+              const zhr = globalZhrOptions.find(z => z.value === globalSelectedZhrIds[0]);
+              title += ` (${zhr?.label || 'Selected ZHR'})`;
+          } else {
+              title += ` (${globalSelectedZhrIds.length} ZHRs)`;
+          }
+      } else {
+          title += ` (${user.name})`;
+      }
+    }
+    return title;
+  }, [globalSelectedZhrIds, globalZhrOptions, user]);
+
   const handleMetricToggle = (metricKey: string) => {
     setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
   };
@@ -377,7 +381,7 @@ export default function VHRAnalyticsPage() {
     defaultText: string, 
     singularName: string,
     pluralName: string,
-    isLoadingOptionsFlag: boolean // Renamed to avoid conflict
+    isLoadingOptionsFlag: boolean 
   ) => {
     if (isLoadingOptionsFlag) return `Loading ${pluralName}...`;
     if (selectedIds.length === 0) return defaultText;
@@ -400,10 +404,9 @@ export default function VHRAnalyticsPage() {
   };
 
   const handleClearAllLocalFilters = () => {
-    // Global ZHR filter is in header, so only clear local BHR and Branch
     setSelectedBhrIds([]);
     setSelectedBranchIds([]);
-    setGlobalTimeframe('past_month'); // Also reset timeframe
+    setGlobalTimeframe('past_month'); 
   };
 
   const isLoading = isLoadingGlobalZhrOptions || isLoadingBhrsInVhrVertical || isLoadingPageData || isLoadingBranchOptions;
@@ -421,22 +424,6 @@ export default function VHRAnalyticsPage() {
 
   const showBranchSpecificCharts = selectedBranchIds.length === 0;
 
-  const pageTitleText = useMemo(() => {
-    let title = `VHR Analytics`;
-    if (globalSelectedZhrIds.length > 0) {
-        if (globalSelectedZhrIds.length === 1) {
-            const zhr = globalZhrOptions.find(z => z.value === globalSelectedZhrIds[0]);
-            title += ` (${zhr?.label || 'Selected ZHR'})`;
-        } else {
-            title += ` (${globalSelectedZhrIds.length} ZHRs)`;
-        }
-    } else {
-        title += ` (${user.name})`;
-    }
-    return title;
-  }, [globalSelectedZhrIds, globalZhrOptions, user.name]);
-
-
   return (
     <div className="space-y-8">
       <PageTitle title={pageTitleText} description="Analyze key metrics, qualitative assessments, and visit distributions from submitted visits." />
@@ -447,8 +434,7 @@ export default function VHRAnalyticsPage() {
           <CardDescription>Refine analytics by BHR, specific Branches, and Timeframe. Applied with the global ZHR filter from the header.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4"> {/* Adjusted grid for BHR and Branch */}
-            {/* BHR Filter (local) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -482,7 +468,6 @@ export default function VHRAnalyticsPage() {
               )}
             </div>
             
-            {/* Branch Filter (local) */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -636,3 +621,5 @@ export default function VHRAnalyticsPage() {
     </div>
   );
 }
+
+    
