@@ -43,14 +43,15 @@ interface MetricConfig {
   label: string;
   color: string;
   yAxisId?: string;
+  strokeDasharray?: string;
 }
 
 const METRIC_CONFIGS: MetricConfig[] = [
-  { key: 'manning_percentage', label: 'Manning %', color: 'hsl(var(--chart-1))', yAxisId: 'left' },
-  { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left' },
-  { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left' },
-  { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left' },
-  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' },
+  { key: 'manning_percentage', label: 'Manning %', color: 'hsl(var(--chart-1))', yAxisId: 'left', strokeDasharray: "1 0" },
+  { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left', strokeDasharray: "5 5" },
+  { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left', strokeDasharray: "2 4" },
+  { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left', strokeDasharray: "10 2 2 2" },
+  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right', strokeDasharray: "8 3 2 3" },
 ];
 
 type TimeframeKey = 'past_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
@@ -547,7 +548,19 @@ export default function VHRAnalyticsPage() {
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}} labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }} formatter={(value: number, name) => METRIC_CONFIGS.find(m=>m.label===name)?.key.includes('percentage') ? [`${value}%`, name] : [value, name]}/>
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                 {METRIC_CONFIGS.map(metric => activeMetrics[metric.key] && (
-                    <Line key={metric.key} type="monotone" dataKey={metric.key.toString()} name={metric.label} stroke={metric.color} strokeWidth={2} yAxisId={metric.yAxisId || 'left'} dot={false} activeDot={{ r: 5 }} connectNulls/>
+                    <Line 
+                      key={metric.key} 
+                      type="monotone" 
+                      dataKey={metric.key.toString()} 
+                      name={metric.label} 
+                      stroke={metric.color} 
+                      strokeWidth={2} 
+                      yAxisId={metric.yAxisId || 'left'} 
+                      strokeDasharray={metric.strokeDasharray}
+                      dot={{ r: 2, fill: metric.color, strokeWidth: 0 }}
+                      activeDot={{ r: 5, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
+                      connectNulls
+                    />
                 ))}
               </LineChart>
             </ResponsiveContainer>

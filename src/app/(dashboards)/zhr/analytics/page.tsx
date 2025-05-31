@@ -35,7 +35,7 @@ import {
 } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
-import type { ChartData } from '@/types';
+import type { ChartData } from "@/types";
 
 
 interface MetricConfig {
@@ -43,14 +43,15 @@ interface MetricConfig {
   label: string;
   color: string;
   yAxisId?: string;
+  strokeDasharray?: string;
 }
 
 const METRIC_CONFIGS: MetricConfig[] = [
-  { key: 'manning_percentage', label: 'Manning %', color: 'hsl(var(--chart-1))', yAxisId: 'left' },
-  { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left' },
-  { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left' },
-  { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left' },
-  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right' },
+  { key: 'manning_percentage', label: 'Manning %', color: 'hsl(var(--chart-1))', yAxisId: 'left', strokeDasharray: "1 0" },
+  { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left', strokeDasharray: "5 5" },
+  { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left', strokeDasharray: "2 4" },
+  { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left', strokeDasharray: "10 2 2 2" },
+  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right', strokeDasharray: "8 3 2 3" },
 ];
 
 type TimeframeKey = 'past_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
@@ -131,6 +132,7 @@ export default function ZHRAnalyticsPage() {
   const [isLoadingBhrOptions, setIsLoadingBhrOptions] = useState(false);
 
   const [branchOptions, setBranchOptions] = useState<FilterOption[]>([]);
+  const [allBranchesForCategoryLookup, setAllBranchesForCategoryLookup] = useState<Branch[]>([]); // To store full branch objects
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [isLoadingBranchOptions, setIsLoadingBranchOptions] = useState(false);
   
@@ -174,8 +176,9 @@ export default function ZHRAnalyticsPage() {
 
           const { data: branchesData, error: branchesError } = await supabase
             .from('branches')
-            .select('id, name, category'); // Fetch category for pie chart later
+            .select('id, name, category'); 
           if (branchesError) throw branchesError;
+          setAllBranchesForCategoryLookup(branchesData || []); // Store for category lookup
           setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: b.name })));
           setIsLoadingBranchOptions(false);
 
@@ -185,6 +188,7 @@ export default function ZHRAnalyticsPage() {
           setAllZoneVisits([]);
           setBhrOptions([]);
           setBranchOptions([]);
+          setAllBranchesForCategoryLookup([]);
           setIsLoadingBhrOptions(false);
           setIsLoadingBranchOptions(false);
         } finally {
@@ -280,58 +284,25 @@ export default function ZHRAnalyticsPage() {
 
   const branchCategoryPieChartData = useMemo(() => {
     const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
-    if (visitsForChart.length === 0 || branchOptions.length === 0) return [];
+    if (visitsForChart.length === 0 || allBranchesForCategoryLookup.length === 0) return [];
     
     const categoryCounts: Record<string, number> = {};
-    const branchIdToCategoryMap = new Map<string, string>();
-    branchOptions.forEach(bo => { // Assuming branchOptions contains branch.id and branch.category
-        const fullBranch = allZoneVisits.find(v => v.branch_id === bo.value)?.branch_id; // This line is problematic, need actual branch category
-        // This part needs access to the full branch objects to get category
-        // For now, I will mock this part. Ideally, `branchOptions` or a separate map would have category info.
-        const branchData = supabase.from('branches').select('id, category').eq('id', bo.value).single(); // This is inefficient
-        // For simplicity, assuming `branchOptions` could be {value: id, label: name, category: category}
-        // Or `allBranchesForCategoryLookup` is still maintained and used.
-        // Let's assume we have a map:
-        // const branchDetails = allBranchesForCategoryLookup.find(b => b.id === visit.branch_id);
-        // if (branchDetails?.category) { categoryIdToNameMap.set(branchDetails.category ...)}
-        // This part of logic needs a reliable source of branch.category
-        const branch = {id: bo.value, category: `Category for ${bo.label}`}; // MOCKING CATEGORY
-        branchIdToCategoryMap.set(branch.id, branch.category);
-
-        })
-
-    });
-
+    const branchCategoryMap = new Map(allBranchesForCategoryLookup.map(b => [b.id, b.category]));
 
     visitsForChart.forEach(visit => {
-        const branchDetail = branchOptions.find(b => b.value === visit.branch_id); // Find branch in branchOptions
-        // This still implies branchOptions has category, or we look up from a separate structure.
-        // For this pass, let's assume allBranchesForCategoryLookup is the source of truth and it's updated.
-        const branch = supabase.from('branches').select('category').eq('id', visit.branch_id).single(); // VERY BAD
-        // const category = branchIdToCategoryMap.get(visit.branch_id); 
-        // Let's assume we filter `allBranchesForCategoryLookup` and use that.
-        // A better approach:
-        // `allBranchesForCategoryLookup` should be the primary source for `branchOptions` and category lookups.
-        // For now, to unblock, will simplify this.
-
-        // Simpler, error-prone assumption: branchOptions elements somehow contain category.
-        // This really needs the original `allBranchesForCategoryLookup` which was correctly used before.
-        // Reverting to a structure that would work if `branchOptions` were {value, label, category}
-        // OR if `allBranchesForCategoryLookup` (list of {id, category}) is still available and used.
-
-        // The pie chart previously used `allBranchesForCategoryLookup` which is [{id, category}].
-        // We need to re-fetch that for category data if `branchOptions` doesn't have it.
-        // Let's assume `branchOptions` is just `{value, label}` and we need another way.
-        // For now, will use a placeholder. This is a critical point.
-        // The most robust way is to ensure `branchOptions` or a readily available map has {id, name, category}.
-        // If branchOptions is just for filter, then `allBranchesForCategoryLookup` needs to be maintained.
-
-        const category = `Category for ${visit.branch_id.substring(0,5)}`; // Placeholder if category not easily available
-        if (category) { categoryCounts[category] = (categoryCounts[category] || 0) + 1; }
+        const category = branchCategoryMap.get(visit.branch_id);
+        if (category) { 
+          categoryCounts[category] = (categoryCounts[category] || 0) + 1; 
+        } else {
+          // Optional: count visits to branches without a category or with an unknown category
+          // categoryCounts["Unknown Category"] = (categoryCounts["Unknown Category"] || 0) + 1;
+        }
     });
     
-    return Object.entries(categoryCounts).map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` })).sort((a, b) => b.value - a.value);
-  }, [filteredVisitsData, globalTimeframe, branchOptions, allZoneVisits /*, allBranchesForCategoryLookup*/]); // allBranchesForCategoryLookup was removed. Needs fixing.
+    return Object.entries(categoryCounts)
+                 .map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` }))
+                 .sort((a, b) => b.value - a.value);
+  }, [filteredVisitsData, globalTimeframe, allBranchesForCategoryLookup]);
 
   const handleMetricToggle = (metricKey: string) => {
     setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
@@ -529,9 +500,10 @@ export default function ZHRAnalyticsPage() {
                       name={metric.label}
                       stroke={metric.color}
                       strokeWidth={2}
+                      strokeDasharray={metric.strokeDasharray}
                       yAxisId={metric.yAxisId || 'left'}
-                      dot={false}
-                      activeDot={{ r: 5 }}
+                      dot={{ r: 2, fill: metric.color, strokeWidth: 0 }}
+                      activeDot={{ r: 5, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
                       connectNulls
                     />
                   )
