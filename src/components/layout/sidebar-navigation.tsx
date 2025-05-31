@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import {
-  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, LogOut, Network, FileText // Added FileText
+  LayoutDashboard, PlusCircle, ListChecks, Eye, Briefcase, BarChart3, Building2, PieChart, LogOut, Network, FileText
 } from 'lucide-react';
 
 const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
@@ -37,9 +37,9 @@ const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
   CHR: [
     { href: '/chr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/chr/analytics', label: 'Analytics', icon: PieChart },
-    { href: '/chr/visits-made', label: 'Visits Made', icon: ListChecks },
+    { href: '/chr/visits-made', label: 'Visits Made', icon: ListChecks }, // Changed from /chr/global-overview
     { href: '/chr/oversee-channel', label: 'Oversee Channel', icon: Network },
-    { href: '/chr/export-data', label: 'Export Data', icon: FileText }, // Added Export Data link
+    { href: '/chr/export-data', label: 'Export Data', icon: FileText },
   ],
 };
 
@@ -59,7 +59,7 @@ export function SidebarNavigation() {
         <SidebarMenuItem key={item.href}>
           <Link href={item.href} passHref legacyBehavior>
             <SidebarMenuButton
-              isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+              isActive={pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`))}
               aria-current={pathname === item.href ? "page" : undefined}
               tooltip={item.label}
             >
