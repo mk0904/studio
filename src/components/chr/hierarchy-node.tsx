@@ -1,19 +1,61 @@
 
-// This component is no longer used for complex tree rendering as of the latest changes
-// to the "Oversee Channel" page, which now uses a table view.
-// Keeping the file with a minimal placeholder to avoid build issues if imported elsewhere,
-// but its previous tree-rendering functionality is deprecated.
+'use client';
 
 import React from 'react';
+import type { User } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { User as UserIcon, Briefcase, Users, Shield, Building } from 'lucide-react'; // Added UserIcon for CHR, Shield for VHR
 
-interface MinimalHierarchyNodeProps {
-  // Props would go here if it were still a complex component
+export interface UserNode extends User {
+  children: UserNode[];
 }
 
-export function HierarchyNode({ /* props */ }: MinimalHierarchyNodeProps) {
-  return null; // Or a simple placeholder div
+interface HierarchyNodeProps {
+  node: UserNode;
+  level: number;
 }
 
-// If you are absolutely sure this component is not imported anywhere else,
-// you can remove this file entirely. Otherwise, this placeholder prevents
-// "module not found" errors if it was inadvertently imported.
+const roleIcons: Record<User['role'], React.ElementType> = {
+  CHR: Shield, // Changed to Shield for top level
+  VHR: Users,  // Changed to Users for VHR
+  ZHR: Briefcase,
+  BHR: Building,
+};
+
+const roleColors: Record<User['role'], string> = {
+  CHR: 'bg-red-500 hover:bg-red-600',
+  VHR: 'bg-purple-500 hover:bg-purple-600',
+  ZHR: 'bg-blue-500 hover:bg-blue-600',
+  BHR: 'bg-green-500 hover:bg-green-600',
+};
+
+export function HierarchyNode({ node, level }: HierarchyNodeProps) {
+  const Icon = roleIcons[node.role] || UserIcon;
+
+  return (
+    <div style={{ marginLeft: level > 0 ? `${level * 20}px` : '0px' }} className="mb-3">
+      <Card className="shadow-md hover:shadow-lg transition-shadow duration-200">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-3 px-4">
+          <div className="flex items-center gap-2">
+            <Icon className={`h-5 w-5 text-white p-0.5 rounded-sm ${roleColors[node.role] || 'bg-gray-400'}`} />
+            <CardTitle className="text-base font-semibold leading-tight">{node.name}</CardTitle>
+          </div>
+          <Badge variant="outline" className="text-xs">{node.role}</Badge>
+        </CardHeader>
+        <CardContent className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
+          <p>Email: {node.email}</p>
+          {node.e_code && <p>E-Code: {node.e_code}</p>}
+          {node.location && <p>Location: {node.location}</p>}
+        </CardContent>
+      </Card>
+      {node.children && node.children.length > 0 && (
+        <div className="mt-2 pl-5 border-l-2 border-border/70">
+          {node.children.map(childNode => (
+            <HierarchyNode key={childNode.id} node={childNode} level={level + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
