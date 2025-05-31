@@ -33,7 +33,7 @@ body {
     --destructive: hsl(0, 75%, 55%); /* Clearer red */
     --destructive-foreground: hsl(0 0% 100%);
 
-    --border: hsl(220 25% 90%); /* Softer border */
+    --border: hsl(220 30% 95%); /* Softer border - Lighter, less contrasted */
     --input: hsl(220 30% 97%); 
     --ring: hsl(205, 75%, 55%); /* Ring color matches primary */
 
@@ -82,7 +82,7 @@ body {
     --destructive: hsl(0, 70%, 50%); 
     --destructive-foreground: hsl(0 0% 100%);
 
-    --border: hsl(220 15% 25%); /* Softer dark border */
+    --border: hsl(220 18% 20%); /* Softer dark border - Lighter, less contrasted */
     --input: hsl(220 20% 18%);
     --ring: hsl(205, 80%, 58%);
 
