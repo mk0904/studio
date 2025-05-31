@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, Filter, ChevronsUpDown, XCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useChrFilter } from '@/contexts/chr-filter-context';
-import { useVhrFilter } from '@/contexts/vhr-filter-context'; // Import VHR filter hook
+import { useVhrFilter } from '@/contexts/vhr-filter-context';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,14 +29,10 @@ export function DashboardPageHeader() {
   // CHR Filter Hook
   const chrFilterHook = isChr ? useChrFilter : () => ({
     selectedVhrIds: [], setSelectedVhrIds: () => {}, vhrOptions: [], isLoadingVhrOptions: false,
-    selectedZhrIds: [], setSelectedZhrIds: () => {}, zhrOptions: [], isLoadingZhrOptions: false,
     allUsersForContext: [], isLoadingAllUsers: true,
   });
   const { 
-    selectedVhrIds, setSelectedVhrIds, vhrOptions, isLoadingVhrOptions,
-    selectedZhrIds: chrSelectedZhrIds, setSelectedZhrIds: setChrSelectedZhrIds, 
-    zhrOptions: chrZhrOptions, isLoadingZhrOptions: isLoadingChrZhrOptions,
-    allUsersForContext, isLoadingAllUsers
+    selectedVhrIds, setSelectedVhrIds, vhrOptions, isLoadingVhrOptions
   } = chrFilterHook();
 
   // VHR Filter Hook (for ZHR filter when user is VHR)
@@ -55,7 +51,6 @@ export function DashboardPageHeader() {
       ? selectedVhrIds.filter(id => id !== vhrId)
       : [...selectedVhrIds, vhrId];
     setSelectedVhrIds(newSelectedVhrIds);
-    setChrSelectedZhrIds([]); // Reset ZHR filter when VHR filter changes
   };
   
   const getChrVhrFilterButtonText = () => {
@@ -67,24 +62,6 @@ export function DashboardPageHeader() {
     }
     return `${selectedVhrIds.length} VHRs Selected`;
   };
-
-  const handleChrZhrFilterChange = (zhrId: string) => {
-    const newSelectedZhrIds = chrSelectedZhrIds.includes(zhrId)
-        ? chrSelectedZhrIds.filter(id => id !== zhrId)
-        : [...chrSelectedZhrIds, zhrId];
-    setChrSelectedZhrIds(newSelectedZhrIds);
-  };
-
-  const getChrZhrFilterButtonText = () => {
-    if (isLoadingChrZhrOptions) return "Loading ZHRs...";
-    if (chrSelectedZhrIds.length === 0) return "All ZHRs";
-    if (chrSelectedZhrIds.length === 1) {
-        const selectedOption = chrZhrOptions.find(opt => opt.value === chrSelectedZhrIds[0]);
-        return selectedOption ? selectedOption.label : "1 ZHR Selected";
-    }
-    return `${chrSelectedZhrIds.length} ZHRs Selected`;
-  };
-
 
   const handleVhrZhrFilterChange = (zhrId: string) => {
     const newSelectedZhrIds = vhrSelectedZhrIds.includes(zhrId)
@@ -103,9 +80,8 @@ export function DashboardPageHeader() {
     return `${vhrSelectedZhrIds.length} ZHRs Selected`;
   };
 
-
-  const showGlobalChrFilters = isChr && pathname !== '/chr/oversee-channel' && pathname !== '/account';
-  const showGlobalVhrZhrFilter = isVhr && pathname !== '/account';
+  const showGlobalChrVhrFilter = isChr && pathname !== '/chr/oversee-channel' && pathname !== '/account';
+  const showGlobalVhrZhrFilter = isVhr && pathname !== '/account' && pathname !== '/vhr/team-structure';
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:px-6">
@@ -114,7 +90,7 @@ export function DashboardPageHeader() {
       </div>
       <div className="flex items-center gap-x-2">
         {/* CHR's VHR Filter */}
-        {showGlobalChrFilters && (
+        {showGlobalChrVhrFilter && (
           <div className="relative flex items-center">
             <Filter className="h-4 w-4 text-muted-foreground mr-1" />
             {isLoadingVhrOptions ? (
@@ -149,59 +125,13 @@ export function DashboardPageHeader() {
               </DropdownMenu>
             )}
             {selectedVhrIds.length > 0 && !isLoadingVhrOptions && (
-              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedVhrIds([]); setChrSelectedZhrIds([]); }} aria-label="Clear VHR filter">
+              <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedVhrIds([]); }} aria-label="Clear VHR filter">
                 <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
               </Button>
             )}
           </div>
         )}
         
-        {/* CHR's ZHR Filter (dependent on VHR selection) */}
-        {showGlobalChrFilters && (
-            <div className="relative flex items-center">
-                 <Filter className="h-4 w-4 text-muted-foreground mr-1" />
-                {isLoadingChrZhrOptions || (selectedVhrIds.length > 0 && isLoadingAllUsers) ? ( // Show skeleton if VHRs selected but ZHR options still loading
-                     <Skeleton className="h-9 w-40 rounded-md" />
-                ) : (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-auto min-w-[150px] h-9 bg-background/70 border-border text-sm justify-between pr-8" disabled={isLoadingChrZhrOptions || chrZhrOptions.length === 0 && selectedVhrIds.length === 0}>
-                                {getChrZhrFilterButtonText()}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56 bg-popover text-popover-foreground border-border max-h-72 overflow-y-auto">
-                            <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {chrZhrOptions.length > 0 ? (
-                                chrZhrOptions.map(option => (
-                                    <DropdownMenuCheckboxItem
-                                        key={option.value}
-                                        checked={chrSelectedZhrIds.includes(option.value)}
-                                        onCheckedChange={() => handleChrZhrFilterChange(option.value)}
-                                        className="text-sm"
-                                        onSelect={(e) => e.preventDefault()}
-                                    >
-                                        {option.label}
-                                    </DropdownMenuCheckboxItem>
-                                ))
-                            ) : (
-                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                    {selectedVhrIds.length > 0 ? "No ZHRs under selected VHR(s)" : "Select VHRs to see ZHRs"}
-                                </div>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-                {chrSelectedZhrIds.length > 0 && !isLoadingChrZhrOptions && (
-                    <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setChrSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
-                        <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
-                )}
-            </div>
-        )}
-
-
         {/* VHR's ZHR Filter */}
         {showGlobalVhrZhrFilter && (
           <div className="relative flex items-center">
