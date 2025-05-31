@@ -2,10 +2,10 @@
 'use client';
 
 import React from 'react';
-import { usePathname } from 'next/navigation'; // Import usePathname
+import { usePathname } from 'next/navigation';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { LogOut, Filter, Check, ChevronsUpDown } from 'lucide-react';
+import { LogOut, Filter, Check, ChevronsUpDown, XCircle } from 'lucide-react'; // Added XCircle
 import { useAuth } from '@/contexts/auth-context';
 import { useChrFilter } from '@/contexts/chr-filter-context';
 import {
@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function DashboardPageHeader() {
   const { user, logout } = useAuth();
-  const pathname = usePathname(); // Get the current pathname
+  const pathname = usePathname();
 
   const chrFilterHook = user?.role === 'CHR' ? useChrFilter : () => ({
     selectedVhrIds: [],
@@ -48,7 +48,6 @@ export function DashboardPageHeader() {
     return `${selectedVhrIds.length} VHRs Selected`;
   };
 
-  // Determine if the VHR filter should be shown
   const showVhrFilter = user?.role === 'CHR' && pathname !== '/chr/oversee-channel';
 
   return (
@@ -58,14 +57,14 @@ export function DashboardPageHeader() {
       </div>
       <div className="flex items-center gap-4">
         {showVhrFilter && (
-          <div className="flex items-center gap-2">
+          <div className="relative flex items-center gap-2"> {/* Made parent relative */}
             <Filter className="h-4 w-4 text-muted-foreground" />
             {isLoadingVhrOptions ? (
               <Skeleton className="h-9 w-48 rounded-md" />
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-auto min-w-[180px] h-9 bg-background/70 border-border text-sm justify-between">
+                  <Button variant="outline" className="w-auto min-w-[180px] h-9 bg-background/70 border-border text-sm justify-between pr-8"> {/* Added pr-8 for clear button space */}
                     {getFilterButtonText()}
                     <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                   </Button>
@@ -80,7 +79,7 @@ export function DashboardPageHeader() {
                         checked={selectedVhrIds.includes(option.value)}
                         onCheckedChange={() => handleVhrFilterChange(option.value)}
                         className="text-sm"
-                        onSelect={(e) => e.preventDefault()} // Prevent menu from closing on item click
+                        onSelect={(e) => e.preventDefault()} 
                       >
                         {option.label}
                       </DropdownMenuCheckboxItem>
@@ -90,6 +89,20 @@ export function DashboardPageHeader() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+            {selectedVhrIds.length > 0 && !isLoadingVhrOptions && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" 
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent dropdown from opening
+                  setSelectedVhrIds([]);
+                }}
+                aria-label="Clear VHR filter"
+              >
+                <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+              </Button>
             )}
           </div>
         )}
