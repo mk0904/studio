@@ -24,7 +24,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useChrFilter } from '@/contexts/chr-filter-context';
 
@@ -33,7 +32,7 @@ interface FilterOption { value: string; label: string; }
 export default function CHRVisitsMadePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { selectedVhrIds: globalSelectedVhrIds } = useChrFilter();
+  const { selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions } = useChrFilter();
 
   const [isLoading, setIsLoading] = useState(true);
   const [allSubmittedVisitsGlobal, setAllSubmittedVisitsGlobal] = useState<Visit[]>([]);
@@ -306,15 +305,17 @@ export default function CHRVisitsMadePage() {
   const pageTitleText = useMemo(() => {
     let title = "Submitted Visits";
     if (globalSelectedVhrIds.length > 0) {
-      // Assuming vhrOptions are fetched in chr-filter-context and available if needed
-      // For simplicity, just using count. A more complex lookup could provide names.
-      if (globalSelectedVhrIds.length === 1) title += ` (Filtered VHR)`;
-      else title += ` (${globalSelectedVhrIds.length} VHRs)`;
+      if (globalSelectedVhrIds.length === 1) {
+        const vhrName = globalVhrOptions.find(v => v.value === globalSelectedVhrIds[0])?.label || "Selected VHR";
+        title += ` (${vhrName})`;
+      } else {
+        title += ` (${globalSelectedVhrIds.length} VHRs)`;
+      }
     } else {
       title += " (Global)";
     }
     return title;
-  }, [globalSelectedVhrIds]);
+  }, [globalSelectedVhrIds, globalVhrOptions]);
 
   return (
     <div className="space-y-8">
@@ -448,9 +449,9 @@ export default function CHRVisitsMadePage() {
             columns={columns}
             data={filteredVisits}
             emptyStateMessage={
-                allSubmittedVisitsGlobal.length === 0 
+                allSubmittedVisitsGlobal.length === 0 && !isLoading
                 ? "No submitted visits found in the system." 
-                : "No submitted visits match your current filter combination."
+                : (isLoading ? "Loading visits..." : "No submitted visits match your current filter combination.")
             }
         />
       )}
@@ -468,4 +469,3 @@ export default function CHRVisitsMadePage() {
     </div>
   );
 }
-
