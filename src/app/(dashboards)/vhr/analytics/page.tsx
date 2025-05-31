@@ -1,17 +1,26 @@
 
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { Visit, Branch, User } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, TrendingUp, ShieldQuestion, Target, PieChart as PieChartIcon, BarChartBig, Users } from 'lucide-react';
+import { Loader2, TrendingUp, ShieldQuestion, Target, PieChart as PieChartIcon, BarChartBig, Users, Filter as FilterIcon, ChevronsUpDown, XCircle } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   format,
   parseISO,
@@ -27,7 +36,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
-import type { ChartData } from '@/types';
 
 interface MetricConfig {
   key: keyof Visit;
@@ -78,7 +86,7 @@ interface TimeframeButtonsProps {
 }
 
 const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, onTimeframeChange }) => (
-  <div className="flex flex-wrap gap-2 mb-4">
+  <div className="flex flex-wrap gap-2">
     {TIMEFRAME_OPTIONS.map(tf => (
       <Button key={tf.key} variant={selectedTimeframe === tf.key ? 'default' : 'outline'} size="sm" onClick={() => onTimeframeChange(tf.key)}>
         {tf.label}
@@ -87,84 +95,97 @@ const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, 
   </div>
 );
 
+interface FilterOption { value: string; label: string; }
+
 export default function VHRAnalyticsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   
+  // Global data for the VHR's vertical
   const [allVisitsInVertical, setAllVisitsInVertical] = useState<Visit[]>([]);
   const [allZhrsInVertical, setAllZhrsInVertical] = useState<User[]>([]);
   const [allBhrsInVertical, setAllBhrsInVertical] = useState<User[]>([]);
   const [allBranchesForLookup, setAllBranchesForLookup] = useState<Branch[]>([]);
 
+  // Filter states
+  const [selectedZhrIds, setSelectedZhrIds] = useState<string[]>([]);
+  const [zhrOptions, setZhrOptions] = useState<FilterOption[]>([]);
+  const [isLoadingZhrOptions, setIsLoadingZhrOptions] = useState(false);
+
+  const [selectedBhrIds, setSelectedBhrIds] = useState<string[]>([]);
+  const [bhrOptions, setBhrOptions] = useState<FilterOption[]>([]);
+  const [isLoadingBhrOptions, setIsLoadingBhrOptions] = useState(false);
+
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
+  const [branchOptions, setBranchOptions] = useState<FilterOption[]>([]);
+  const [isLoadingBranchOptions, setIsLoadingBranchOptions] = useState(false);
+  
+  const [globalTimeframe, setGlobalTimeframe] = useState<TimeframeKey>('past_month');
+
   const [activeMetrics, setActiveMetrics] = useState<Record<string, boolean>>(
     METRIC_CONFIGS.reduce((acc, metric) => ({ ...acc, [metric.key]: metric.key === 'manning_percentage' }), {})
   );
-  
-  const [trendlineTimeframe, setTrendlineTimeframe] = useState<TimeframeKey>('past_month');
-  const [qualitativeTimeframe, setQualitativeTimeframe] = useState<TimeframeKey>('past_month');
-  const [categoryPieTimeframe, setCategoryPieTimeframe] = useState<TimeframeKey>('past_month');
-  const [topBranchesTimeframe, setTopBranchesTimeframe] = useState<TimeframeKey>('past_month');
-  const [zhrDistributionTimeframe, setZhrDistributionTimeframe] = useState<TimeframeKey>('past_month');
 
+  // Fetch initial data for the VHR's vertical
   useEffect(() => {
     if (user && user.role === 'VHR') {
       const fetchData = async () => {
         setIsLoading(true);
-        console.log("VHR Analytics: Fetching data for VHR:", user.name);
         try {
           // 1. Fetch ZHRs reporting to this VHR
-          const { data: zhrUsersData, error: zhrError } = await supabase
+          const { data: zhrUsers, error: zhrError } = await supabase
             .from('users')
-            .select('id, name')
+            .select('id, name, role')
             .eq('role', 'ZHR')
             .eq('reports_to', user.id);
           if (zhrError) throw zhrError;
-          setAllZhrsInVertical(zhrUsersData || []);
-          const zhrIds = (zhrUsersData || []).map(z => z.id);
+          setAllZhrsInVertical(zhrUsers || []);
+          setZhrOptions((zhrUsers || []).map(z => ({ value: z.id, label: z.name })));
+          setIsLoadingZhrOptions(false);
 
+          const zhrIds = (zhrUsers || []).map(z => z.id);
+          let bhrUsers: User[] = [];
           if (zhrIds.length > 0) {
             // 2. Fetch BHRs reporting to these ZHRs
-            const { data: bhrUsersData, error: bhrError } = await supabase
+            const { data: fetchedBhrs, error: bhrError } = await supabase
               .from('users')
-              .select('id, name, reports_to') // reports_to is ZHR id
+              .select('id, name, role, reports_to')
               .eq('role', 'BHR')
               .in('reports_to', zhrIds);
             if (bhrError) throw bhrError;
-            setAllBhrsInVertical(bhrUsersData || []);
-            const bhrIds = (bhrUsersData || []).map(b => b.id);
-
-            if (bhrIds.length > 0) {
-              // 3. Fetch submitted visits by these BHRs
-              const { data: visitsData, error: visitsError } = await supabase
-                .from('visits')
-                .select('branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture, bhr_id')
-                .in('bhr_id', bhrIds)
-                .eq('status', 'submitted');
-              if (visitsError) throw visitsError;
-              setAllVisitsInVertical(visitsData || []);
-            } else {
-              setAllVisitsInVertical([]);
-            }
+            bhrUsers = fetchedBhrs || [];
+            setAllBhrsInVertical(bhrUsers);
           } else {
             setAllBhrsInVertical([]);
+          }
+
+          const bhrIds = bhrUsers.map(b => b.id);
+          if (bhrIds.length > 0) {
+            // 3. Fetch submitted visits by these BHRs
+            const { data: visits, error: visitsError } = await supabase
+              .from('visits')
+              .select('bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture')
+              .in('bhr_id', bhrIds)
+              .eq('status', 'submitted');
+            if (visitsError) throw visitsError;
+            setAllVisitsInVertical(visits || []);
+          } else {
             setAllVisitsInVertical([]);
           }
 
           // 4. Fetch all branches for category and name lookup
-          const { data: branchesData, error: branchesError } = await supabase
+          const { data: branches, error: branchesError } = await supabase
             .from('branches')
             .select('id, name, category');
           if (branchesError) throw branchesError;
-          setAllBranchesForLookup(branchesData || []);
+          setAllBranchesForLookup(branches || []);
+          setBranchOptions((branches || []).map(b => ({ value: b.id, label: b.name })));
+          setIsLoadingBranchOptions(false);
 
         } catch (error: any) {
           console.error("VHR Analytics: Error fetching data:", error);
           toast({ title: "Error", description: `Failed to load analytics data: ${error.message}`, variant: "destructive" });
-          setAllVisitsInVertical([]);
-          setAllZhrsInVertical([]);
-          setAllBhrsInVertical([]);
-          setAllBranchesForLookup([]);
         } finally {
           setIsLoading(false);
         }
@@ -174,7 +195,58 @@ export default function VHRAnalyticsPage() {
       setIsLoading(false);
     }
   }, [user, toast]);
-  
+
+  // Update BHR options based on selected ZHRs
+  useEffect(() => {
+    setIsLoadingBhrOptions(true);
+    if (allBhrsInVertical.length > 0) {
+      if (selectedZhrIds.length > 0) {
+        const filteredBhrs = allBhrsInVertical.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
+        setBhrOptions(filteredBhrs.map(b => ({ value: b.id, label: b.name })));
+      } else {
+        setBhrOptions(allBhrsInVertical.map(b => ({ value: b.id, label: b.name })));
+      }
+    } else {
+      setBhrOptions([]);
+    }
+    setSelectedBhrIds([]); // Reset BHR selection when ZHR selection changes
+    setIsLoadingBhrOptions(false);
+  }, [selectedZhrIds, allBhrsInVertical]);
+
+  // Reset branch selection if ZHR or BHR filter changes
+  useEffect(() => {
+    setSelectedBranchIds([]);
+  }, [selectedZhrIds, selectedBhrIds]);
+
+  const filteredVisitsData = useMemo(() => {
+    let visits = allVisitsInVertical;
+
+    // Determine relevant BHR IDs based on ZHR and BHR filters
+    let relevantBhrIds = new Set<string>();
+    if (selectedBhrIds.length > 0) {
+        selectedBhrIds.forEach(id => relevantBhrIds.add(id));
+    } else if (selectedZhrIds.length > 0) {
+        allBhrsInVertical
+            .filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to))
+            .forEach(b => relevantBhrIds.add(b.id));
+    } else { // No ZHRs or BHRs selected, so all BHRs in the vertical are relevant
+        allBhrsInVertical.forEach(b => relevantBhrIds.add(b.id));
+    }
+
+    if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0) {
+        if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0)) {
+            visits = []; // A filter is active but no BHRs match
+        } else if (relevantBhrIds.size > 0) {
+            visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
+        }
+    }
+
+    if (selectedBranchIds.length > 0) {
+      visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
+    }
+    return visits;
+  }, [allVisitsInVertical, selectedZhrIds, selectedBhrIds, selectedBranchIds, allBhrsInVertical]);
+
   const filterVisitsByTimeframe = (visits: Visit[], timeframe: TimeframeKey): Visit[] => {
     const now = new Date();
     let startDateFilter: Date;
@@ -189,46 +261,45 @@ export default function VHRAnalyticsPage() {
       case 'last_3_years': startDateFilter = startOfDay(subYears(now, 3)); break;
       default: startDateFilter = startOfDay(subMonths(now, 1));
     }
-     if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) return [];
+    if (!isValid(startDateFilter) || !isValid(endDateFilter) || startDateFilter > endDateFilter) return [];
     return visits.filter(visit => {
       const visitDate = parseISO(visit.visit_date);
       return isValid(visitDate) && isWithinInterval(visitDate, { start: startDateFilter, end: endDateFilter });
     });
   };
-
+  
   const metricTrendChartData = useMemo(() => {
-    const filtered = filterVisitsByTimeframe(allVisitsInVertical, trendlineTimeframe);
-    if (filtered.length === 0) return [];
-    // ... (aggregation logic from ZHR analytics, adapted for allVisitsInVertical) ...
+    const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
+    if (visitsForChart.length === 0) return [];
     const aggregatedData: Record<string, { [key: string]: { sum: number; count: number } }> = {};
     let minDate = new Date();
     let maxDate = new Date(1970,0,1);
 
-    filtered.forEach(visit => {
+    visitsForChart.forEach(visit => {
       const visitDateObj = parseISO(visit.visit_date);
-      if(visitDateObj < minDate) minDate = visitDateObj;
-      if(visitDateObj > maxDate) maxDate = visitDateObj;
-
-      const day = format(visitDateObj, 'yyyy-MM-dd');
-      if (!aggregatedData[day]) {
-        aggregatedData[day] = {};
-        METRIC_CONFIGS.forEach(m => { aggregatedData[day][m.key] = { sum: 0, count: 0 }; });
-      }
-      METRIC_CONFIGS.forEach(m => {
-        const value = visit[m.key] as number | undefined;
-        if (typeof value === 'number' && !isNaN(value)) {
-          aggregatedData[day][m.key].sum += value;
-          aggregatedData[day][m.key].count += 1;
+      if(isValid(visitDateObj)) {
+        if(visitDateObj < minDate) minDate = visitDateObj;
+        if(visitDateObj > maxDate) maxDate = visitDateObj;
+        const day = format(visitDateObj, 'yyyy-MM-dd');
+        if (!aggregatedData[day]) {
+          aggregatedData[day] = {};
+          METRIC_CONFIGS.forEach(m => { aggregatedData[day][m.key] = { sum: 0, count: 0 }; });
         }
-      });
+        METRIC_CONFIGS.forEach(m => {
+          const value = visit[m.key] as number | undefined;
+          if (typeof value === 'number' && !isNaN(value)) {
+            aggregatedData[day][m.key].sum += value;
+            aggregatedData[day][m.key].count += 1;
+          }
+        });
+      }
     });
-    if (filtered.length === 0) return []; // if no visits after filtering, no dates to span.
+     if (visitsForChart.length === 0 || !isValid(minDate) || !isValid(maxDate) || minDate > maxDate) return [];
 
     let dateRangeForChart: Date[] = [];
     try {
        dateRangeForChart = eachDayOfInterval({ start: startOfDay(minDate), end: endOfDay(maxDate) });
     } catch (e) { return []; }
-
 
     return dateRangeForChart.map(dayDate => {
       const dayKey = format(dayDate, 'yyyy-MM-dd');
@@ -237,20 +308,19 @@ export default function VHRAnalyticsPage() {
       METRIC_CONFIGS.forEach(m => {
         if (dayData && dayData[m.key] && dayData[m.key].count > 0) {
           point[m.key] = parseFloat((dayData[m.key].sum / dayData[m.key].count).toFixed(2));
-          if (m.key === 'cwt_cases') point[m.key] = dayData[m.key].sum; // CWT is sum
+          if (m.key === 'cwt_cases') point[m.key] = dayData[m.key].sum;
         }
       });
       return point;
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [allVisitsInVertical, trendlineTimeframe]);
+  }, [filteredVisitsData, globalTimeframe]);
 
   const qualitativeSpiderChartData = useMemo(() => {
-    const filtered = filterVisitsByTimeframe(allVisitsInVertical, qualitativeTimeframe);
-    if (filtered.length === 0) return QUALITATIVE_QUESTIONS_CONFIG.map(q => ({ subject: q.label, score: 0, fullMark: 5 }));
-    // ... (aggregation logic from ZHR analytics) ...
+    const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
+    if (visitsForChart.length === 0) return QUALITATIVE_QUESTIONS_CONFIG.map(q => ({ subject: q.label, score: 0, fullMark: 5 }));
     const scores: Record<string, { totalScore: number; count: number }> = {};
     QUALITATIVE_QUESTIONS_CONFIG.forEach(q => { scores[q.key] = { totalScore: 0, count: 0 }; });
-    filtered.forEach(visit => {
+    visitsForChart.forEach(visit => {
         QUALITATIVE_QUESTIONS_CONFIG.forEach(qConfig => {
             const value = visit[qConfig.key] as 'yes' | 'no' | undefined;
             if (value === 'yes' || value === 'no') {
@@ -264,55 +334,86 @@ export default function VHRAnalyticsPage() {
         const aggregate = scores[qConfig.key];
         return { subject: qConfig.label, score: aggregate.count > 0 ? parseFloat((aggregate.totalScore / aggregate.count).toFixed(2)) : 0, fullMark: 5 };
     });
-  }, [allVisitsInVertical, qualitativeTimeframe]);
+  }, [filteredVisitsData, globalTimeframe]);
 
   const branchCategoryPieChartData = useMemo(() => {
-    const filtered = filterVisitsByTimeframe(allVisitsInVertical, categoryPieTimeframe);
-    if (filtered.length === 0 || allBranchesForLookup.length === 0) return [];
-    // ... (aggregation logic from ZHR analytics) ...
+    const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
+    if (visitsForChart.length === 0 || allBranchesForLookup.length === 0) return [];
     const categoryCounts: Record<string, number> = {};
     const branchCategoryMap = new Map(allBranchesForLookup.map(b => [b.id, b.category]));
-    filtered.forEach(visit => {
+    visitsForChart.forEach(visit => {
         const category = branchCategoryMap.get(visit.branch_id);
         if (category) { categoryCounts[category] = (categoryCounts[category] || 0) + 1; }
     });
     return Object.entries(categoryCounts).map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` })).sort((a, b) => b.value - a.value);
-  }, [allVisitsInVertical, categoryPieTimeframe, allBranchesForLookup]);
+  }, [filteredVisitsData, globalTimeframe, allBranchesForLookup]);
 
   const topPerformingBranchesChartData = useMemo(() => {
-    const filtered = filterVisitsByTimeframe(allVisitsInVertical, topBranchesTimeframe);
-    if (filtered.length === 0 || allBranchesForLookup.length === 0) return [];
+    const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
+    if (visitsForChart.length === 0 || allBranchesForLookup.length === 0) return [];
     const visitsPerBranch: Record<string, number> = {};
     const branchNameMap = new Map(allBranchesForLookup.map(b => [b.id, b.name]));
-    filtered.forEach(visit => {
+    visitsForChart.forEach(visit => {
       const branchName = branchNameMap.get(visit.branch_id) || 'Unknown Branch';
       visitsPerBranch[branchName] = (visitsPerBranch[branchName] || 0) + 1;
     });
     return Object.entries(visitsPerBranch)
       .map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 10); // Show top 10
-  }, [allVisitsInVertical, topBranchesTimeframe, allBranchesForLookup]);
+      .slice(0, 10);
+  }, [filteredVisitsData, globalTimeframe, allBranchesForLookup]);
 
-  const visitsByZHRChartData = useMemo(() => {
-    const filtered = filterVisitsByTimeframe(allVisitsInVertical, zhrDistributionTimeframe);
-    if (filtered.length === 0 || allBhrsInVertical.length === 0 || allZhrsInVertical.length === 0) return [];
-    const visitsPerZHR: Record<string, number> = {};
-    const bhrToZhrMap = new Map(allBhrsInVertical.map(bhr => [bhr.id, bhr.reports_to]));
-    const zhrNameMap = new Map(allZhrsInVertical.map(zhr => [zhr.id, zhr.name]));
+  const visitsByBHRChartData = useMemo(() => {
+    const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
+    if (visitsForChart.length === 0 || allBhrsInVertical.length === 0) return [];
+    
+    const visitsPerBHR: Record<string, number> = {};
+    const bhrNameMap = new Map(allBhrsInVertical.map(bhr => [bhr.id, bhr.name]));
 
-    filtered.forEach(visit => {
-      const zhrId = bhrToZhrMap.get(visit.bhr_id);
-      if (zhrId) {
-        const zhrName = zhrNameMap.get(zhrId) || 'Unknown ZHR';
-        visitsPerZHR[zhrName] = (visitsPerZHR[zhrName] || 0) + 1;
-      }
+    visitsForChart.forEach(visit => {
+      const bhrName = bhrNameMap.get(visit.bhr_id) || 'Unknown BHR';
+      visitsPerBHR[bhrName] = (visitsPerBHR[bhrName] || 0) + 1;
     });
-    return Object.entries(visitsPerZHR).map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` }));
-  }, [allVisitsInVertical, zhrDistributionTimeframe, allBhrsInVertical, allZhrsInVertical]);
+    return Object.entries(visitsPerBHR).map(([name, value], index) => ({ name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))` }));
+  }, [filteredVisitsData, globalTimeframe, allBhrsInVertical]);
   
   const handleMetricToggle = (metricKey: string) => {
     setActiveMetrics(prev => ({ ...prev, [metricKey]: !prev[metricKey] }));
+  };
+  
+  const getMultiSelectButtonText = (
+    options: FilterOption[], 
+    selectedIds: string[], 
+    defaultText: string, 
+    singularName: string,
+    pluralName: string,
+    isLoadingOptions: boolean
+  ) => {
+    if (isLoadingOptions) return `Loading ${pluralName}...`;
+    if (selectedIds.length === 0) return defaultText;
+    if (selectedIds.length === 1) {
+      const selectedOption = options.find(opt => opt.value === selectedIds[0]);
+      return selectedOption ? selectedOption.label : `1 ${singularName} Selected`;
+    }
+    return `${selectedIds.length} ${pluralName} Selected`;
+  };
+
+  const handleMultiSelectChange = (
+    id: string, 
+    currentSelectedIds: string[], 
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    const newSelectedIds = currentSelectedIds.includes(id)
+      ? currentSelectedIds.filter(selectedId => selectedId !== id)
+      : [...currentSelectedIds, id];
+    setter(newSelectedIds);
+  };
+
+  const handleClearAllLocalFilters = () => {
+    setSelectedZhrIds([]);
+    setSelectedBhrIds([]);
+    setSelectedBranchIds([]);
+    setGlobalTimeframe('past_month');
   };
 
   if (isLoading) {
@@ -326,17 +427,138 @@ export default function VHRAnalyticsPage() {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
 
+  const showBranchSpecificCharts = selectedBranchIds.length === 0;
+
+
   return (
     <div className="space-y-8">
-      <PageTitle title="VHR Vertical Analytics" description="Analyze key metrics, qualitative assessments, and visit distributions from submitted visits in your vertical." />
+      <PageTitle title={`VHR Vertical Analytics (${user.name})`} description="Analyze key metrics, qualitative assessments, and visit distributions from submitted visits in your vertical." />
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Filters</CardTitle>
+          <CardDescription>Refine analytics by ZHR, BHR, specific Branches, and Timeframe for your vertical.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* ZHR Filter */}
+            <div className="relative flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between pr-10">
+                    {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                  <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                  zhrOptions.length > 0 ? zhrOptions.map(option => (
+                    <DropdownMenuCheckboxItem
+                      key={option.value}
+                      checked={selectedZhrIds.includes(option.value)}
+                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  )) : <DropdownMenuLabel>No ZHRs in your vertical.</DropdownMenuLabel>}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setSelectedZhrIds([])} disabled={selectedZhrIds.length === 0}>Show All ZHRs</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {selectedZhrIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+              )}
+            </div>
+
+            {/* BHR Filter */}
+            <div className="relative flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between pr-10">
+                    {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                  <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                  bhrOptions.length > 0 ? bhrOptions.map(option => (
+                    <DropdownMenuCheckboxItem
+                      key={option.value}
+                      checked={selectedBhrIds.includes(option.value)}
+                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  )) : <DropdownMenuLabel>No BHRs match current ZHR filter.</DropdownMenuLabel>}
+                   <DropdownMenuSeparator />
+                   <DropdownMenuItem onSelect={() => setSelectedBhrIds([])} disabled={selectedBhrIds.length === 0}>Show All BHRs</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {selectedBhrIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+              )}
+            </div>
+            
+            {/* Branch Filter */}
+            <div className="relative flex items-center">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between pr-10">
+                    {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                  <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> : 
+                  branchOptions.length > 0 ? branchOptions.map(option => (
+                    <DropdownMenuCheckboxItem
+                      key={option.value}
+                      checked={selectedBranchIds.includes(option.value)}
+                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setSelectedBranchIds([])} disabled={selectedBranchIds.length === 0}>Show All Branches</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {selectedBranchIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+              )}
+            </div>
+          </div>
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Select Timeframe</Label>
+            <TimeframeButtons selectedTimeframe={globalTimeframe} onTimeframeChange={setGlobalTimeframe} />
+          </div>
+          <Button variant="outline" onClick={handleClearAllLocalFilters} className="w-full md:w-auto">
+            <XCircle className="mr-2 h-4 w-4" /> Clear All Filters & Timeframe
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card className="shadow-xl">
         <CardHeader>
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Metric Trends</CardTitle>
-            <CardDescription>Trendlines for selected metrics and timeframe from your vertical.</CardDescription>
+            <CardDescription>Trendlines for selected metrics from submitted visits in your vertical, reflecting all active filters.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TimeframeButtons selectedTimeframe={trendlineTimeframe} onTimeframeChange={setTrendlineTimeframe} />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
             {METRIC_CONFIGS.map(metric => (
               <div key={metric.key} className="flex items-center space-x-2">
@@ -359,7 +581,7 @@ export default function VHRAnalyticsPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          ) : ( <div className="flex flex-col items-center justify-center h-96 text-center p-4"><TrendingUp className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No metric data available.</p></div> )}
+          ) : ( <div className="flex flex-col items-center justify-center h-96 text-center p-4"><TrendingUp className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No metric data for current filter combination.</p></div> )}
         </CardContent>
       </Card>
 
@@ -367,10 +589,9 @@ export default function VHRAnalyticsPage() {
         <Card className="shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary"/>Qualitative Assessment</CardTitle>
-            <CardDescription>Average scores for qualitative questions from visits in your vertical (0-5 scale).</CardDescription>
+            <CardDescription>Average scores for qualitative questions from visits in your vertical (0-5 scale), reflecting active filters.</CardDescription>
           </CardHeader>
           <CardContent>
-            <TimeframeButtons selectedTimeframe={qualitativeTimeframe} onTimeframeChange={setQualitativeTimeframe} />
             {qualitativeSpiderChartData.length > 0 && qualitativeSpiderChartData.some(d => d.score > 0) ? (
               <ResponsiveContainer width="100%" height={350}>
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderChartData}>
@@ -381,51 +602,65 @@ export default function VHRAnalyticsPage() {
                   <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
                 </RadarChart>
               </ResponsiveContainer>
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No qualitative data.</p></div>)}
+            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No qualitative data for current filter combination.</p></div>)}
           </CardContent>
         </Card>
 
-        <Card className="shadow-xl">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary"/>Branch Category Visits</CardTitle>
-                <CardDescription>Distribution of submitted visits by branch category in your vertical.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <TimeframeButtons selectedTimeframe={categoryPieTimeframe} onTimeframeChange={setCategoryPieTimeframe} />
-                {branchCategoryPieChartData.length > 0 ? (
-                    <PlaceholderPieChart data={branchCategoryPieChartData} title="" dataKey="value" nameKey="name"/>
-                ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No category data.</p></div>)}
-            </CardContent>
-        </Card>
+        {showBranchSpecificCharts && (
+            <Card className="shadow-xl">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary"/>Branch Category Visits</CardTitle>
+                    <CardDescription>Distribution of submitted visits by branch category in your vertical (hidden if specific branches selected).</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {branchCategoryPieChartData.length > 0 ? (
+                        <PlaceholderPieChart data={branchCategoryPieChartData} title="" dataKey="value" nameKey="name"/>
+                    ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No category data for current filter combination.</p></div>)}
+                </CardContent>
+            </Card>
+        )}
       </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BarChartBig className="h-5 w-5 text-primary"/>Top Branches by Visits</CardTitle>
-            <CardDescription>Branches with the most submitted HR visits in your vertical.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TimeframeButtons selectedTimeframe={topBranchesTimeframe} onTimeframeChange={setTopBranchesTimeframe} />
-            {topPerformingBranchesChartData.length > 0 ? (
-                <PlaceholderBarChart data={topPerformingBranchesChartData} title="" xAxisKey="name" dataKey="value" />
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><BarChartBig className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No branch visit data.</p></div>)}
-          </CardContent>
-        </Card>
+        {showBranchSpecificCharts && (
+            <Card className="shadow-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><BarChartBig className="h-5 w-5 text-primary"/>Top Branches by Visits</CardTitle>
+                <CardDescription>Branches with the most submitted HR visits in your vertical (hidden if specific branches selected).</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {topPerformingBranchesChartData.length > 0 ? (
+                    <PlaceholderBarChart data={topPerformingBranchesChartData} title="" xAxisKey="name" dataKey="value" />
+                ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><BarChartBig className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No branch visit data for current filter combination.</p></div>)}
+              </CardContent>
+            </Card>
+          )}
         
         <Card className="shadow-xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Visits by ZHR</CardTitle>
-            <CardDescription>Distribution of submitted visits by ZHRs in your vertical.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Visits by BHR</CardTitle>
+            <CardDescription>Distribution of submitted visits by BHRs in your vertical, reflecting active filters.</CardDescription>
           </CardHeader>
           <CardContent>
-            <TimeframeButtons selectedTimeframe={zhrDistributionTimeframe} onTimeframeChange={setZhrDistributionTimeframe} />
-             {visitsByZHRChartData.length > 0 ? (
-                <PlaceholderPieChart data={visitsByZHRChartData} title="" dataKey="value" nameKey="name"/>
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><Users className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No ZHR visit data.</p></div>)}
+             {visitsByBHRChartData.length > 0 ? (
+                <PlaceholderPieChart data={visitsByBHRChartData} title="" dataKey="value" nameKey="name"/>
+            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><Users className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No BHR visit data for current filter combination.</p></div>)}
           </CardContent>
         </Card>
       </div>
+      {!showBranchSpecificCharts && (
+        <Card className="shadow-xl mt-8">
+            <CardHeader>
+                <CardTitle>Branch Specific Charts Hidden</CardTitle>
+                <CardDescription>The "Top Branches by Visits" and "Branch Category Visits" charts are hidden when specific branches are selected in the filter above. Clear the branch filter to see these charts.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center h-40">
+                <BarChartBig className="w-12 h-12 text-muted-foreground opacity-50 mr-2"/>
+                <PieChartIcon className="w-12 h-12 text-muted-foreground opacity-50"/>
+            </CardContent>
+        </Card>
+       )}
     </div>
   );
 }
+
