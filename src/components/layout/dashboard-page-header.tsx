@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation'; // Import usePathname
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { LogOut, Filter, Check, ChevronsUpDown } from 'lucide-react';
@@ -19,7 +20,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function DashboardPageHeader() {
   const { user, logout } = useAuth();
-  
+  const pathname = usePathname(); // Get the current pathname
+
   const chrFilterHook = user?.role === 'CHR' ? useChrFilter : () => ({
     selectedVhrIds: [],
     setSelectedVhrIds: () => {},
@@ -46,13 +48,16 @@ export function DashboardPageHeader() {
     return `${selectedVhrIds.length} VHRs Selected`;
   };
 
+  // Determine if the VHR filter should be shown
+  const showVhrFilter = user?.role === 'CHR' && pathname !== '/chr/oversee-channel';
+
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:px-6">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
       </div>
       <div className="flex items-center gap-4">
-        {user?.role === 'CHR' && (
+        {showVhrFilter && (
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             {isLoadingVhrOptions ? (
@@ -75,6 +80,7 @@ export function DashboardPageHeader() {
                         checked={selectedVhrIds.includes(option.value)}
                         onCheckedChange={() => handleVhrFilterChange(option.value)}
                         className="text-sm"
+                        onSelect={(e) => e.preventDefault()} // Prevent menu from closing on item click
                       >
                         {option.label}
                       </DropdownMenuCheckboxItem>
