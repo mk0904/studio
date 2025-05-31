@@ -53,8 +53,7 @@ export default function OverseeChannelPage() {
     setIsLoading(true);
     setError(null);
 
-    // Define buildHierarchyTree INSIDE fetchDataAndBuildInitialHierarchy
-    const buildTreeRecursive = (
+    const buildTreeRecursiveLocal = (
       usersList: User[], 
       parentId: string | null,
       _allBranches: Branch[],
@@ -74,7 +73,7 @@ export default function OverseeChannelPage() {
           return {
             ...user,
             assignedBranchNames: user.role === 'BHR' ? currentAssignedBranchNames : undefined,
-            children: buildTreeRecursive(usersList, user.id, _allBranches, _allAssignments),
+            children: buildTreeRecursiveLocal(usersList, user.id, _allBranches, _allAssignments),
           };
         });
     };
@@ -98,14 +97,14 @@ export default function OverseeChannelPage() {
       let roots: User[] = [];
 
       if (chrUser) {
-        roots = allUsers.filter(u => u.reports_to === chrUser.id);
+        roots = allUsers.filter(u => u.reports_to === chrUser.id && u.role === 'VHR'); // CHR directly oversees VHRs
       } else {
         console.warn("CHR user not found, cannot determine root nodes for hierarchy.");
       }
       
       const builtInitialRoots = roots.map(rootUser => ({
         ...rootUser,
-        children: buildTreeRecursive(allUsers, rootUser.id, localAllBranches, localAllAssignments)
+        children: buildTreeRecursiveLocal(allUsers, rootUser.id, localAllBranches, localAllAssignments)
       }));
       setInitialRootUserNodes(builtInitialRoots);
 
