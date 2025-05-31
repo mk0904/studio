@@ -7,13 +7,15 @@ import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Visit, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, CalendarDays, BarChartBig, TrendingUp, Loader2 } from 'lucide-react';
+import { Users, CalendarDays, BarChartBig, TrendingUp, Loader2, Briefcase } from 'lucide-react';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useChrFilter } from '@/contexts/chr-filter-context'; 
+import { isSameMonth, parseISO, startOfMonth } from 'date-fns';
 
 export default function CHRDashboardPage() {
   const { user } = useAuth();
@@ -33,11 +35,9 @@ export default function CHRDashboardPage() {
       const fetchData = async () => {
         setIsLoadingDashboardData(true);
         try {
-          // allUsersForContext is already fetched by ChrFilterProvider
-          // Fetch branches and visits
           const [branchesRes, visitsRes] = await Promise.all([
             supabase.from('branches').select('*'),
-            supabase.from('visits').select('*').eq('status', 'submitted')
+            supabase.from('visits').select('bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage').eq('status', 'submitted')
           ]);
 
           if (branchesRes.error) throw branchesRes.error;
@@ -76,51 +76,69 @@ export default function CHRDashboardPage() {
           .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.has(u.reports_to))
           .map(b => b.id)
       );
-      // Filter to include selected VHRs, ZHRs under them, and BHRs under those ZHRs
       usersToFilter = usersToFilter.filter(u =>
-        selectedVhrIds.includes(u.id) || // The VHRs themselves
-        zhrsInSelectedVhrs.has(u.id) ||   // ZHRs under them
-        bhrsUnderSelectedVhrs.has(u.id)   // BHRs under those ZHRs
+        selectedVhrIds.includes(u.id) || 
+        zhrsInSelectedVhrs.has(u.id) ||   
+        bhrsUnderSelectedVhrs.has(u.id)   
       );
     }
-    // If no VHRs selected, all users (VHR, ZHR, BHR) are considered in scope for counts
     return usersToFilter;
   }, [allUsersForContext, selectedVhrIds, isLoadingAllUsers]);
 
   const filteredSubmittedVisits = useMemo(() => {
     const bhrIdsInScope = filteredUsers.filter(u => u.role === 'BHR').map(b => b.id);
     
-    if (selectedVhrIds.length === 0) return allSubmittedVisitsGlobal; // No VHR filter, show all visits
+    if (selectedVhrIds.length === 0) return allSubmittedVisitsGlobal; 
     
-    // If VHRs are selected, but no BHRs fall under them (e.g., VHR has no ZHRs or ZHRs have no BHRs)
     if (bhrIdsInScope.length === 0 && selectedVhrIds.length > 0) return []; 
     
     return allSubmittedVisitsGlobal.filter(visit => bhrIdsInScope.includes(visit.bhr_id));
   }, [allSubmittedVisitsGlobal, filteredUsers, selectedVhrIds]);
 
-  const {
-    vhrCount,
-    zhrCount,
-    bhrCount,
-    totalSubmittedVisits,
-    avgSubmittedVisitsPerBranch,
-  } = useMemo(() => {
+  const dashboardStats = useMemo(() => {
     const vhrUsers = selectedVhrIds.length > 0 
       ? filteredUsers.filter(u => u.role === 'VHR' && selectedVhrIds.includes(u.id))
       : allUsersForContext.filter(u => u.role === 'VHR');
     
     const zhrUsers = selectedVhrIds.length > 0
-      ? filteredUsers.filter(u => u.role === 'ZHR') // filteredUsers already considers VHR selection for ZHRs
+      ? filteredUsers.filter(u => u.role === 'ZHR') 
       : allUsersForContext.filter(u => u.role === 'ZHR');
 
     const bhrUsers = selectedVhrIds.length > 0
-      ? filteredUsers.filter(u => u.role === 'BHR') // filteredUsers already considers VHR selection for BHRs
+      ? filteredUsers.filter(u => u.role === 'BHR') 
       : allUsersForContext.filter(u => u.role === 'BHR');
 
     const currentTotalSubmittedVisits = filteredSubmittedVisits.length;
     
     const uniqueBranchesVisitedCount = new Set(filteredSubmittedVisits.map(visit => visit.branch_id)).size;
     const currentAvgVisits = uniqueBranchesVisitedCount > 0 ? (currentTotalSubmittedVisits / uniqueBranchesVisitedCount).toFixed(1) : "0.0";
+
+    // Calculate Avg Manning and Attrition for the current month
+    const today = new Date();
+    const currentMonthStart = startOfMonth(today);
+    const visitsThisMonth = filteredSubmittedVisits.filter(visit => 
+      isSameMonth(parseISO(visit.visit_date), currentMonthStart)
+    );
+
+    let totalManning = 0;
+    let manningCount = 0;
+    visitsThisMonth.forEach(visit => {
+      if (typeof visit.manning_percentage === 'number') {
+        totalManning += visit.manning_percentage;
+        manningCount++;
+      }
+    });
+    const avgManningPercentageThisMonth = manningCount > 0 ? Math.round(totalManning / manningCount) : 0;
+
+    let totalAttrition = 0;
+    let attritionCount = 0;
+    visitsThisMonth.forEach(visit => {
+      if (typeof visit.attrition_percentage === 'number') {
+        totalAttrition += visit.attrition_percentage;
+        attritionCount++;
+      }
+    });
+    const avgAttritionPercentageThisMonth = attritionCount > 0 ? Math.round(totalAttrition / attritionCount) : 0;
     
     return {
       vhrCount: vhrUsers.length,
@@ -128,6 +146,8 @@ export default function CHRDashboardPage() {
       bhrCount: bhrUsers.length,
       totalSubmittedVisits: currentTotalSubmittedVisits,
       avgSubmittedVisitsPerBranch: currentAvgVisits,
+      avgManningPercentageThisMonth,
+      avgAttritionPercentageThisMonth,
     };
   }, [filteredUsers, filteredSubmittedVisits, selectedVhrIds, allUsersForContext]);
 
@@ -149,7 +169,6 @@ export default function CHRDashboardPage() {
       if (selectedVhrIds.length === 1) chartTitle += ` (in ${vhrOptions.find(v=>v.value === selectedVhrIds[0])?.label || 'Selected VHR'})`;
       else chartTitle += ` (in ${selectedVhrIds.length} VHRs)`;
       
-      // ZHRs that report to any of the selected VHRs
       allUsersForContext
         .filter(u => u.role === 'ZHR' && u.reports_to && selectedVhrIds.includes(u.reports_to))
         .forEach(zhr => entityNameMap.set(zhr.id, zhr.name));
@@ -161,7 +180,7 @@ export default function CHRDashboardPage() {
           visitsPerEntity[entityName] = (visitsPerEntity[entityName] || 0) + 1;
         }
       });
-    } else { // No VHRs selected, show VHRs
+    } else { 
       allUsersForContext.filter(u => u.role === 'VHR').forEach(vhr => entityNameMap.set(vhr.id, vhr.name));
       targetVisits.forEach(visit => {
         const zhrId = bhrToZhrMap.get(visit.bhr_id);
@@ -222,19 +241,62 @@ export default function CHRDashboardPage() {
     <div className="space-y-8">
       <PageTitle title={`CHR Dashboard (${selectedHierarchyDetailsText.name})`} description={`Human Resources Overview ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
 
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+        {/* Avg Manning Card */}
+        <Card className="shadow-lg bg-yellow-50 dark:bg-yellow-900/40">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-start space-x-3">
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-800/30 rounded-lg">
+                <TrendingUp className="h-7 w-7 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300">Avg Manning</p>
+                <p className="text-3xl font-bold text-yellow-800 dark:text-yellow-200">
+                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgManningPercentageThisMonth}%`}
+                </p>
+              </div>
+            </div>
+            <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-700/50 dark:text-yellow-300 border-yellow-300/50 dark:border-yellow-600/50 text-xs px-2 py-1">
+              this month
+            </Badge>
+          </CardContent>
+        </Card>
+
+        {/* Avg Attrition Card */}
+        <Card className="shadow-lg bg-red-50 dark:bg-red-900/40">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-start space-x-3">
+              <div className="p-2 bg-red-100 dark:bg-red-800/30 rounded-lg">
+                <Briefcase className="h-7 w-7 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm text-red-700 dark:text-red-300">Avg Attrition</p>
+                <p className="text-3xl font-bold text-red-800 dark:text-red-200">
+                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgAttritionPercentageThisMonth}%`}
+                </p>
+              </div>
+            </div>
+            <Badge className="bg-red-100 text-red-700 dark:bg-red-700/50 dark:text-red-300 border-red-300/50 dark:border-red-600/50 text-xs px-2 py-1">
+              this month
+            </Badge>
+          </CardContent>
+        </Card>
+      </div>
+
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total VHRs" value={vhrCount} icon={Users} description={`Monitored VHRs`}/>
-        <StatCard title="Total ZHRs" value={zhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
-        <StatCard title="Total BHRs" value={bhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
+        <StatCard title="Total VHRs" value={dashboardStats.vhrCount} icon={Users} description={`Monitored VHRs`}/>
+        <StatCard title="Total ZHRs" value={dashboardStats.zhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
+        <StatCard title="Total BHRs" value={dashboardStats.bhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
         <StatCard 
             title="Avg Visits / Visited Branch" 
-            value={avgSubmittedVisitsPerBranch} 
+            value={dashboardStats.avgSubmittedVisitsPerBranch} 
             icon={TrendingUp} 
             description={`Avg visits per unique branch with activity in ${selectedHierarchyDetailsText.name}`}
         />
       </div>
        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-         <StatCard title="Submitted Visits" value={totalSubmittedVisits} icon={CalendarDays} description={`In ${selectedHierarchyDetailsText.name}`}/>
+         <StatCard title="Submitted Visits" value={dashboardStats.totalSubmittedVisits} icon={CalendarDays} description={`In ${selectedHierarchyDetailsText.name}`}/>
          <Link href="/chr/analytics" className="w-full">
             <Button className="w-full h-full text-lg py-8" variant="outline">
                 <BarChartBig className="mr-2 h-8 w-8" /> View Deep Analytics
