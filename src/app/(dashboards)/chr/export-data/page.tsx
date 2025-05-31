@@ -10,7 +10,7 @@ import type { DateRange } from 'react-day-picker';
 import { supabase } from '@/lib/supabaseClient';
 import type { User, Branch, Visit } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, Filter as FilterIcon, ListFilter, XCircle, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Download, ListFilter, XCircle, ChevronsUpDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
@@ -29,7 +29,6 @@ export default function CHRExportDataPage() {
   const { toast } = useToast();
 
   const [isLoadingPage, setIsLoadingPage] = useState(true);
-  const [isFetchingData, setIsFetchingData] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -45,7 +44,6 @@ export default function CHRExportDataPage() {
   const [selectedBhrIds, setSelectedBhrIds] = useState<string[]>([]);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [fetchedDataForExport, setFetchedDataForExport] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const fetchInitialFilterData = useCallback(async () => {
@@ -78,7 +76,6 @@ export default function CHRExportDataPage() {
     fetchInitialFilterData();
   }, [fetchInitialFilterData]);
 
-  // Update ZHR options based on VHR selection
   useEffect(() => {
     if (allUsers.length === 0) return;
     let zhrs = allUsers.filter(u => u.role === 'ZHR');
@@ -86,10 +83,9 @@ export default function CHRExportDataPage() {
       zhrs = zhrs.filter(zhr => zhr.reports_to && selectedVhrIds.includes(zhr.reports_to));
     }
     setZhrOptions(zhrs.map(u => ({ value: u.id, label: u.name })));
-    setSelectedZhrIds([]); // Reset ZHR selection when VHR changes
+    setSelectedZhrIds([]); 
   }, [selectedVhrIds, allUsers]);
 
-  // Update BHR options based on ZHR (or VHR if no ZHR) selection
   useEffect(() => {
     if (allUsers.length === 0) return;
     let bhrs = allUsers.filter(u => u.role === 'BHR');
@@ -102,14 +98,13 @@ export default function CHRExportDataPage() {
       bhrs = bhrs.filter(bhr => bhr.reports_to && zhrIdsUnderSelectedVhrs.includes(bhr.reports_to));
     }
     setBhrOptions(bhrs.map(u => ({ value: u.id, label: `${u.name} (${u.e_code || 'N/A'})` })));
-    setSelectedBhrIds([]); // Reset BHR selection
+    setSelectedBhrIds([]); 
   }, [selectedZhrIds, selectedVhrIds, allUsers]);
   
-
-  const handleFetchDataForExport = async () => {
-    setIsFetchingData(true);
-    setFetchedDataForExport([]);
+  const handleExportToCSV = async () => {
+    setIsExporting(true);
     setError(null);
+    let fetchedDataForExport: any[] = [];
 
     try {
       let query = supabase.from('visits').select(`
@@ -118,7 +113,6 @@ export default function CHRExportDataPage() {
         branch:branches (id, name, code, location, category)
       `).eq('status', 'submitted');
 
-      // Determine BHR IDs to filter by based on hierarchy
       let targetBhrIds: string[] | null = null;
       if (selectedBhrIds.length > 0) {
         targetBhrIds = selectedBhrIds;
@@ -128,21 +122,18 @@ export default function CHRExportDataPage() {
         const zhrIds = allUsers.filter(u => u.role === 'ZHR' && u.reports_to && selectedVhrIds.includes(u.reports_to)).map(u => u.id);
         if (zhrIds.length > 0) {
             targetBhrIds = allUsers.filter(u => u.role === 'BHR' && u.reports_to && zhrIds.includes(u.reports_to)).map(u => u.id);
-        } else { // Selected VHRs have no ZHRs under them
+        } else {
              targetBhrIds = [];
         }
       }
-      // If targetBhrIds is still null, it means no hierarchy filter, fetch for all BHRs (if needed, or could be restricted)
-      // If targetBhrIds is an empty array, it means a filter was applied but resulted in no BHRs.
+      
       if (targetBhrIds !== null && targetBhrIds.length === 0) {
-        setFetchedDataForExport([]);
-        toast({ title: "Info", description: "No BHRs match the selected hierarchy filters.", variant: "default" });
-        setIsFetchingData(false);
+        toast({ title: "No Data", description: "No BHRs match the selected hierarchy filters. Cannot export.", variant: "default" });
+        setIsExporting(false);
         return;
       } else if (targetBhrIds !== null) {
         query = query.in('bhr_id', targetBhrIds);
       }
-
 
       if (selectedBranchIds.length > 0) {
         query = query.in('branch_id', selectedBranchIds);
@@ -158,29 +149,15 @@ export default function CHRExportDataPage() {
 
       if (queryError) throw queryError;
       
-      setFetchedDataForExport(data || []);
-      if ((data || []).length === 0) {
-        toast({ title: "No Data", description: "No visit records found matching your filter criteria.", variant: "default" });
-      } else {
-        toast({ title: "Data Fetched", description: `${data.length} records ready for export.` });
-      }
+      fetchedDataForExport = data || [];
 
-    } catch (e: any) {
-      console.error("Error fetching data for export:", e);
-      toast({ title: "Error", description: `Failed to fetch data: ${e.message}`, variant: "destructive" });
-      setError(`Failed to fetch data: ${e.message}`);
-    } finally {
-      setIsFetchingData(false);
-    }
-  };
-  
-  const handleExportToCSV = () => {
-    if (fetchedDataForExport.length === 0) {
-      toast({ title: "No Data", description: "No data to export. Please fetch data first.", variant: "default" });
-      return;
-    }
-    setIsExporting(true);
-    try {
+      if (fetchedDataForExport.length === 0) {
+        toast({ title: "No Data", description: "No visit records found matching your filter criteria to export.", variant: "default" });
+        setIsExporting(false);
+        return;
+      }
+      
+      // Proceed to CSV generation if data is found
       const headers = [
         "Visit ID", "BHR Name", "BHR E-Code", "BHR Location",
         "Branch Name", "Branch Code", "Branch Location", "Branch Category",
@@ -223,7 +200,7 @@ export default function CHRExportDataPage() {
           visit.qual_abusive_language || 'N/A',
           visit.qual_comfortable_escalate || 'N/A',
           visit.qual_inclusive_culture || 'N/A',
-          `"${(visit.additional_remarks || '').replace(/"/g, '""')}"` // Escape double quotes
+          `"${(visit.additional_remarks || '').replace(/"/g, '""')}"`
         ];
         csvRows.push(row.join(','));
       });
@@ -239,16 +216,18 @@ export default function CHRExportDataPage() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ title: "Export Successful", description: "Data exported to CSV." });
+        toast({ title: "Export Successful", description: `${fetchedDataForExport.length} records exported to CSV.` });
       }
+
     } catch (e: any) {
-        console.error("Error exporting CSV:", e);
-        toast({ title: "Export Error", description: `Failed to export data: ${e.message}`, variant: "destructive" });
+      console.error("Error during export process:", e);
+      toast({ title: "Error", description: `Failed to export data: ${e.message}`, variant: "destructive" });
+      setError(`Failed to export data: ${e.message}`);
     } finally {
-        setIsExporting(false);
+      setIsExporting(false);
     }
   };
-
+  
   const getMultiSelectButtonText = (
     options: FilterOption[], 
     selectedIds: string[], 
@@ -281,9 +260,7 @@ export default function CHRExportDataPage() {
     setSelectedBhrIds([]);
     setSelectedBranchIds([]);
     setDateRange(undefined);
-    setFetchedDataForExport([]);
   };
-
 
   if (isLoadingPage && allUsers.length === 0 && allBranches.length === 0) {
     return (
@@ -304,7 +281,6 @@ export default function CHRExportDataPage() {
           <CardDescription>Select criteria to refine the data before exporting.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          {/* Hierarchy Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
                 <Label className="text-sm font-medium mb-1 block">Filter by VHR</Label>
@@ -361,7 +337,6 @@ export default function CHRExportDataPage() {
             </div>
           </div>
 
-          {/* Branch & Date Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <Label className="text-sm font-medium mb-1 block">Filter by Branch</Label>
@@ -390,19 +365,10 @@ export default function CHRExportDataPage() {
             <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto">
                 <XCircle className="mr-2 h-4 w-4" /> Clear All Filters
             </Button>
-            <Button onClick={handleFetchDataForExport} disabled={isFetchingData || isLoadingPage} className="w-full sm:w-auto">
-              {isFetchingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FilterIcon className="mr-2 h-4 w-4" />}
-              Fetch Data for Export
-            </Button>
           </div>
           
           {error && <p className="text-sm text-destructive">{error}</p>}
           
-          {fetchedDataForExport.length > 0 && !isFetchingData && (
-            <div className="mt-4 p-4 bg-muted/50 rounded-md text-sm">
-              <p className="font-medium">{fetchedDataForExport.length} record(s) fetched and ready for export.</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -413,17 +379,15 @@ export default function CHRExportDataPage() {
         <CardContent>
           <Button
             onClick={handleExportToCSV}
-            disabled={isExporting || fetchedDataForExport.length === 0 || isFetchingData}
+            disabled={isExporting || isLoadingPage}
             className="w-full sm:w-auto"
           >
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export to CSV
           </Button>
-          {fetchedDataForExport.length === 0 && !isFetchingData && (
-            <p className="text-sm text-muted-foreground mt-2">Please fetch data before exporting.</p>
-          )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
