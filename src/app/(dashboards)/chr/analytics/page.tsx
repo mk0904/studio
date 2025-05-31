@@ -187,11 +187,13 @@ export default function CHRAnalyticsPage() {
       if (selectedZhrIds.length > 0) {
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
       } else if (globalSelectedVhrIds.length > 0) {
+        // If no ZHRs selected, but VHRs are, filter BHRs by those VHRs
         const zhrsUnderSelectedVhrs = allUsersGlobal
           .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
           .map(z => z.id);
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && zhrsUnderSelectedVhrs.includes(bhr.reports_to));
       }
+      // If no ZHRs and no VHRs selected, all BHRs are potential (done by initial filter `allUsersGlobal.filter(u => u.role === 'BHR')`)
       setBhrOptions(potentialBhrs.map(b => ({ value: b.id, label: b.name })));
     } else {
       setBhrOptions([]);
@@ -201,6 +203,7 @@ export default function CHRAnalyticsPage() {
   }, [selectedZhrIds, globalSelectedVhrIds, allUsersGlobal]);
   
   useEffect(() => {
+    // Reset branch selection if any higher filter changes
     setSelectedBranchIds([]);
   }, [selectedBhrIds, selectedZhrIds, globalSelectedVhrIds]);
 
@@ -208,15 +211,19 @@ export default function CHRAnalyticsPage() {
   const filteredVisitsData = useMemo(() => {
     let visits = allSubmittedVisitsGlobal;
     
+    // Determine the set of BHR IDs to filter by, based on the hierarchy of selected filters
     let relevantBhrIds = new Set<string>();
 
     if (selectedBhrIds.length > 0) {
+        // If specific BHRs are selected, use them directly
         selectedBhrIds.forEach(id => relevantBhrIds.add(id));
     } else if (selectedZhrIds.length > 0) {
+        // If no BHRs but ZHRs are selected, get BHRs under these ZHRs
         allUsersGlobal
             .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
     } else if (globalSelectedVhrIds.length > 0) {
+        // If no BHRs/ZHRs but VHRs are selected, get BHRs under these VHRs (via ZHRs)
         const zhrsInSelectedVhrs = allUsersGlobal
             .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
             .map(z => z.id);
@@ -224,16 +231,23 @@ export default function CHRAnalyticsPage() {
             .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
     } else {
+        // No specific VHR, ZHR, or BHR selected; means consider all BHRs for initial visit pool
         allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
     
+    // Filter visits by these relevant BHRs
+    // This step is crucial: if a filter is active (VHR, ZHR, or BHR selected) but results in no relevant BHRs, 
+    // then visits should be empty. Otherwise, if no filters are active, all BHRs are relevant.
     if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
       if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
-        visits = [];
+        // A filter is active (ZHR or BHR specifically, or VHR resulting in no BHRs) but no BHRs match it.
+        visits = []; 
       } else if (relevantBhrIds.size > 0) {
         visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
       }
+      // If relevantBhrIds is empty AND no filters were active, it means we started with all BHRs, so all visits pass this stage.
     }
+
 
     if (selectedBranchIds.length > 0) {
       visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
@@ -457,6 +471,7 @@ export default function CHRAnalyticsPage() {
                       key={option.value}
                       checked={selectedZhrIds.includes(option.value)}
                       onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+                      onSelect={(e) => e.preventDefault()}
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
@@ -496,6 +511,7 @@ export default function CHRAnalyticsPage() {
                       key={option.value}
                       checked={selectedBhrIds.includes(option.value)}
                       onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
+                      onSelect={(e) => e.preventDefault()}
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
@@ -535,6 +551,7 @@ export default function CHRAnalyticsPage() {
                       key={option.value}
                       checked={selectedBranchIds.includes(option.value)}
                       onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+                      onSelect={(e) => e.preventDefault()}
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>

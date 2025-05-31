@@ -346,6 +346,7 @@ export default function CHRVisitsMadePage() {
                       key={option.value}
                       checked={selectedZhrIds.includes(option.value)}
                       onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+                      onSelect={(e) => e.preventDefault()}
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
@@ -376,6 +377,7 @@ export default function CHRVisitsMadePage() {
                       key={option.value}
                       checked={selectedBhrIds.includes(option.value)}
                       onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
+                      onSelect={(e) => e.preventDefault()}
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
@@ -406,6 +408,7 @@ export default function CHRVisitsMadePage() {
                       key={option.value}
                       checked={selectedBranchIds.includes(option.value)}
                       onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+                      onSelect={(e) => e.preventDefault()}
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
@@ -469,3 +472,4 @@ export default function CHRVisitsMadePage() {
     </div>
   );
 }
+
