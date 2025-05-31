@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button'; // Added import
 import { useChrFilter } from '@/contexts/chr-filter-context';
 
 export default function OverseeChannelPage() {
@@ -65,13 +66,13 @@ export default function OverseeChannelPage() {
         const bhrsInSelectedVhrs = usersToProcess.filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to)).map(b => b.id);
         bhrsInSelectedVhrs.forEach(bhrId => vhrAndTheirTeams.add(bhrId));
 
-        // Include the CHR if they are the one viewing
-        if (currentUser?.id) vhrAndTheirTeams.add(currentUser.id);
+        // Include the CHR if they are the one viewing - only relevant if CHR is part of displayed hierarchy
+        // if (currentUser?.id) vhrAndTheirTeams.add(currentUser.id); // CHR is not displayed, so this line is not strictly needed for filtering displayable nodes
 
-        usersToProcess = usersToProcess.filter(u => vhrAndTheirTeams.has(u.id));
+        usersToProcess = usersToProcess.filter(u => vhrAndTheirTeams.has(u.id) || u.reports_to === null || (u.role === 'CHR' && u.id === currentUser.id) );
       }
       
-      // 2. Filter by Search Term
+      // 2. Filter by Search Term (applied to all users before hierarchy building)
       const lowerSearchTerm = searchTerm.toLowerCase();
       if (lowerSearchTerm) {
         usersToProcess = usersToProcess.filter(u =>
@@ -83,32 +84,34 @@ export default function OverseeChannelPage() {
         );
       }
       
-      const chrUser = usersToProcess.find(u => u.role === 'CHR');
-      
-      if (chrUser) {
-        const hierarchy = buildHierarchyTree(usersToProcess, chrUser.id);
-        setRootUserNodes(hierarchy);
-      } else if (selectedVhrIds.length > 0) {
-        // If VHRs are selected, and CHR is filtered out (or not present in usersToProcess post-search)
-        // build tree starting from selected VHRs
-        const vhrNodes = usersToProcess
+      // Determine the root for hierarchy display
+      let displayRoots: UserNode[] = [];
+      const chrUser = usersToProcess.find(u => u.role === 'CHR' && u.id === currentUser.id);
+
+      if (selectedVhrIds.length > 0) {
+        // If VHRs are selected, build trees starting from these selected VHRs (who must be in usersToProcess)
+        displayRoots = usersToProcess
             .filter(u => u.role === 'VHR' && selectedVhrIds.includes(u.id))
             .map(vhr => ({
                 ...vhr,
                 children: buildHierarchyTree(usersToProcess, vhr.id)
             }));
-        setRootUserNodes(vhrNodes);
+      } else if (chrUser) {
+        // If no VHR selected, start from CHR's direct reports
+        displayRoots = buildHierarchyTree(usersToProcess, chrUser.id);
       } else {
-        // If no CHR found and no VHRs selected (e.g. CHR searched out, or data issue)
-        // Attempt to build from any top-level (no reports_to) users as a fallback, or show empty.
-         const topLevelNodes = buildHierarchyTree(usersToProcess, null);
-         setRootUserNodes(topLevelNodes);
-         if (topLevelNodes.length === 0 && usersToProcess.length > 0) {
-            // This case means users exist but no clear hierarchy root (CHR or top-level) was found after filtering
-            // Potentially show a message or just the usersToProcess as a flat list if desired,
-            // for now, an empty tree will result if no CHR with children is found and no VHRs selected
-         }
+        // Fallback: if no CHR found (e.g., searched out or data issue) and no VHRs selected,
+        // try to build from any top-level users or show empty based on usersToProcess.
+        // This case might indicate that the current user (CHR) was filtered out by search,
+        // or a data consistency issue. For now, if CHR is not in usersToProcess, default to top-level available.
+        if (!usersToProcess.find(u => u.id === currentUser.id)) {
+             // CHR was filtered out, so no specific starting point relative to CHR.
+             // Could display top-level users from usersToProcess or an empty state/message.
+             // For now, we show what remains. If usersToProcess is empty, message will reflect that.
+             displayRoots = buildHierarchyTree(usersToProcess, null); // Show all remaining top-level hierarchies
+        }
       }
+      setRootUserNodes(displayRoots);
 
     } catch (err: any) {
       console.error("Error fetching or building hierarchy:", err);
@@ -178,8 +181,8 @@ export default function OverseeChannelPage() {
                 <h3 className="text-xl font-semibold">No Hierarchy to Display</h3>
                 <p className="text-muted-foreground max-w-md">
                 {searchTerm ? "No users match your search criteria within the selected VHR vertical(s)." : 
-                 (selectedVhrIds.length > 0 ? "No users found for the selected VHR vertical(s), or the CHR has no direct reports in this selection." : 
-                 "The CHR has no direct reports, or no users were found.")
+                 (selectedVhrIds.length > 0 ? "No users found for the selected VHR vertical(s)." : 
+                 "The CHR has no direct reports, or no users were found in the system.")
                 }
                 </p>
                  {searchTerm && <Button variant="outline" onClick={() => setSearchTerm('')}>Clear Search</Button>}
