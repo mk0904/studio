@@ -8,6 +8,7 @@ import { Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebarContent } from '@/components/layout/app-sidebar-content';
 import { DashboardPageHeader } from '@/components/layout/dashboard-page-header'; 
 import { Skeleton } from '@/components/ui/skeleton';
+import { ChrFilterProvider } from '@/contexts/chr-filter-context'; // Import the provider
 
 export default function DashboardLayout({
   children,
@@ -26,13 +27,12 @@ export default function DashboardLayout({
   if (isLoading || !user) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
-        {/* Or a more sophisticated loading screen */}
         <Skeleton className="h-12 w-12 rounded-full animate-spin" /> 
       </div>
     );
   }
 
-  return (
+  const content = (
     <div className="flex min-h-screen bg-background">
       <Sidebar collapsible="icon" variant="sidebar" side="left" className="border-r">
         <AppSidebarContent />
@@ -45,4 +45,10 @@ export default function DashboardLayout({
       </SidebarInset>
     </div>
   );
+
+  if (user.role === 'CHR') {
+    return <ChrFilterProvider>{content}</ChrFilterProvider>;
+  }
+
+  return content;
 }
