@@ -7,7 +7,7 @@ import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Visit, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, CalendarDays, BarChartBig, TrendingUp, Loader2, Briefcase } from 'lucide-react';
+import { Users, CalendarDays, BarChartBig, TrendingUp, Loader2, Briefcase, Percent, ShieldAlert, Building2 } from 'lucide-react';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export default function CHRDashboardPage() {
         try {
           const [branchesRes, visitsRes] = await Promise.all([
             supabase.from('branches').select('*'),
-            supabase.from('visits').select('bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage').eq('status', 'submitted')
+            supabase.from('visits').select('bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, cwt_cases').eq('status', 'submitted')
           ]);
 
           if (branchesRes.error) throw branchesRes.error;
@@ -113,7 +113,7 @@ export default function CHRDashboardPage() {
     const uniqueBranchesVisitedCount = new Set(filteredSubmittedVisits.map(visit => visit.branch_id)).size;
     const currentAvgVisits = uniqueBranchesVisitedCount > 0 ? (currentTotalSubmittedVisits / uniqueBranchesVisitedCount).toFixed(1) : "0.0";
 
-    // Calculate Avg Manning and Attrition for the current month
+    // Calculate metrics for the current month
     const today = new Date();
     const currentMonthStart = startOfMonth(today);
     const visitsThisMonth = filteredSubmittedVisits.filter(visit => 
@@ -139,6 +139,28 @@ export default function CHRDashboardPage() {
       }
     });
     const avgAttritionPercentageThisMonth = attritionCount > 0 ? Math.round(totalAttrition / attritionCount) : 0;
+
+    let totalNonVendor = 0;
+    let nonVendorCount = 0;
+    visitsThisMonth.forEach(visit => {
+        if (typeof visit.non_vendor_percentage === 'number') {
+            totalNonVendor += visit.non_vendor_percentage;
+            nonVendorCount++;
+        }
+    });
+    const avgNonVendorPercentageThisMonth = nonVendorCount > 0 ? Math.round(totalNonVendor / nonVendorCount) : 0;
+
+    let totalCWTCases = 0;
+    visitsThisMonth.forEach(visit => {
+        if (typeof visit.cwt_cases === 'number') {
+            totalCWTCases += visit.cwt_cases;
+        }
+    });
+
+    // Branch Coverage (Overall)
+    const uniqueBranchesVisitedOverall = new Set(allSubmittedVisitsGlobal.map(visit => visit.branch_id)).size;
+    const totalBranchesCount = allBranchesGlobal.length;
+    const branchCoveragePercentage = totalBranchesCount > 0 ? Math.round((uniqueBranchesVisitedOverall / totalBranchesCount) * 100) : 0;
     
     return {
       vhrCount: vhrUsers.length,
@@ -148,8 +170,11 @@ export default function CHRDashboardPage() {
       avgSubmittedVisitsPerBranch: currentAvgVisits,
       avgManningPercentageThisMonth,
       avgAttritionPercentageThisMonth,
+      avgNonVendorPercentageThisMonth,
+      totalCWTCasesThisMonth: totalCWTCases,
+      branchCoveragePercentage,
     };
-  }, [filteredUsers, filteredSubmittedVisits, selectedVhrIds, allUsersForContext]);
+  }, [filteredUsers, filteredSubmittedVisits, selectedVhrIds, allUsersForContext, allSubmittedVisitsGlobal, allBranchesGlobal]);
 
   const visitsByEntityChartData = useMemo(() => {
     if (isLoadingAllUsers || !allSubmittedVisitsGlobal.length) return [];
@@ -242,7 +267,6 @@ export default function CHRDashboardPage() {
       <PageTitle title={`CHR Dashboard (${selectedHierarchyDetailsText.name})`} description={`Human Resources Overview ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-        {/* Avg Manning Card */}
         <Card className="shadow-lg bg-yellow-50 dark:bg-yellow-900/40">
           <CardContent className="p-5 flex items-center justify-between">
             <div className="flex items-start space-x-3">
@@ -262,7 +286,6 @@ export default function CHRDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Avg Attrition Card */}
         <Card className="shadow-lg bg-red-50 dark:bg-red-900/40">
           <CardContent className="p-5 flex items-center justify-between">
             <div className="flex items-start space-x-3">
@@ -281,6 +304,44 @@ export default function CHRDashboardPage() {
             </Badge>
           </CardContent>
         </Card>
+
+        <Card className="shadow-lg bg-cyan-50 dark:bg-cyan-900/40">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-start space-x-3">
+              <div className="p-2 bg-cyan-100 dark:bg-cyan-800/30 rounded-lg">
+                <Users className="h-7 w-7 text-cyan-600 dark:text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-sm text-cyan-700 dark:text-cyan-300">Avg Non-Vendor</p>
+                <p className="text-3xl font-bold text-cyan-800 dark:text-cyan-200">
+                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgNonVendorPercentageThisMonth}%`}
+                </p>
+              </div>
+            </div>
+            <Badge className="bg-cyan-100 text-cyan-700 dark:bg-cyan-700/50 dark:text-cyan-300 border-cyan-300/50 dark:border-cyan-600/50 text-xs px-2 py-1">
+              this month
+            </Badge>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg bg-orange-50 dark:bg-orange-900/40">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-start space-x-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-800/30 rounded-lg">
+                <ShieldAlert className="h-7 w-7 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <p className="text-sm text-orange-700 dark:text-orange-300">Total CWT Cases</p>
+                <p className="text-3xl font-bold text-orange-800 dark:text-orange-200">
+                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.totalCWTCasesThisMonth}`}
+                </p>
+              </div>
+            </div>
+            <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-700/50 dark:text-orange-300 border-orange-300/50 dark:border-orange-600/50 text-xs px-2 py-1">
+              this month
+            </Badge>
+          </CardContent>
+        </Card>
       </div>
 
 
@@ -289,14 +350,22 @@ export default function CHRDashboardPage() {
         <StatCard title="Total ZHRs" value={dashboardStats.zhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
         <StatCard title="Total BHRs" value={dashboardStats.bhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
         <StatCard 
+            title="Branch Coverage" 
+            value={`${dashboardStats.branchCoveragePercentage}%`} 
+            icon={Building2} 
+            description={`Overall branch visit coverage`}
+        />
+      </div>
+       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+         <StatCard title="Submitted Visits" value={dashboardStats.totalSubmittedVisits} icon={CalendarDays} description={`Total submitted visits in ${selectedHierarchyDetailsText.name}`}/>
+         <StatCard 
             title="Avg Visits / Visited Branch" 
             value={dashboardStats.avgSubmittedVisitsPerBranch} 
             icon={TrendingUp} 
             description={`Avg visits per unique branch with activity in ${selectedHierarchyDetailsText.name}`}
         />
       </div>
-       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-         <StatCard title="Submitted Visits" value={dashboardStats.totalSubmittedVisits} icon={CalendarDays} description={`In ${selectedHierarchyDetailsText.name}`}/>
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
          <Link href="/chr/analytics" className="w-full">
             <Button className="w-full h-full text-lg py-8" variant="outline">
                 <BarChartBig className="mr-2 h-8 w-8" /> View Deep Analytics
@@ -326,3 +395,4 @@ export default function CHRDashboardPage() {
     </div>
   );
 }
+
