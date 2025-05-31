@@ -7,7 +7,7 @@ import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Visit, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, Building, CalendarDays, Globe2, BarChartBig, TrendingUp, Loader2 } from 'lucide-react';
+import { Users, CalendarDays, Globe2, BarChartBig, TrendingUp, Loader2 } from 'lucide-react';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import Link from 'next/link';
@@ -21,11 +21,10 @@ export default function CHRDashboardPage() {
   const { toast } = useToast();
   
   const chrFilterHook = user?.role === 'CHR' ? useChrFilter : () => ({
-    selectedVhrIds: [], // Default for non-CHR or if context not ready
+    selectedVhrIds: [], 
     vhrOptions: [],
     isLoadingVhrOptions: false,
   });
-  // Ensure setSelectedVhrIds is destructured if it's ever needed, though not for this page typically.
   const { selectedVhrIds, vhrOptions } = chrFilterHook();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -69,11 +68,12 @@ export default function CHRDashboardPage() {
   }, [user, toast]); 
 
   const filteredUsers = useMemo(() => {
-    if (selectedVhrIds.length === 0) return allUsers; // If no VHRs selected, effectively "All"
+    if (selectedVhrIds.length === 0) return allUsers; 
     
+    const directVhrTargets = new Set(selectedVhrIds);
     const zhrsInSelectedVerticals = new Set<string>();
     allUsers.forEach(u => {
-      if (u.role === 'ZHR' && u.reports_to && selectedVhrIds.includes(u.reports_to)) {
+      if (u.role === 'ZHR' && u.reports_to && directVhrTargets.has(u.reports_to)) {
         zhrsInSelectedVerticals.add(u.id);
       }
     });
@@ -86,15 +86,15 @@ export default function CHRDashboardPage() {
     });
     
     return allUsers.filter(u => 
-        (u.role === 'CHR') || // Always include CHR
-        (u.role === 'VHR' && selectedVhrIds.includes(u.id)) || // Selected VHRs
-        (u.role === 'ZHR' && zhrsInSelectedVerticals.has(u.id)) || // ZHRs under selected VHRs
-        (u.role === 'BHR' && bhrsInSelectedVerticals.has(u.id)) // BHRs under those ZHRs
+        (u.role === 'CHR') || 
+        (u.role === 'VHR' && directVhrTargets.has(u.id)) || 
+        (u.role === 'ZHR' && zhrsInSelectedVerticals.has(u.id)) || 
+        (u.role === 'BHR' && bhrsInSelectedVerticals.has(u.id)) 
     );
   }, [allUsers, selectedVhrIds]);
 
   const filteredSubmittedVisits = useMemo(() => {
-    if (selectedVhrIds.length === 0) return allSubmittedVisits; // All if no filter
+    if (selectedVhrIds.length === 0) return allSubmittedVisits; 
     const bhrIdsInSelectedVerticals = filteredUsers.filter(u => u.role === 'BHR').map(b => b.id);
     return allSubmittedVisits.filter(visit => bhrIdsInSelectedVerticals.includes(visit.bhr_id));
   }, [allSubmittedVisits, filteredUsers, selectedVhrIds]);
@@ -109,14 +109,8 @@ export default function CHRDashboardPage() {
     const currentBhrCount = filteredUsers.filter(u => u.role === 'BHR').length;
     const currentTotalSubmittedVisits = filteredSubmittedVisits.length;
     
-    let relevantBranchesCount = allBranches.length;
-    if (selectedVhrIds.length > 0) {
-        // If specific VHRs are selected, count branches associated with visits from those VHRs' BHRs
-        const branchIdsFromFilteredVisits = new Set(filteredSubmittedVisits.map(v => v.branch_id));
-        relevantBranchesCount = branchIdsFromFilteredVisits.size > 0 ? branchIdsFromFilteredVisits.size : 0;
-    }
-    
-    const currentAvgVisits = relevantBranchesCount > 0 ? (currentTotalSubmittedVisits / relevantBranchesCount).toFixed(1) : "0.0";
+    const uniqueBranchesVisitedCount = new Set(filteredSubmittedVisits.map(visit => visit.branch_id)).size;
+    const currentAvgVisits = uniqueBranchesVisitedCount > 0 ? (currentTotalSubmittedVisits / uniqueBranchesVisitedCount).toFixed(1) : "0.0";
     
     return {
       zhrCount: currentZhrCount,
@@ -124,7 +118,7 @@ export default function CHRDashboardPage() {
       totalSubmittedVisits: currentTotalSubmittedVisits,
       avgSubmittedVisitsPerBranch: currentAvgVisits,
     };
-  }, [filteredUsers, filteredSubmittedVisits, allBranches, selectedVhrIds]);
+  }, [filteredUsers, filteredSubmittedVisits]);
 
   const visitsByVerticalChartData = useMemo(() => {
     if (!allUsers.length || !filteredSubmittedVisits.length) return [];
@@ -134,7 +128,7 @@ export default function CHRDashboardPage() {
     const bhrToZhrMap = new Map(allUsers.filter(u => u.role === 'BHR' && u.reports_to).map(u => [u.id, u.reports_to!]));
     const zhrToVhrMap = new Map(allUsers.filter(u => u.role === 'ZHR' && u.reports_to).map(u => [u.id, u.reports_to!]));
 
-    if (selectedVhrIds.length === 0) { // "All VHRs" selected or no filter
+    if (selectedVhrIds.length === 0) { 
         allUsers.filter(u => u.role === 'VHR').forEach(vhr => entityNameMap.set(vhr.id, vhr.name));
         filteredSubmittedVisits.forEach(visit => {
             const zhrId = bhrToZhrMap.get(visit.bhr_id);
@@ -146,17 +140,17 @@ export default function CHRDashboardPage() {
                 }
             }
         });
-    } else if (selectedVhrIds.length === 1) { // Single VHR selected, show ZHRs under it
+    } else if (selectedVhrIds.length === 1) { 
         const singleVhrId = selectedVhrIds[0];
         allUsers.filter(u => u.role === 'ZHR' && u.reports_to === singleVhrId).forEach(zhr => entityNameMap.set(zhr.id, zhr.name));
-        filteredSubmittedVisits.forEach(visit => { // These are already filtered for the selected VHR's BHRs
+        filteredSubmittedVisits.forEach(visit => { 
             const zhrId = bhrToZhrMap.get(visit.bhr_id);
             if (zhrId && entityNameMap.has(zhrId)) { 
                  const entityName = entityNameMap.get(zhrId) || `ZHR ID: ${zhrId.substring(0,6)}`;
                  visitsPerEntity[entityName] = (visitsPerEntity[entityName] || 0) + 1;
             }
         });
-    } else { // Multiple VHRs selected, show data for each selected VHR
+    } else { 
         selectedVhrIds.forEach(vhrId => {
             const vhrUser = allUsers.find(u => u.id === vhrId && u.role === 'VHR');
             if (vhrUser) entityNameMap.set(vhrUser.id, vhrUser.name);
@@ -165,7 +159,7 @@ export default function CHRDashboardPage() {
             const zhrId = bhrToZhrMap.get(visit.bhr_id);
             if (zhrId) {
                 const vhrId = zhrToVhrMap.get(zhrId);
-                if (vhrId && selectedVhrIds.includes(vhrId)) { // Ensure visit belongs to one of the selected VHRs
+                if (vhrId && selectedVhrIds.includes(vhrId)) { 
                     const entityName = entityNameMap.get(vhrId) || `VHR ID: ${vhrId.substring(0,6)}`;
                     visitsPerEntity[entityName] = (visitsPerEntity[entityName] || 0) + 1;
                 }
@@ -177,7 +171,7 @@ export default function CHRDashboardPage() {
       name, 
       value,
       fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-    }));
+    })).sort((a,b) => b.value - a.value);
   }, [allUsers, filteredSubmittedVisits, selectedVhrIds]);
 
   const visitsByBranchLocationData = useMemo(() => {
@@ -197,7 +191,7 @@ export default function CHRDashboardPage() {
       .map(([name, value], index) => ({
         name, value, fill: `hsl(var(--chart-${(index % 5) + 1}))`,
       }));
-  }, [allBranches, filteredSubmittedVisits, selectedVhrIds]);
+  }, [allBranches, filteredSubmittedVisits]);
   
   const selectedVhrDetailsText = useMemo(() => {
     if (selectedVhrIds.length === 0) return { name: 'Global', descriptionSuffix: 'across all verticals' };
@@ -232,14 +226,20 @@ export default function CHRDashboardPage() {
     <div className="space-y-8">
       <PageTitle title={`CHR Dashboard (${selectedVhrDetailsText.name})`} description={`Human Resources Overview ${selectedVhrDetailsText.descriptionSuffix}.`} />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted grid to 3 cols for remaining stats */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         <StatCard title="Total ZHRs" value={zhrCount} icon={Users} description={`In ${selectedVhrDetailsText.name}`}/>
         <StatCard title="Total BHRs" value={bhrCount} icon={Users} description={`In ${selectedVhrDetailsText.name}`}/>
-        <StatCard title="Total Branches (Global)" value={allBranches.length} icon={Building} description="Nationwide"/>
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         <StatCard title="Submitted Visits" value={totalSubmittedVisits} icon={CalendarDays} description={`In ${selectedVhrDetailsText.name}`}/>
-        <StatCard title="Avg Submitted Visits/Branch" value={avgSubmittedVisitsPerBranch} icon={TrendingUp} description={`For ${selectedVhrDetailsText.name} (relevant branches)`}/>
+        <StatCard 
+            title="Avg Visits / Visited Branch" 
+            value={avgSubmittedVisitsPerBranch} 
+            icon={TrendingUp} 
+            description={`Avg visits per unique branch with activity in ${selectedVhrDetailsText.name}`}
+        />
+      </div>
+       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
          <Link href="/chr/analytics" className="w-full">
             <Button className="w-full h-full text-lg py-8" variant="outline">
                 <BarChartBig className="mr-2 h-8 w-8" /> View Deep Analytics
