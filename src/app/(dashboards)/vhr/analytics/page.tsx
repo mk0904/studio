@@ -547,7 +547,7 @@ export default function VHRAnalyticsPage() {
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}} labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }} formatter={(value: number, name) => METRIC_CONFIGS.find(m=>m.label===name)?.key.includes('percentage') ? [`${value}%`, name] : [value, name]}/>
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                 {METRIC_CONFIGS.map(metric => activeMetrics[metric.key] && (
-                    <Line key={metric.key} type="monotone" dataKey={metric.key.toString()} name={metric.label} stroke={metric.color} strokeWidth={2} yAxisId={metric.yAxisId || 'left'} dot={{ r: 2, fill: metric.color }} activeDot={{ r: 5 }} connectNulls/>
+                    <Line key={metric.key} type="monotone" dataKey={metric.key.toString()} name={metric.label} stroke={metric.color} strokeWidth={2} yAxisId={metric.yAxisId || 'left'} dot={false} activeDot={{ r: 5 }} connectNulls/>
                 ))}
               </LineChart>
             </ResponsiveContainer>

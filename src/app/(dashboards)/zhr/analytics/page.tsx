@@ -291,19 +291,12 @@ export default function ZHRAnalyticsPage() {
         const branchData = supabase.from('branches').select('id, category').eq('id', bo.value).single(); // This is inefficient
         // For simplicity, assuming `branchOptions` could be {value: id, label: name, category: category}
         // Or `allBranchesForCategoryLookup` is still maintained and used.
-        // Let's assume `branchOptions` is derived from a source that includes category.
-        // Or, better, use a map from the fetched allBranchesData.
-         const fetchedBranches = allZoneVisits.map(v => v.branch_id).reduce((acc, curr) => {
-            const fullBranch = supabase.from('branches').select('id, category').eq('id', curr).single(); // THIS IS BAD, DO NOT FETCH IN MEMO
-            // This example shows the need for a better way to get category.
-            // For now, let's assume branchOptions has { value: id, label: name, category: 'someCategory'}
-            // Or we maintain `allBranchesForCategoryLookup` as before.
-            // Let's assume we have a map:
-            // const branchDetails = allBranchesForCategoryLookup.find(b => b.id === visit.branch_id);
-            // if (branchDetails?.category) { categoryIdToNameMap.set(branchDetails.category ...)}
-            // This part of logic needs a reliable source of branch.category
-            const branch = {id: bo.value, category: `Category for ${bo.label}`}; // MOCKING CATEGORY
-            branchIdToCategoryMap.set(branch.id, branch.category);
+        // Let's assume we have a map:
+        // const branchDetails = allBranchesForCategoryLookup.find(b => b.id === visit.branch_id);
+        // if (branchDetails?.category) { categoryIdToNameMap.set(branchDetails.category ...)}
+        // This part of logic needs a reliable source of branch.category
+        const branch = {id: bo.value, category: `Category for ${bo.label}`}; // MOCKING CATEGORY
+        branchIdToCategoryMap.set(branch.id, branch.category);
 
         })
 
@@ -537,7 +530,7 @@ export default function ZHRAnalyticsPage() {
                       stroke={metric.color}
                       strokeWidth={2}
                       yAxisId={metric.yAxisId || 'left'}
-                      dot={{ r: 2, fill: metric.color }}
+                      dot={false}
                       activeDot={{ r: 5 }}
                       connectNulls
                     />
