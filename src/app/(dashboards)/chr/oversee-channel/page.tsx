@@ -6,7 +6,7 @@ import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@/types';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Users, Network } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HierarchyNode, type UserNode } from '@/components/chr/hierarchy-node';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function OverseeChannelPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [rootDisplayNode, setRootDisplayNode] = useState<UserNode | null>(null);
+  const [rootUserNode, setRootUserNode] = useState<UserNode | null>(null); // Renamed for clarity
   const [error, setError] = useState<string | null>(null);
 
   const fetchAndBuildHierarchy = useCallback(async () => {
@@ -36,7 +36,7 @@ export default function OverseeChannelPage() {
       }
 
       if (!allUsersData || allUsersData.length === 0) {
-        setRootDisplayNode(null);
+        setRootUserNode(null);
         setIsLoading(false);
         return;
       }
@@ -55,23 +55,35 @@ export default function OverseeChannelPage() {
           const parentNode = usersMap.get(u.reports_to)!;
           parentNode.children.push(node);
         } else {
-          roots.push(node);
+          roots.push(node); // These are top-level nodes (e.g., CHR or users with no manager set)
         }
       });
       
+      // Sort children alphabetically by name at each level
       usersMap.forEach(node => {
           node.children.sort((a, b) => a.name.localeCompare(b.name));
       });
+      // Sort roots alphabetically by name as well
       roots.sort((a, b) => a.name.localeCompare(b.name));
-
-      // Find the CHR node, or default to the first root if no CHR is found (or for flatter hierarchies)
-      const chrNode = roots.find(r => r.role === 'CHR') || (roots.length > 0 ? roots[0] : null);
-      setRootDisplayNode(chrNode);
+      
+      // Find the CHR node specifically to act as the root of the hierarchy to display
+      const chrNode = roots.find(r => r.role === 'CHR');
+      
+      if (chrNode) {
+        setRootUserNode(chrNode);
+      } else {
+        // If no CHR node is found (e.g. in a flatter structure or if CHR has no 'reports_to' set to null/undefined)
+        // For now, we'll indicate no CHR found if we expect one.
+        // Or, if the intent is to show ANY hierarchy, we could use roots[0] but that might be confusing.
+        // Let's assume we expect a CHR as the top.
+        setError("CHR user not found in the hierarchy. Cannot display the organizational structure starting from CHR.");
+        setRootUserNode(null);
+      }
 
     } catch (err: any) {
       console.error("Error fetching or building hierarchy:", err);
       setError(`Failed to load organizational hierarchy: ${err.message}`);
-      setRootDisplayNode(null);
+      setRootUserNode(null);
     } finally {
       setIsLoading(false);
     }
@@ -88,12 +100,12 @@ export default function OverseeChannelPage() {
   if (user && user.role !== 'CHR' && !isLoading) {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
-
-  const vhrNodes = rootDisplayNode ? rootDisplayNode.children.filter(child => child.role === 'VHR') : [];
+  
+  const directReportsOfChr = rootUserNode && rootUserNode.role === 'CHR' ? rootUserNode.children : [];
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Oversee Channel - Organizational Hierarchy" description="View the reporting structure of users. CHR at the top, with VHR verticals below." />
+      <PageTitle title="Oversee Channel - Organizational Hierarchy" description="View the reporting structure of users directly under the CHR." />
 
       {isLoading && (
         <div className="flex items-center justify-center h-64">
@@ -110,64 +122,51 @@ export default function OverseeChannelPage() {
         </Alert>
       )}
 
-      {!isLoading && !error && !rootDisplayNode && (
+      {!isLoading && !error && !rootUserNode && (
          <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>No Hierarchy Data</AlertTitle>
-            <AlertDescription>No CHR or top-level users found, or unable to build hierarchy. Ensure users are present in the system with correct 'reports_to' linkage.</AlertDescription>
+            <AlertDescription>Unable to load organizational data. Ensure users and reporting structures are correctly configured.</AlertDescription>
         </Alert>
       )}
 
-      {!isLoading && !error && rootDisplayNode && (
-        <div className="space-y-10">
-          {/* CHR Node Section */}
-          <div className="flex justify-center">
-            <div className="w-full md:w-1/2 lg:w-1/3"> {/* Adjust width as needed */}
-              <Card className="border-2 border-primary shadow-xl">
-                <CardHeader className="py-3 px-4 bg-primary/10">
-                   <CardTitle className="text-center text-primary text-lg">{rootDisplayNode.role} Level</CardTitle>
-                </CardHeader>
-                <CardContent className="p-2">
-                    <HierarchyNode node={rootDisplayNode} level={0} isRootChr={true} />
-                </CardContent>
-              </Card>
+      {!isLoading && !error && rootUserNode && rootUserNode.role === 'CHR' && (
+        directReportsOfChr.length > 0 ? (
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Network className="h-6 w-6 text-primary" />
+                Direct Reports to CHR
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pl-4 pr-4 pb-4">
+              {directReportsOfChr.map(childNode => (
+                <HierarchyNode key={childNode.id} node={childNode} level={0} />
+              ))}
+            </CardContent>
+          </Card>
+        ) : (
+          <Alert variant="default">
+            <Users className="h-4 w-4" />
+            <AlertTitle>No Direct Reports</AlertTitle>
+            <AlertDescription>The CHR currently has no direct reports in the system.</AlertDescription>
+          </Alert>
+        )
+      )}
+      
+      {!isLoading && !error && rootUserNode && rootUserNode.role !== 'CHR' && (
+        // This case might occur if a CHR user is not found but other roots exist
+        <Alert variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Hierarchy View Issue</AlertTitle>
+            <AlertDescription>
+                Could not display hierarchy starting from CHR. Displaying top-level users found.
+            </AlertDescription>
+            <div className="mt-4 space-y-2">
+                <HierarchyNode node={rootUserNode} level={0} />
             </div>
-          </div>
-
-          {/* VHR Verticals Section */}
-          {vhrNodes.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-center mb-6 text-foreground">VHR Verticals</h2>
-              <div className="flex flex-col md:flex-row md:flex-wrap gap-6 justify-around items-start">
-                {vhrNodes.map(vhrNode => (
-                  <Card key={vhrNode.id} className="w-full md:w-[calc(50%-1.5rem)] lg:w-[calc(33.333%-1.5rem)] shadow-lg border-muted-foreground/30">
-                    <CardHeader className="py-3 px-4 bg-muted/50">
-                       <CardTitle className="text-center text-foreground text-md">Vertical: {vhrNode.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3">
-                      {/* Display VHR as the head of this vertical's tree */}
-                      <HierarchyNode node={vhrNode} level={0} />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-          {vhrNodes.length === 0 && rootDisplayNode.children.length > 0 && (
-             <Alert variant="default" className="mt-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>No VHRs Found Directly Under CHR</AlertTitle>
-                <AlertDescription>The CHR has direct reports, but none are identified with the 'VHR' role. Displaying all direct reports below:</AlertDescription>
-                <div className="mt-4 space-y-2">
-                    {rootDisplayNode.children.map(childNode => (
-                         <HierarchyNode key={childNode.id} node={childNode} level={0} />
-                    ))}
-                </div>
-            </Alert>
-          )}
-        </div>
+        </Alert>
       )}
     </div>
   );
 }
-
