@@ -290,6 +290,7 @@ export default function VHRAnalyticsPage() {
     try {
        dateRangeForChart = eachDayOfInterval({ start: startOfDay(minDate), end: endOfDay(maxDate) });
     } catch (e) { return []; }
+    if (dateRangeForChart.length === 0) return [];
 
     return dateRangeForChart.map(dayDate => {
       const dayKey = format(dayDate, 'yyyy-MM-dd');
@@ -302,7 +303,7 @@ export default function VHRAnalyticsPage() {
             point[m.key] = dayData[m.key].sum;
           }
         } else {
-          point[m.key] = null; // Explicitly set to null
+          point[m.key] = null; 
         }
       });
       return point;
@@ -560,10 +561,10 @@ export default function VHRAnalyticsPage() {
                       stroke={metric.color} 
                       strokeWidth={2} 
                       yAxisId={metric.yAxisId || 'left'} 
-                      strokeDasharray={metric.strokeDasharray}
+                      // strokeDasharray={metric.strokeDasharray} // Temporarily removed
                       dot={{ r: 2, fill: metric.color, strokeWidth: 0 }}
                       activeDot={{ r: 5, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
-                      connectNulls
+                      connectNulls={true} // Explicitly true
                     />
                 ))}
               </LineChart>

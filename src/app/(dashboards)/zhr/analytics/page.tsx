@@ -132,7 +132,7 @@ export default function ZHRAnalyticsPage() {
   const [isLoadingBhrOptions, setIsLoadingBhrOptions] = useState(false);
 
   const [branchOptions, setBranchOptions] = useState<FilterOption[]>([]);
-  const [allBranchesForCategoryLookup, setAllBranchesForCategoryLookup] = useState<Branch[]>([]); // To store full branch objects
+  const [allBranchesForCategoryLookup, setAllBranchesForCategoryLookup] = useState<Branch[]>([]); 
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [isLoadingBranchOptions, setIsLoadingBranchOptions] = useState(false);
   
@@ -178,7 +178,7 @@ export default function ZHRAnalyticsPage() {
             .from('branches')
             .select('id, name, category'); 
           if (branchesError) throw branchesError;
-          setAllBranchesForCategoryLookup(branchesData || []); // Store for category lookup
+          setAllBranchesForCategoryLookup(branchesData || []); 
           setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: b.name })));
           setIsLoadingBranchOptions(false);
 
@@ -242,10 +242,13 @@ export default function ZHRAnalyticsPage() {
       }
     });
     if (visitsForChart.length === 0 || !isValid(minDate) || !isValid(maxDate) || minDate > maxDate ) return [];
+    
     let dateRangeForChart: Date[] = [];
     try {
        dateRangeForChart = eachDayOfInterval({ start: startOfDay(minDate), end: endOfDay(maxDate) });
     } catch (e) { return []; }
+    if (dateRangeForChart.length === 0) return [];
+
 
     return dateRangeForChart.map(dayDate => {
       const dayKey = format(dayDate, 'yyyy-MM-dd');
@@ -258,7 +261,7 @@ export default function ZHRAnalyticsPage() {
             point[m.key] = dayData[m.key].sum;
           }
         } else {
-          point[m.key] = null; // Explicitly set to null
+          point[m.key] = null; 
         }
       });
       return point;
@@ -297,9 +300,6 @@ export default function ZHRAnalyticsPage() {
         const category = branchCategoryMap.get(visit.branch_id);
         if (category) { 
           categoryCounts[category] = (categoryCounts[category] || 0) + 1; 
-        } else {
-          // Optional: count visits to branches without a category or with an unknown category
-          // categoryCounts["Unknown Category"] = (categoryCounts["Unknown Category"] || 0) + 1;
         }
     });
     
@@ -369,7 +369,6 @@ export default function ZHRAnalyticsPage() {
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* BHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -403,7 +402,6 @@ export default function ZHRAnalyticsPage() {
               )}
             </div>
             
-            {/* Branch Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -504,11 +502,11 @@ export default function ZHRAnalyticsPage() {
                       name={metric.label}
                       stroke={metric.color}
                       strokeWidth={2}
-                      strokeDasharray={metric.strokeDasharray}
+                      // strokeDasharray={metric.strokeDasharray} // Temporarily removed
                       yAxisId={metric.yAxisId || 'left'}
                       dot={{ r: 2, fill: metric.color, strokeWidth: 0 }}
                       activeDot={{ r: 5, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
-                      connectNulls
+                      connectNulls={true} // Explicitly true
                     />
                   )
                 )}

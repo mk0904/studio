@@ -47,11 +47,11 @@ interface MetricConfig {
 }
 
 const METRIC_CONFIGS: MetricConfig[] = [
-  { key: 'manning_percentage', label: 'Manning %', color: 'hsl(var(--chart-1))', yAxisId: 'left', strokeDasharray: "1 0" }, // Solid
-  { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left', strokeDasharray: "5 5" }, // Dashed
-  { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left', strokeDasharray: "2 4" }, // Dotted-like
-  { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left', strokeDasharray: "10 2 2 2" }, // Dash-dot-dot
-  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right', strokeDasharray: "8 3 2 3" }, // Custom Dash
+  { key: 'manning_percentage', label: 'Manning %', color: 'hsl(var(--chart-1))', yAxisId: 'left', strokeDasharray: "1 0" }, 
+  { key: 'attrition_percentage', label: 'Attrition %', color: 'hsl(var(--chart-2))', yAxisId: 'left', strokeDasharray: "5 5" }, 
+  { key: 'non_vendor_percentage', label: 'Non-Vendor %', color: 'hsl(var(--chart-3))', yAxisId: 'left', strokeDasharray: "2 4" }, 
+  { key: 'er_percentage', label: 'ER %', color: 'hsl(var(--chart-4))', yAxisId: 'left', strokeDasharray: "10 2 2 2" }, 
+  { key: 'cwt_cases', label: 'CWT Cases', color: 'hsl(var(--chart-5))', yAxisId: 'right', strokeDasharray: "8 3 2 3" }, 
 ];
 
 type TimeframeKey = 'past_week' | 'past_month' | 'last_3_months' | 'last_6_months' | 'last_year' | 'last_3_years';
@@ -112,7 +112,6 @@ export default function CHRAnalyticsPage() {
   const [allSubmittedVisitsGlobal, setAllSubmittedVisitsGlobal] = useState<Visit[]>([]);
   const [allBranchesGlobal, setAllBranchesGlobal] = useState<Branch[]>([]);
 
-  // Local filters (ZHR, BHR, Branch) will depend on global VHR selections
   const [selectedZhrIds, setSelectedZhrIds] = useState<string[]>([]);
   const [zhrOptions, setZhrOptions] = useState<FilterOption[]>([]);
   const [isLoadingZhrOptions, setIsLoadingZhrOptions] = useState(false);
@@ -165,7 +164,6 @@ export default function CHRAnalyticsPage() {
     }
   }, [user, toast, isLoadingAllUsers]);
 
-  // Update ZHR options based on global VHR selections
   useEffect(() => {
     setIsLoadingZhrOptions(true);
     if (allUsersForContext.length > 0) {
@@ -181,14 +179,13 @@ export default function CHRAnalyticsPage() {
     setIsLoadingZhrOptions(false);
   }, [globalSelectedVhrIds, allUsersForContext]);
 
-  // Update BHR options based on selected ZHRs & global VHRs
   useEffect(() => {
     setIsLoadingBhrOptions(true);
     if (allUsersForContext.length > 0) {
       let potentialBhrs = allUsersForContext.filter(u => u.role === 'BHR');
       if (selectedZhrIds.length > 0) {
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
-      } else if (globalSelectedVhrIds.length > 0) { // Only consider VHR if no ZHR selected
+      } else if (globalSelectedVhrIds.length > 0) { 
         const zhrsUnderSelectedVhrs = allUsersForContext
           .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
           .map(z => z.id);
@@ -226,7 +223,6 @@ export default function CHRAnalyticsPage() {
             .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
     } else {
-        // No global VHR, local ZHR, or local BHR filter active, so consider all BHRs
         allUsersForContext.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
     
@@ -296,10 +292,13 @@ export default function CHRAnalyticsPage() {
       }
     });
     if (filteredByAllSelections.length === 0 || !isValid(minDate) || !isValid(maxDate) || minDate > maxDate ) return [];
+    
     let dateRangeForChart: Date[] = [];
     try {
        dateRangeForChart = eachDayOfInterval({ start: startOfDay(minDate), end: endOfDay(maxDate) });
     } catch (e) { return []; }
+    if (dateRangeForChart.length === 0) return [];
+
 
     return dateRangeForChart.map(dayDate => {
       const dayKey = format(dayDate, 'yyyy-MM-dd');
@@ -312,7 +311,7 @@ export default function CHRAnalyticsPage() {
             point[m.key] = dayData[m.key].sum;
           }
         } else {
-          point[m.key] = null; // Explicitly set to null
+          point[m.key] = null; 
         }
       });
       return point;
@@ -446,7 +445,6 @@ export default function CHRAnalyticsPage() {
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* ZHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -479,7 +477,6 @@ export default function CHRAnalyticsPage() {
                   </Button>
               )}
             </div>
-            {/* BHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -513,7 +510,6 @@ export default function CHRAnalyticsPage() {
               )}
             </div>
             
-            {/* Branch Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -590,10 +586,10 @@ export default function CHRAnalyticsPage() {
                       stroke={metric.color} 
                       strokeWidth={2} 
                       yAxisId={metric.yAxisId || 'left'} 
-                      strokeDasharray={metric.strokeDasharray}
+                      // strokeDasharray={metric.strokeDasharray} // Temporarily removed
                       dot={{ r: 2, fill: metric.color, strokeWidth: 0 }}
                       activeDot={{ r: 5, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
-                      connectNulls
+                      connectNulls={true} // Explicitly true
                     />
                 ))}
               </LineChart>
@@ -669,3 +665,4 @@ export default function CHRAnalyticsPage() {
   );
 }
 
+    
