@@ -87,32 +87,15 @@ export function SidebarNavigation() {
                 <item.icon className="w-5 h-5" />
               </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="font-medium">
+            <TooltipContent side="right" className="flex items-center gap-2">
               {item.label}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ) : (
-        <div className="flex items-center gap-3">
-          {!isMobile && !isHovered ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-12 h-12">
-                    <item.icon className="w-5 h-5 shrink-0" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>{item.label}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <>
-              <item.icon className="w-5 h-5 shrink-0" />
-              <span className="truncate text-sm hidden sm:inline-block">{item.label}</span>
-            </>
-          )}
+        <div className="flex items-center gap-2.5">
+          <item.icon className="w-5 h-5 shrink-0" />
+          <span className="truncate text-sm hidden sm:inline-block">{item.label}</span>
         </div>
       )}
     </Link>
@@ -122,14 +105,14 @@ export function SidebarNavigation() {
     'fixed z-50 transition-all duration-300 ease-out',
     'md:block', // Always show on md and up
     isMobile
-      ? 'bottom-0 left-0 right-0 py-3 px-6 mb-0 md:static md:mb-0 bg-white/95 backdrop-blur-md shadow-[0_-1px_12px_rgba(0,0,0,0.05)] w-full' // Bottom bar on mobile, normal on md+
+      ? 'bottom-0 left-0 right-0 py-3 px-6 bg-white/95 backdrop-blur-md shadow-[0_-1px_12px_rgba(0,0,0,0.05)] w-full' // Bottom bar on mobile
       : 'top-0 left-0 h-screen bg-white/80 backdrop-blur-lg shadow-[1px_0_12px_rgba(0,0,0,0.05)]', // Sidebar on desktop
     !isMobile && (isHovered ? 'w-64' : 'w-[72px]'),
-    'py-3 px-3 flex flex-col h-full' // Full height for flex positioning
+    !isMobile && 'py-3 px-3 flex flex-col h-full' // Full height only for desktop
   );
 
   const navClasses = cn(
-    'flex flex-1',
+    'flex',
     isMobile ? 'flex-row justify-around items-center' : 'flex-col gap-1'
   );
 
@@ -165,53 +148,65 @@ export function SidebarNavigation() {
         </div>
       )}
 
-      <div className="flex flex-col min-h-full">
-        <div className="flex-1">
-          <div className={navClasses}>
-            {navLinks.map((item) => (
-              <NavItem
-                key={item.href}
-                item={item}
-                isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-              />
-            ))}
-          </div>
+      {isMobile ? (
+        <div className={navClasses}>
+          {navLinks.map((item) => (
+            <NavItem
+              key={item.href}
+              item={item}
+              isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+            />
+          ))}
         </div>
-        {!isMobile && (
-        <button
-          onClick={logout}
-          className={cn(
-            'flex items-center gap-2.5 w-full mb-1',
-            'text-red-500 hover:text-red-600',
-            'rounded-xl h-12',
-            'justify-start md:px-4',
-            'hover:bg-red-50/60',
-            !isHovered && 'xl:w-[48px] xl:p-0 xl:justify-center',
-            isHovered && 'xl:px-6'
-          )}
-        >  
-          {!isMobile && !isHovered ? (
-            <TooltipProvider>
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-12 h-12">
-                    <LogOut className="w-5 h-5" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="font-medium">
-                  Logout
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <div className="flex items-center gap-2.5">
-              <LogOut className="w-5 h-5 shrink-0" />
-              <span className="truncate text-sm">Logout</span>
+      ) : (
+        <div className="flex flex-col min-h-full">
+          <div className="flex-1">
+            <div className={navClasses}>
+              {navLinks.map((item) => (
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                />
+              ))}
             </div>
+          </div>
+          {!isMobile && (
+            <button
+              onClick={logout}
+              className={cn(
+                'flex items-center gap-2.5 w-full mb-1',
+                'text-red-500 hover:text-red-600',
+                'rounded-xl h-12',
+                'justify-start md:px-4',
+                'hover:bg-red-50/60',
+                !isHovered && 'xl:w-[48px] xl:p-0 xl:justify-center',
+                isHovered && 'xl:px-6'
+              )}
+            >
+              {!isHovered ? (
+                <TooltipProvider>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center justify-center w-12 h-12">
+                        <LogOut className="w-5 h-5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="flex items-center gap-2">
+                      Logout
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <div className="flex items-center gap-2.5">
+                  <LogOut className="w-5 h-5 shrink-0" />
+                  <span className="truncate text-sm">Logout</span>
+                </div>
+              )}
+            </button>
           )}
-        </button>
-        )}
-      </div>
+        </div>
+      )}
     </nav>
   );
 }
