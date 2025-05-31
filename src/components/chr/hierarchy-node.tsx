@@ -2,9 +2,8 @@
 'use client';
 
 import type { User } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Building, Briefcase, MapPin, UserCircle, ShieldCheck, Gem, Network } from 'lucide-react';
+import { Building, Briefcase, UserCircle, ShieldCheck, Gem, Network, MapPin, Fingerprint } from 'lucide-react'; // Added MapPin, Fingerprint
 
 export interface UserNode extends User {
   children: UserNode[];
@@ -12,7 +11,6 @@ export interface UserNode extends User {
 
 interface HierarchyNodeProps {
   node: UserNode;
-  level: number;
 }
 
 const roleIcons: Record<User['role'], React.ElementType> = {
@@ -22,40 +20,38 @@ const roleIcons: Record<User['role'], React.ElementType> = {
     BHR: Building,
 };
 
-
-export function HierarchyNode({ node, level }: HierarchyNodeProps) {
+export function HierarchyNode({ node }: HierarchyNodeProps) {
   const RoleIcon = roleIcons[node.role] || UserCircle;
-  // Determine border style based on level for visual grouping if desired,
-  // or keep it simple. Using alternating border for sublevels could be an option.
-  const borderClass = level > 0 ? `pl-3 border-l-2 ${level % 2 === 0 ? 'border-primary/30' : 'border-accent/30'}` : '';
-
 
   return (
-    <div style={{ marginLeft: level > 0 ? `${level * 12}px` : '0px' }} className={`my-1.5 ${borderClass}`}>
-      <Card className={`shadow-sm hover:shadow-md transition-shadow duration-200 ease-in-out bg-card`}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-3">
-          <div className="flex items-center gap-2">
-            <RoleIcon className={`h-4 w-4 text-muted-foreground`} />
-            <CardTitle className={`text-sm font-semibold text-card-foreground`}>{node.name}</CardTitle>
+    <div className="flex flex-col items-center p-1 m-1 relative">
+      {/* Node Information */}
+      <div className="border border-primary/30 rounded-lg p-3 shadow-md bg-card text-card-foreground min-w-[180px] text-center space-y-1">
+        <div className="flex items-center justify-center gap-2">
+          <RoleIcon className="h-5 w-5 text-primary" />
+          <p className="text-base font-semibold text-primary">{node.name}</p>
+        </div>
+        <Badge variant="secondary" className="capitalize text-xs">{node.role}</Badge>
+        {node.e_code && (
+          <div className="flex items-center justify-center text-xs text-muted-foreground gap-1 pt-0.5">
+            <Fingerprint className="h-3 w-3" />
+            <span>{node.e_code}</span>
           </div>
-          <Badge 
-            variant={node.role === 'CHR' ? 'default' : (node.role === 'VHR' ? 'secondary' : 'outline')} 
-            className={`text-xs capitalize px-1.5 py-0.5`}
-          >
-            {node.role}
-          </Badge>
-        </CardHeader>
-        {(node.e_code || node.location) && (
-            <CardContent className="pb-2 px-3 pt-0 text-xs text-muted-foreground space-y-0.5">
-                {node.e_code && <p>E-Code: {node.e_code}</p>}
-                {node.location && <p>Location: {node.location}</p>}
-            </CardContent>
         )}
-      </Card>
+        {node.location && (
+           <div className="flex items-center justify-center text-xs text-muted-foreground gap-1">
+            <MapPin className="h-3 w-3" />
+            <span>{node.location}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Children Container */}
       {node.children && node.children.length > 0 && (
-        <div className={`mt-1.5`}>
+        <div className="flex flex-row justify-center items-start gap-x-4 mt-4 pt-4 relative">
+           {/* Pseudo-elements for lines would be complex here without a library */}
           {node.children.map((child) => (
-            <HierarchyNode key={child.id} node={child} level={level + 1} />
+            <HierarchyNode key={child.id} node={child} />
           ))}
         </div>
       )}
