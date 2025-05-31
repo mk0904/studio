@@ -17,7 +17,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
-  DropdownMenuItem, // Added for clear option
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -146,6 +145,8 @@ export default function CHRAnalyticsPage() {
           if (branchesError) throw branchesError;
           setAllBranchesGlobal(branchesData || []);
           setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: b.name }))); 
+          setIsLoadingBranchOptions(false);
+
 
           const { data: visitsData, error: visitsError } = await supabase
             .from('visits')
@@ -188,14 +189,15 @@ export default function CHRAnalyticsPage() {
     setIsLoadingBhrOptions(true);
     if (allUsersGlobal.length > 0) {
       let potentialBhrs = allUsersGlobal.filter(u => u.role === 'BHR');
-      if (selectedZhrIds.length > 0) {
+      if (selectedZhrIds.length > 0) { // If ZHRs are selected, filter BHRs by these ZHRs
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
-      } else if (globalSelectedVhrIds.length > 0) {
+      } else if (globalSelectedVhrIds.length > 0) { // If no ZHRs selected, but VHRs are, filter BHRs by VHRs
         const zhrsUnderSelectedVhrs = allUsersGlobal
           .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
           .map(z => z.id);
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && zhrsUnderSelectedVhrs.includes(bhr.reports_to));
       }
+      // If neither ZHRs nor VHRs are selected, all BHRs are potential (already done by initial filter)
       setBhrOptions(potentialBhrs.map(b => ({ value: b.id, label: b.name })));
     } else {
       setBhrOptions([]);
@@ -207,53 +209,48 @@ export default function CHRAnalyticsPage() {
   // Reset branch selection when BHRs change (or higher filters)
   useEffect(() => {
     setSelectedBranchIds([]);
-  }, [selectedBhrIds]);
+  }, [selectedBhrIds, selectedZhrIds, globalSelectedVhrIds]);
 
 
   const filteredVisitsData = useMemo(() => {
     let visits = allSubmittedVisitsGlobal;
-    const bhrIdsToFilterBy = new Set<string>();
+    
+    // Determine relevant BHRs based on VHR, ZHR, and BHR selections
+    let relevantBhrIds = new Set<string>();
 
-    // Determine relevant BHRs based on VHR, ZHR selections
-    if (globalSelectedVhrIds.length > 0) {
+    if (selectedBhrIds.length > 0) { // Highest precedence: explicitly selected BHRs
+        selectedBhrIds.forEach(id => relevantBhrIds.add(id));
+    } else if (selectedZhrIds.length > 0) { // Next: BHRs under selected ZHRs
+        allUsersGlobal
+            .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
+            .forEach(b => relevantBhrIds.add(b.id));
+    } else if (globalSelectedVhrIds.length > 0) { // Next: BHRs under selected VHRs
         const zhrsInSelectedVhrs = allUsersGlobal
             .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
             .map(z => z.id);
         allUsersGlobal
             .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
-            .forEach(b => bhrIdsToFilterBy.add(b.id));
-    } else {
-        // If no VHRs selected, consider all BHRs initially
-        allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => bhrIdsToFilterBy.add(b.id));
-    }
-
-    if (selectedZhrIds.length > 0) {
-        const bhrIdsInSelectedZhrs = new Set<string>();
-        allUsersGlobal
-            .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
-            .forEach(b => bhrIdsInSelectedZhrs.add(b.id));
-        // Intersect with existing bhrIdsToFilterBy
-        const currentBhrIds = Array.from(bhrIdsToFilterBy);
-        bhrIdsToFilterBy.clear();
-        currentBhrIds.filter(id => bhrIdsInSelectedZhrs.has(id)).forEach(id => bhrIdsToFilterBy.add(id));
+            .forEach(b => relevantBhrIds.add(b.id));
+    } else { // No HR filters active, consider all BHRs for visit filtering
+        allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
     
-    if (selectedBhrIds.length > 0) {
-        // Intersect with explicitly selected BHRs
-        const currentBhrIds = Array.from(bhrIdsToFilterBy);
-        bhrIdsToFilterBy.clear();
-        currentBhrIds.filter(id => selectedBhrIds.includes(id)).forEach(id => bhrIdsToFilterBy.add(id));
+    // Filter visits by relevant BHRs
+    if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
+      // If any HR filter results in an empty set of BHRs (e.g. a ZHR with no BHRs under it is selected),
+      // this means we should show no visits if specific HR filters were indeed active.
+      // However, if relevantBhrIds is empty because *no* HR filters were active, we keep all visits.
+      // The condition `selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0`
+      // checks if any HR filter was intentionally applied.
+      if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
+        visits = [];
+      } else if (relevantBhrIds.size > 0) {
+        visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
+      }
     }
+    // else, if no HR filters are active at all, 'visits' remains allSubmittedVisitsGlobal
 
-    if (bhrIdsToFilterBy.size > 0) {
-      visits = visits.filter(visit => bhrIdsToFilterBy.has(visit.bhr_id));
-    } else if (globalSelectedVhrIds.length > 0 || selectedZhrIds.length > 0 || selectedBhrIds.length > 0) {
-      // If any HR filter is active but results in no BHRs, then no visits
-      visits = [];
-    }
-    // else, if no HR filters are active, 'visits' remains allSubmittedVisitsGlobal (pre-branch filter)
-
-    // Filter by Branches (local selection)
+    // Filter by selected Branches (local selection)
     if (selectedBranchIds.length > 0) {
       visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
     }
@@ -457,88 +454,116 @@ export default function CHRAnalyticsPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
           {/* ZHR Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-between">
-                {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
-                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-               zhrOptions.length > 0 ? zhrOptions.map(option => (
-                <DropdownMenuCheckboxItem
-                  key={option.value}
-                  checked={selectedZhrIds.includes(option.value)}
-                  onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+          <div className="relative flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between pr-10">
+                  {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                 zhrOptions.length > 0 ? zhrOptions.map(option => (
+                  <DropdownMenuCheckboxItem
+                    key={option.value}
+                    checked={selectedZhrIds.includes(option.value)}
+                    onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+                  >
+                    {option.label}
+                  </DropdownMenuCheckboxItem>
+                )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {selectedZhrIds.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10"
+                  onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }}
+                  aria-label="Clear ZHR filter"
                 >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setSelectedZhrIds([])} disabled={selectedZhrIds.length === 0}>
-                 <XCircle className="mr-2 h-4 w-4" /> Show All ZHRs
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                </Button>
+            )}
+          </div>
 
           {/* BHR Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-between">
-                 {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
-                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-               {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-               bhrOptions.length > 0 ? bhrOptions.map(option => (
-                <DropdownMenuCheckboxItem
-                  key={option.value}
-                  checked={selectedBhrIds.includes(option.value)}
-                  onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
+          <div className="relative flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between pr-10">
+                   {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                 {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                 bhrOptions.length > 0 ? bhrOptions.map(option => (
+                  <DropdownMenuCheckboxItem
+                    key={option.value}
+                    checked={selectedBhrIds.includes(option.value)}
+                    onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
+                  >
+                    {option.label}
+                  </DropdownMenuCheckboxItem>
+                )) : <DropdownMenuLabel>No BHRs match current ZHR/VHR filter.</DropdownMenuLabel>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {selectedBhrIds.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10"
+                  onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }}
+                  aria-label="Clear BHR filter"
                 >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              )) : <DropdownMenuLabel>No BHRs match current ZHR/VHR filter.</DropdownMenuLabel>}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setSelectedBhrIds([])} disabled={selectedBhrIds.length === 0}>
-                 <XCircle className="mr-2 h-4 w-4" /> Show All BHRs
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                </Button>
+            )}
+          </div>
+          
           {/* Branch Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-between">
-                {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
-                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-              <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> : 
-               branchOptions.length > 0 ? branchOptions.map(option => (
-                <DropdownMenuCheckboxItem
-                  key={option.value}
-                  checked={selectedBranchIds.includes(option.value)}
-                  onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+          <div className="relative flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between pr-10">
+                  {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> : 
+                 branchOptions.length > 0 ? branchOptions.map(option => (
+                  <DropdownMenuCheckboxItem
+                    key={option.value}
+                    checked={selectedBranchIds.includes(option.value)}
+                    onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+                  >
+                    {option.label}
+                  </DropdownMenuCheckboxItem>
+                )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {selectedBranchIds.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10"
+                  onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }}
+                  aria-label="Clear Branch filter"
                 >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setSelectedBranchIds([])} disabled={selectedBranchIds.length === 0}>
-                <XCircle className="mr-2 h-4 w-4" /> Show All Branches
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                </Button>
+            )}
+          </div>
+
           <Button variant="outline" onClick={handleClearAllLocalFilters} className="w-full">
             <XCircle className="mr-2 h-4 w-4" /> Clear All Local Filters
           </Button>
