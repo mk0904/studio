@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@/types';
-import { useAuth } from './auth-context'; // To check current user's role
+import { useAuth } from './auth-context';
 
 interface VhrOption {
   value: string;
@@ -12,8 +12,8 @@ interface VhrOption {
 }
 
 interface ChrFilterContextType {
-  selectedVhrId: string;
-  setSelectedVhrId: (vhrId: string) => void;
+  selectedVhrIds: string[]; // Changed from string to string[]
+  setSelectedVhrIds: (vhrIds: string[]) => void; // Changed signature
   vhrOptions: VhrOption[];
   isLoadingVhrOptions: boolean;
 }
@@ -21,14 +21,14 @@ interface ChrFilterContextType {
 const ChrFilterContext = createContext<ChrFilterContextType | undefined>(undefined);
 
 export function ChrFilterProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth(); // Get current user
-  const [selectedVhrId, setSelectedVhrId] = useState<string>('all');
-  const [vhrOptions, setVhrOptions] = useState<VhrOption[]>([{ value: 'all', label: 'All VHR Verticals' }]);
+  const { user } = useAuth();
+  const [selectedVhrIds, setSelectedVhrIds] = useState<string[]>([]); // Default to empty array (means All)
+  const [vhrOptions, setVhrOptions] = useState<VhrOption[]>([]); // Removed default "All" option
   const [isLoadingVhrOptions, setIsLoadingVhrOptions] = useState<boolean>(false);
 
   const fetchVhrOptions = useCallback(async () => {
     if (user?.role !== 'CHR') {
-      setVhrOptions([{ value: 'all', label: 'All VHR Verticals' }]);
+      setVhrOptions([]);
       setIsLoadingVhrOptions(false);
       return;
     }
@@ -41,17 +41,17 @@ export function ChrFilterProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("Error fetching VHRs for filter:", error);
-        setVhrOptions([{ value: 'all', label: 'All VHR Verticals' }]); // Default on error
+        setVhrOptions([]);
       } else {
         const options = (vhrs || []).map((vhr: Pick<User, 'id' | 'name'>) => ({
           value: vhr.id,
           label: vhr.name,
         }));
-        setVhrOptions([{ value: 'all', label: 'All VHR Verticals' }, ...options]);
+        setVhrOptions(options); // Just VHRs, no "All"
       }
     } catch (e) {
       console.error("Exception fetching VHRs:", e);
-      setVhrOptions([{ value: 'all', label: 'All VHR Verticals' }]);
+      setVhrOptions([]);
     } finally {
       setIsLoadingVhrOptions(false);
     }
@@ -61,20 +61,18 @@ export function ChrFilterProvider({ children }: { children: ReactNode }) {
     fetchVhrOptions();
   }, [fetchVhrOptions]);
   
-  // Refetch if user changes (e.g. logout/login as different user)
   useEffect(() => {
     if(user?.role === 'CHR'){
         fetchVhrOptions();
     } else {
-        // Reset if user is not CHR
-        setSelectedVhrId('all');
-        setVhrOptions([{ value: 'all', label: 'All VHR Verticals' }]);
+        setSelectedVhrIds([]);
+        setVhrOptions([]);
     }
   }, [user, fetchVhrOptions]);
 
 
   return (
-    <ChrFilterContext.Provider value={{ selectedVhrId, setSelectedVhrId, vhrOptions, isLoadingVhrOptions }}>
+    <ChrFilterContext.Provider value={{ selectedVhrIds, setSelectedVhrIds, vhrOptions, isLoadingVhrOptions }}>
       {children}
     </ChrFilterContext.Provider>
   );
