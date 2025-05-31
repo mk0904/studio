@@ -312,7 +312,7 @@ export default function CHRVisitsMadePage() {
         title += ` (${globalSelectedVhrIds.length} VHRs)`;
       }
     } else {
-      title += " (Global)";
+      title += " (All)";
     }
     return title;
   }, [globalSelectedVhrIds, globalVhrOptions]);
