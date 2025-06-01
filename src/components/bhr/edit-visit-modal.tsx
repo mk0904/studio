@@ -28,6 +28,12 @@ interface EditVisitModalProps {
 }
 
 export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }: EditVisitModalProps) {
+  const getModalTitle = () => {
+    if (!visitToEdit) return '';
+    const branchName = visitToEdit.branch_name || 'Branch';
+    const visitDate = visitToEdit.visit_date ? format(new Date(visitToEdit.visit_date), 'MMMM do, yyyy') : '';
+    return `${branchName} - ${visitDate}`;
+  };
   const { toast } = useToast();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -142,13 +148,21 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
   if (!visitToEdit) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Draft Visit</DialogTitle>
-          <DialogDescription>
-            Update the details of your draft visit to {visitToEdit.branch_name}. You can save changes as a draft or submit the report.
-          </DialogDescription>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <div className="max-w-4xl mx-auto">
+      <DialogContent className="sm:max-w-[90vw] max-h-[90vh] overflow-y-auto bg-gradient-to-b from-white to-slate-50/80 border-slate-200/60 shadow-lg">
+        <DialogHeader className="space-y-3 pb-6 border-b border-slate-200/60">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-1 rounded-full bg-gradient-to-b from-[#004C8F] to-[#0066BD]" />
+            <div>
+              <DialogTitle className="text-2xl font-semibold bg-gradient-to-br from-[#004C8F] to-[#0066BD] bg-clip-text text-transparent">
+                Edit Draft Visit
+              </DialogTitle>
+              <DialogDescription className="text-base text-slate-600 mt-1">
+                Update the details of your draft visit to <span className="font-medium text-slate-700">{getModalTitle()}</span>
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
         
         <VisitForm
@@ -160,8 +174,10 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
           submitButtonText="Update & Submit"
           draftButtonText="Save Changes as Draft"
         />
-        
+        <DialogFooter>
+        </DialogFooter>
       </DialogContent>
+      </div>
     </Dialog>
   );
 }
