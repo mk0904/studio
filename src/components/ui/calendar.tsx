@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -25,7 +24,7 @@ function Calendar({
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center mb-4",
         caption_label: cn(
-          "text-sm font-medium text-[#004C8F]",
+          "text-sm font-medium text-[#004C8F] !hidden",
           props.captionLayout?.startsWith("dropdown") && "hidden"
         ),
         caption_dropdowns: "flex gap-2 items-center",

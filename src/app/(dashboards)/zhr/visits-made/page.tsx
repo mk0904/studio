@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -106,7 +105,7 @@ export default function ZHRVisitsMadePage() {
     try {
       const { data: bhrsData, error: bhrsError } = await supabase
         .from('users')
-        .select('id, name, e_code')
+        .select('id, name, e_code, email, role')
         .eq('role', 'BHR')
         .eq('reports_to', user.id);
 
@@ -159,10 +158,12 @@ export default function ZHRVisitsMadePage() {
       if (lowerSearchTerm) {
         const bhr = bhrOptions.find(b => b.id === visit.bhr_id);
         const branch = branchOptions.find(b => b.id === visit.branch_id);
-        searchCriteriaMatch = (bhr?.name?.toLowerCase().includes(lowerSearchTerm) ||
-                               branch?.name?.toLowerCase().includes(lowerSearchTerm) ||
-                               (bhr?.e_code && bhr.e_code.toLowerCase().includes(lowerSearchTerm)) ||
-                               (branch?.location && branch.location.toLowerCase().includes(lowerSearchTerm)));
+        searchCriteriaMatch = (
+          (bhr?.name && bhr.name.toLowerCase().includes(lowerSearchTerm)) ||
+          (branch?.name && branch.name.toLowerCase().includes(lowerSearchTerm)) ||
+          (bhr?.e_code && bhr.e_code.toLowerCase().includes(lowerSearchTerm)) ||
+          (branch?.location && branch.location.toLowerCase().includes(lowerSearchTerm))
+        );
       }
       return bhrMatch && branchMatch && dateMatch && searchCriteriaMatch;
     });
@@ -222,40 +223,41 @@ export default function ZHRVisitsMadePage() {
                 </Button>
               </div>
               
-              <div className="flex flex-row gap-2 w-full sm:w-auto sm:ml-auto">
-                <div className="flex-1 sm:w-[160px] sm:flex-none">
-                  <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
-                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                      <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                      <SelectValue placeholder="Filter by BHR" />
-                    </SelectTrigger>
-                    <SelectContent className="border-0 shadow-md">
-                      <SelectItem value="all">All BHRs</SelectItem>
-                      {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              <div className="flex flex-col md:flex-row gap-2 w-full sm:w-auto sm:ml-auto">
+                <div className="flex flex-row gap-2 w-full sm:w-auto">
+                  <div className="flex-1 sm:w-[160px] sm:flex-none">
+                    <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
+                      <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                        <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                        <SelectValue placeholder="Filter by BHR" />
+                      </SelectTrigger>
+                      <SelectContent className="border-0 shadow-md">
+                        <SelectItem value="all">All BHRs</SelectItem>
+                        {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 sm:w-[160px] sm:flex-none">
+                    <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
+                      <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                         <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                        <SelectValue placeholder="Filter by Branch" />
+                      </SelectTrigger>
+                      <SelectContent className="border-0 shadow-md">
+                        <SelectItem value="all">All Branches</SelectItem>
+                        {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="flex-1 sm:w-[160px] sm:flex-none">
-                  <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
-                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                       <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                      <SelectValue placeholder="Filter by Branch" />
-                    </SelectTrigger>
-                    <SelectContent className="border-0 shadow-md">
-                      <SelectItem value="all">All Branches</SelectItem>
-                      {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <div className="w-full lg:w-1/2 xl:w-1/3 mb-6">
-                <Label className="text-sm font-medium text-slate-700 mb-1.5 block">Filter by Visit Date</Label>
-                 <DatePickerWithRange
+                <div className="flex-1 md:w-[200px] md:flex-none">
+                  <DatePickerWithRange
                     date={dateRange}
                     onDateChange={setDateRange}
                     className="h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
                   />
+                </div>
+              </div>
             </div>
 
             <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white/90 backdrop-blur-sm shadow-sm">
