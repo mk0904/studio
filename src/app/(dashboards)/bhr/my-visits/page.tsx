@@ -127,8 +127,8 @@ export default function MyVisitsPage() {
           className={cn(
             "h-9 px-3 text-sm font-medium transition-colors duration-150",
             row.status === 'draft'
-              ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900" // Original edit style
-              : "text-slate-700 bg-white border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800" // New view style
+              ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              : "text-slate-700 bg-white border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800"
           )}
         >
           {row.status === 'draft' ? (
@@ -262,8 +262,9 @@ export default function MyVisitsPage() {
       <Card className="border-0 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
         <CardContent className="px-4 sm:px-6 pb-6 space-y-5 sm:space-y-6">
           <div className="space-y-4 sm:space-y-0">
-            <div className="flex flex-col mb-8 sm:flex-row gap-4 items-start sm:items-center">
-              <div className="flex gap-2 sm:gap-3 items-center w-full sm:w-auto sm:flex-1">
+            <div className="flex flex-col lg:flex-row gap-3 items-center mb-8"> {/* Main filter container */}
+              {/* Search + Clear Group */}
+              <div className="flex gap-2 items-center w-full lg:flex-1">
                 <div className="relative flex-1">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
@@ -275,7 +276,6 @@ export default function MyVisitsPage() {
                     className="pl-9 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200"
                   />
                 </div>
-
                 <Button
                   onClick={() => {
                     setSearchTerm('');
@@ -292,7 +292,8 @@ export default function MyVisitsPage() {
                 </Button>
               </div>
 
-              <div className="w-full sm:w-auto sm:flex-1">
+              {/* Status Tabs Group */}
+              <div className="w-full lg:w-auto lg:flex-shrink-0">
                 <Tabs value={activeStatusTab} onValueChange={(value) => setActiveStatusTab(value as VisitStatus | 'all')} className="w-full">
                   <TabsList className="grid grid-cols-3 h-9 sm:h-10 p-1 bg-white/80 backdrop-blur-sm border border-slate-200/70 shadow-sm rounded-lg">
                     <TabsTrigger
@@ -323,8 +324,9 @@ export default function MyVisitsPage() {
                 </Tabs>
               </div>
 
-              <div className="flex flex-row gap-2 w-full sm:w-auto">
-                <div className="flex-1 sm:w-[140px] sm:flex-none">
+              {/* Month + Category Selects Group */}
+              <div className="flex flex-row gap-2 w-full lg:w-auto lg:flex-shrink-0">
+                <div className="flex-1 lg:w-[160px] lg:flex-none">
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                     <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
                       <Calendar className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
@@ -349,7 +351,7 @@ export default function MyVisitsPage() {
                   </Select>
                 </div>
 
-                <div className="flex-1 sm:w-[140px] sm:flex-none">
+                <div className="flex-1 lg:w-[160px] lg:flex-none">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
                       <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
@@ -421,3 +423,6 @@ export default function MyVisitsPage() {
     </div>
   );
 }
+
+
+    
