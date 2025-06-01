@@ -13,6 +13,7 @@ import { format, parseISO, isSameMonth, startOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 export default function ZHRDashboardPage() {
   const { user } = useAuth();
@@ -50,14 +51,13 @@ export default function ZHRDashboardPage() {
       header: 'Actions',
       cell: (visit) => (
         <Button
-          variant="outline"
-          size="sm"
           onClick={() => {
             setSelectedVisitForView(visit);
             setIsViewModalOpen(true);
           }}
+          className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
         >
-          <Eye className="mr-2 h-4 w-4" /> View
+          <Eye className="mr-1.5 h-4 w-4 text-slate-500" /> View
         </Button>
       ),
     }
@@ -82,13 +82,13 @@ export default function ZHRDashboardPage() {
           let currentMonthVisitsCount = 0;
           let activeBHRsThisMonth = 0;
           let latestSubmittedVisits: Visit[] = [];
-          
+
           const bhrIds = (bhrUsersData || []).map(bhr => bhr.id);
 
           if (bhrIds.length > 0) {
             const { data: submittedVisitsData, error: visitsError } = await supabase
               .from('visits')
-              .select('*') 
+              .select('*')
               .in('bhr_id', bhrIds)
               .eq('status', 'submitted')
               .order('visit_date', { ascending: false });
@@ -102,15 +102,15 @@ export default function ZHRDashboardPage() {
               isSameMonth(parseISO(visit.visit_date), currentMonthStart)
             );
             currentMonthVisitsCount = visitsThisMonth.length;
-            
+
             const uniqueBHRsThisMonth = new Set(visitsThisMonth.map(visit => visit.bhr_id));
             activeBHRsThisMonth = uniqueBHRsThisMonth.size;
-            
+
             latestSubmittedVisits = (submittedVisitsData || []).slice(0, 5) as Visit[];
-            
+
             const { data: branchesData, error: branchesErr } = await supabase
                 .from('branches')
-                .select('*'); 
+                .select('*');
             if (branchesErr) throw branchesErr;
             setAllBranches(branchesData as Branch[] || []);
 
@@ -131,7 +131,7 @@ export default function ZHRDashboardPage() {
             setAllBranches([]);
             setRecentVisits([]);
           }
-          
+
           setTotalVisitsThisMonth(currentMonthVisitsCount);
           setActiveBHRsCount(activeBHRsThisMonth);
 
@@ -140,7 +140,7 @@ export default function ZHRDashboardPage() {
           toast({ title: "Error", description: `Failed to load dashboard data: ${error.message}`, variant: "destructive" });
           setBhrCount(0);
           setTotalVisitsThisMonth(0);
-          setActiveBHRsCount(0); 
+          setActiveBHRsCount(0);
           setRecentVisits([]);
           setAllBranches([]);
           setBhrUsersInZone([]);
@@ -191,11 +191,6 @@ export default function ZHRDashboardPage() {
                 Zone overview for {format(new Date(), 'MMMM yyyy')}
               </p>
             </div>
-            {/* Optional: Action button here. e.g.,
-            <Button asChild className="bg-[#004C8F] hover:bg-[#004C8F]/90 ...">
-              <Link href="/zhr/branch-assignments">Manage Assignments <ArrowUpRight className="h-3.5 w-3.5" /></Link>
-            </Button> 
-            */}
           </div>
         </div>
 
@@ -242,15 +237,15 @@ export default function ZHRDashboardPage() {
             </CardContent>
           </Card>
         </div>
-        
+
         <div className="w-full">
           <Card className="border border-slate-200/50 bg-white/95 backdrop-blur-sm transition-all duration-200 hover:border-slate-300/50 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden">
-            <div className="flex flex-col min-h-[300px]"> {/* Adjusted min-height */}
+            <div className="flex flex-col min-h-[300px]">
               <CardHeader className="items-start p-6 sm:p-8 pb-4">
                 <CardTitle className="text-base font-semibold text-slate-800">Recent Submitted Visits in Your Zone (Top 5)</CardTitle>
                 <CardDescription className="text-xs text-slate-600">Quick overview of the latest visit reports from your BHRs.</CardDescription>
               </CardHeader>
-              <CardContent className="flex-grow p-0 sm:p-0"> {/* Removed default padding */}
+              <CardContent className="flex-grow p-0 sm:p-0">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-40">
                     <Loader2 className="h-8 w-8 animate-spin text-[#004C8F]" />
@@ -259,7 +254,7 @@ export default function ZHRDashboardPage() {
                   <DataTable
                     columns={recentVisitsColumns}
                     data={recentVisits}
-                    tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-12 [&_thead_th]:px-4 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-4 [&_tbody_td]:py-3 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+                    tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
                   />
                 ) : (
                   <div className="text-center py-10 px-6">

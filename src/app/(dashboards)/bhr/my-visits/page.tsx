@@ -12,13 +12,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader } from '@/components/ui/card'; 
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow, getMonth, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Building2, Calendar, CheckCircle, Edit, Eye, FileEdit, FileQuestion, ListFilter, Loader2, PlusCircle, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { EditVisitModal } from '@/components/bhr/edit-visit-modal'; 
+import { EditVisitModal } from '@/components/bhr/edit-visit-modal';
 
 export default function MyVisitsPage() {
   const { user } = useAuth();
@@ -63,15 +63,14 @@ export default function MyVisitsPage() {
       cell: (row) => {
         const branch = allBranches.find(b => b.id === row.branch_id);
         const category = (branch?.category || 'uncategorized').toLowerCase();
-        
-        // Psychological colors for different categories
+
         const categoryColors = {
-          'diamond': 'bg-[#ECF9FF] text-[#0B4D76] hover:bg-[#ECF9FF]/80', // Diamond blue, premium
-          'platinum': 'bg-[#F7F7F7] text-[#374151] hover:bg-[#F7F7F7]/80', // Platinum silver-white
-          'gold': 'bg-[#FFF7E6] text-[#976A1D] hover:bg-[#FFF7E6]/80', // Rich gold
-          'silver': 'bg-[#F3F4F6] text-[#4B5563] hover:bg-[#F3F4F6]/80', // Silver gray
-          'bronze': 'bg-[#FBF0E4] text-[#8B4513] hover:bg-[#FBF0E4]/80', // Metallic bronze
-          'uncategorized': 'bg-slate-50 text-slate-600 hover:bg-slate-50/80' // Neutral
+          'diamond': 'bg-[#ECF9FF] text-[#0B4D76] hover:bg-[#ECF9FF]/80',
+          'platinum': 'bg-[#F7F7F7] text-[#374151] hover:bg-[#F7F7F7]/80',
+          'gold': 'bg-[#FFF7E6] text-[#976A1D] hover:bg-[#FFF7E6]/80',
+          'silver': 'bg-[#F3F4F6] text-[#4B5563] hover:bg-[#F3F4F6]/80',
+          'bronze': 'bg-[#FBF0E4] text-[#8B4513] hover:bg-[#FBF0E4]/80',
+          'uncategorized': 'bg-slate-50 text-slate-600 hover:bg-slate-50/80'
         };
 
         return (
@@ -79,7 +78,7 @@ export default function MyVisitsPage() {
             variant="secondary"
             className={cn(
               'font-medium px-2.5 py-0.5 text-xs',
-              categoryColors[category as keyof typeof categoryColors] || categoryColors.Uncategorized
+              categoryColors[category as keyof typeof categoryColors] || categoryColors.uncategorized
             )}
           >
             {category}
@@ -97,8 +96,8 @@ export default function MyVisitsPage() {
             variant={status === 'draft' ? 'outline' : 'default'}
             className={cn(
               'capitalize font-medium px-2.5 py-0.5 text-xs inline-flex items-center gap-1.5',
-              status === 'draft' 
-                ? 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-50/80' 
+              status === 'draft'
+                ? 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-50/80'
                 : 'border-green-200 bg-green-50 text-green-700 hover:bg-green-50/80'
             )}
           >
@@ -122,10 +121,15 @@ export default function MyVisitsPage() {
       header: 'Actions',
       cell: (row) => (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={() => handleEditVisit(row)}
-          className="h-8 px-3 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          className={cn(
+            "h-9 px-3 text-sm font-medium transition-colors duration-150",
+            row.status === 'draft'
+              ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900" // Original edit style
+              : "text-slate-700 bg-white border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800" // New view style
+          )}
         >
           {row.status === 'draft' ? (
             <>
@@ -134,7 +138,7 @@ export default function MyVisitsPage() {
             </>
           ) : (
             <>
-              <Eye className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
+              <Eye className="h-4 w-4 mr-1.5 text-slate-500" />
               View
             </>
           )}
@@ -158,7 +162,7 @@ export default function MyVisitsPage() {
   const monthOptions = [allMonthsOption, ...months];
 
   const branchCategories = useMemo(() => {
-    const categories = new Set(allBranches.map(b => b.category).filter(Boolean)); // Filter out undefined/null categories
+    const categories = new Set(allBranches.map(b => b.category).filter(Boolean));
     return [{label: "All Categories", value: "all"}, ...Array.from(categories).map(c => ({label: c, value: c}))];
   }, [allBranches]);
 
@@ -175,11 +179,10 @@ export default function MyVisitsPage() {
         if (visitsError) throw visitsError;
         setMyVisits(visitsData as Visit[] || []);
 
-        // Fetch all branches once for name lookups and category filter
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
-          .select('id, name, category, location, code'); 
-        
+          .select('id, name, category, location, code');
+
         if (branchesError) throw branchesError;
         setAllBranches((branchesData || []) as Branch[]);
 
@@ -209,9 +212,9 @@ export default function MyVisitsPage() {
       const matchesSearch = searchTerm === '' ||
         (branch?.name && branch.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (branch?.location && branch.location.toLowerCase().includes(searchTerm.toLowerCase()));
-      
+
       const matchesMonth = selectedMonth === 'all' || getMonth(visitDate) === parseInt(selectedMonth);
-      
+
       const matchesCategory = selectedCategory === 'all' || branch?.category === selectedCategory;
 
       const matchesStatus = activeStatusTab === 'all' || visit.status === activeStatusTab;
@@ -232,7 +235,7 @@ export default function MyVisitsPage() {
 
   if (!user) return null;
 
-  if (isLoading && myVisits.length === 0) { 
+  if (isLoading && myVisits.length === 0) {
     return (
         <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -273,7 +276,7 @@ export default function MyVisitsPage() {
                   />
                 </div>
 
-                <Button 
+                <Button
                   onClick={() => {
                     setSearchTerm('');
                     setSelectedMonth('all');
@@ -289,28 +292,27 @@ export default function MyVisitsPage() {
                 </Button>
               </div>
 
-              {/* Status Tabs */}
               <div className="w-full sm:w-auto sm:flex-1">
                 <Tabs value={activeStatusTab} onValueChange={(value) => setActiveStatusTab(value as VisitStatus | 'all')} className="w-full">
                   <TabsList className="grid grid-cols-3 h-9 sm:h-10 p-1 bg-white/80 backdrop-blur-sm border border-slate-200/70 shadow-sm rounded-lg">
-                    <TabsTrigger 
-                      value="all" 
+                    <TabsTrigger
+                      value="all"
                       className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center"
                       title="All Status"
                     >
                       <ListFilter className="h-4 w-4" />
                       <span className="hidden sm:inline ml-1.5">All Status</span>
                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="draft" 
+                    <TabsTrigger
+                      value="draft"
                       className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center"
                       title="Draft"
                     >
                       <FileQuestion className="h-4 w-4" />
                       <span className="hidden sm:inline ml-1.5">Draft</span>
                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="submitted" 
+                    <TabsTrigger
+                      value="submitted"
                       className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center"
                       title="Submitted"
                     >
@@ -321,7 +323,6 @@ export default function MyVisitsPage() {
                 </Tabs>
               </div>
 
-              {/* Month and Category Filters */}
               <div className="flex flex-row gap-2 w-full sm:w-auto">
                 <div className="flex-1 sm:w-[140px] sm:flex-none">
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -329,15 +330,15 @@ export default function MyVisitsPage() {
                       <Calendar className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
-                    <SelectContent 
-                      className="border-0 shadow-md" 
+                    <SelectContent
+                      className="border-0 shadow-md"
                       style={{ maxHeight: '300px', overflowY: 'auto' }}
                     >
                       <div className="max-h-[300px] overflow-y-auto">
                         {monthOptions.map(month => (
-                          <SelectItem 
-                            key={month.value} 
-                            value={month.value} 
+                          <SelectItem
+                            key={month.value}
+                            value={month.value}
                             className="text-sm py-2 px-3 cursor-pointer hover:bg-slate-50 focus:bg-slate-50 outline-none"
                           >
                             {month.label}
@@ -354,15 +355,15 @@ export default function MyVisitsPage() {
                       <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
-                    <SelectContent 
-                      className="border-0 shadow-md" 
+                    <SelectContent
+                      className="border-0 shadow-md"
                       style={{ maxHeight: '300px', overflowY: 'auto' }}
                     >
                       <div className="max-h-[300px] overflow-y-auto">
                         {branchCategories.map(category => (
-                          <SelectItem 
-                            key={category.value} 
-                            value={category.value} 
+                          <SelectItem
+                            key={category.value}
+                            value={category.value}
                             className="text-sm py-2 px-3 cursor-pointer hover:bg-slate-50 focus:bg-slate-50 outline-none"
                           >
                             {category.label}
@@ -375,7 +376,6 @@ export default function MyVisitsPage() {
               </div>
             </div>
 
-            {/* Data Table */}
             <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white/90 backdrop-blur-sm shadow-sm">
               {isLoading ? (
                 <div className="flex items-center justify-center py-16">
@@ -407,7 +407,6 @@ export default function MyVisitsPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Visit Modal */}
       {selectedVisitForEdit && (
         <EditVisitModal
           visitToEdit={selectedVisitForEdit}

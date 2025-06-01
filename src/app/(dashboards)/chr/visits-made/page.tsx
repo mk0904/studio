@@ -24,24 +24,23 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useChrFilter } from '@/contexts/chr-filter-context';
+import { cn } from '@/lib/utils';
 
 interface FilterOption { value: string; label: string; }
 
 export default function CHRVisitsMadePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { 
-    selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions, // Use global VHR filter
-    allUsersForContext, isLoadingAllUsers 
-  } = useChrFilter();
+  const { selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions } = useChrFilter();
 
-  const [isLoadingPageData, setIsLoadingPageData] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [allSubmittedVisitsGlobal, setAllSubmittedVisitsGlobal] = useState<Visit[]>([]);
+  const [allUsersGlobal, setAllUsersGlobal] = useState<User[]>([]);
   const [allBranchesGlobal, setAllBranchesGlobal] = useState<Branch[]>([]);
 
-  // Local filters for ZHR, BHR, Branch
   const [selectedZhrIds, setSelectedZhrIds] = useState<string[]>([]);
   const [zhrOptions, setZhrOptions] = useState<FilterOption[]>([]);
   const [isLoadingZhrOptions, setIsLoadingZhrOptions] = useState(false);
@@ -53,7 +52,7 @@ export default function CHRVisitsMadePage() {
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [branchOptions, setBranchOptions] = useState<FilterOption[]>([]);
   const [isLoadingBranchOptions, setIsLoadingBranchOptions] = useState(false);
-  
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -62,14 +61,17 @@ export default function CHRVisitsMadePage() {
 
   useEffect(() => {
     if (user && user.role === 'CHR') {
-      if (isLoadingAllUsers) return; 
-      const fetchPageData = async () => {
-        setIsLoadingPageData(true);
+      const fetchGlobalData = async () => {
+        setIsLoading(true);
         try {
-          const [branchesRes, visitsRes] = await Promise.all([
+          const [usersRes, branchesRes, visitsRes] = await Promise.all([
+            supabase.from('users').select('id, name, role, reports_to, e_code'),
             supabase.from('branches').select('id, name, category, code, location'),
             supabase.from('visits').select('*').eq('status', 'submitted').order('visit_date', { ascending: false })
           ]);
+
+          if (usersRes.error) throw usersRes.error;
+          setAllUsersGlobal(usersRes.data || []);
 
           if (branchesRes.error) throw branchesRes.error;
           setAllBranchesGlobal(branchesRes.data || []);
@@ -80,23 +82,22 @@ export default function CHRVisitsMadePage() {
           setAllSubmittedVisitsGlobal(visitsRes.data as Visit[] || []);
 
         } catch (error: any) {
-          console.error("CHR Visits Made: Error fetching page data:", error);
+          console.error("CHR Visits Made: Error fetching global data:", error);
           toast({ title: "Error", description: `Failed to load data: ${error.message}`, variant: "destructive" });
         } finally {
-          setIsLoadingPageData(false);
+          setIsLoading(false);
         }
       };
-      fetchPageData();
+      fetchGlobalData();
     } else {
-      setIsLoadingPageData(false);
+      setIsLoading(false);
     }
-  }, [user, toast, isLoadingAllUsers]);
+  }, [user, toast]);
 
-  // Populate ZHR options based on global VHR selection
   useEffect(() => {
     setIsLoadingZhrOptions(true);
-    if (allUsersForContext.length > 0) {
-      let potentialZhrs = allUsersForContext.filter(u => u.role === 'ZHR');
+    if (allUsersGlobal.length > 0) {
+      let potentialZhrs = allUsersGlobal.filter(u => u.role === 'ZHR');
       if (globalSelectedVhrIds.length > 0) {
         potentialZhrs = potentialZhrs.filter(zhr => zhr.reports_to && globalSelectedVhrIds.includes(zhr.reports_to));
       }
@@ -106,17 +107,16 @@ export default function CHRVisitsMadePage() {
     }
     setSelectedZhrIds([]);
     setIsLoadingZhrOptions(false);
-  }, [globalSelectedVhrIds, allUsersForContext]);
+  }, [globalSelectedVhrIds, allUsersGlobal]);
 
-  // Populate BHR options based on local ZHR selection (and global VHR if ZHRs empty)
   useEffect(() => {
     setIsLoadingBhrOptions(true);
-    if (allUsersForContext.length > 0) {
-      let potentialBhrs = allUsersForContext.filter(u => u.role === 'BHR');
+    if (allUsersGlobal.length > 0) {
+      let potentialBhrs = allUsersGlobal.filter(u => u.role === 'BHR');
       if (selectedZhrIds.length > 0) {
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
-      } else if (globalSelectedVhrIds.length > 0) { // Only if no ZHRs are selected, but VHRs are
-        const zhrsUnderSelectedVhrs = allUsersForContext
+      } else if (globalSelectedVhrIds.length > 0) {
+        const zhrsUnderSelectedVhrs = allUsersGlobal
           .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
           .map(z => z.id);
         potentialBhrs = potentialBhrs.filter(bhr => bhr.reports_to && zhrsUnderSelectedVhrs.includes(bhr.reports_to));
@@ -127,9 +127,8 @@ export default function CHRVisitsMadePage() {
     }
     setSelectedBhrIds([]);
     setIsLoadingBhrOptions(false);
-  }, [selectedZhrIds, globalSelectedVhrIds, allUsersForContext]);
+  }, [selectedZhrIds, globalSelectedVhrIds, allUsersGlobal]);
 
-  // Reset branch selection if higher filters change
   useEffect(() => {
     setSelectedBranchIds([]);
   }, [selectedBhrIds, selectedZhrIds, globalSelectedVhrIds]);
@@ -139,25 +138,23 @@ export default function CHRVisitsMadePage() {
     let visits = allSubmittedVisitsGlobal;
 
     let relevantBhrIds = new Set<string>();
-    if (selectedBhrIds.length > 0) { // If specific BHRs are selected locally
+    if (selectedBhrIds.length > 0) {
         selectedBhrIds.forEach(id => relevantBhrIds.add(id));
-    } else if (selectedZhrIds.length > 0) { // If specific ZHRs are selected locally (and no BHRs)
-        allUsersForContext
+    } else if (selectedZhrIds.length > 0) {
+        allUsersGlobal
             .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
-    } else if (globalSelectedVhrIds.length > 0) { // If specific VHRs are selected globally (and no local ZHR/BHR)
-        const zhrsInSelectedVhrs = allUsersForContext
+    } else if (globalSelectedVhrIds.length > 0) {
+        const zhrsInSelectedVhrs = allUsersGlobal
             .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
             .map(z => z.id);
-        allUsersForContext
+        allUsersGlobal
             .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
             .forEach(b => relevantBhrIds.add(b.id));
-    } else { // No global VHR, local ZHR, or local BHR selected - consider all BHRs
-        allUsersForContext.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
+    } else {
+        allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
 
-    // Apply BHR filter only if some BHRs were identified by the above logic or if specific filter was set
-    // If a filter is active (VHR, ZHR, BHR) but no BHRs match it, visits should be empty.
     if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
       if (relevantBhrIds.size === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0)) {
         visits = [];
@@ -165,7 +162,7 @@ export default function CHRVisitsMadePage() {
         visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
       }
     }
-    
+
     if (selectedBranchIds.length > 0) {
       visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
     }
@@ -182,11 +179,11 @@ export default function CHRVisitsMadePage() {
         return true;
       });
     }
-    
+
     const lowerSearchTerm = searchTerm.toLowerCase();
     if (lowerSearchTerm) {
       visits = visits.filter(visit => {
-        const bhr = allUsersForContext.find(u => u.id === visit.bhr_id);
+        const bhr = allUsersGlobal.find(u => u.id === visit.bhr_id);
         const branch = allBranchesGlobal.find(b => b.id === visit.branch_id);
         return (
           bhr?.name?.toLowerCase().includes(lowerSearchTerm) ||
@@ -200,22 +197,22 @@ export default function CHRVisitsMadePage() {
 
     return visits;
   }, [
-    allSubmittedVisitsGlobal, 
-    allUsersForContext, 
-    allBranchesGlobal, 
-    globalSelectedVhrIds, 
-    selectedZhrIds, 
-    selectedBhrIds, 
-    selectedBranchIds, 
+    allSubmittedVisitsGlobal,
+    allUsersGlobal,
+    allBranchesGlobal,
+    globalSelectedVhrIds,
+    selectedZhrIds,
+    selectedBhrIds,
+    selectedBranchIds,
     dateRange,
     searchTerm
   ]);
-  
+
   const columns: ColumnConfig<Visit>[] = useMemo(() => [
     {
       accessorKey: 'bhr_id',
       header: 'BHR Name',
-      cell: (visit) => allUsersForContext.find(u => u.id === visit.bhr_id)?.name || 'N/A'
+      cell: (visit) => allUsersGlobal.find(u => u.id === visit.bhr_id)?.name || 'N/A'
     },
     {
       accessorKey: 'branch_id',
@@ -233,7 +230,7 @@ export default function CHRVisitsMadePage() {
       cell: (visit) => {
         const handleViewClick = () => {
           const branch = allBranchesGlobal.find(b => b.id === visit.branch_id);
-          const bhr = allUsersForContext.find(u => u.id === visit.bhr_id);
+          const bhr = allUsersGlobal.find(u => u.id === visit.bhr_id);
           const enrichedVisit: EnrichedVisitForModal = {
             ...(visit as Visit),
             branch_name_display: branch?.name || visit.branch_id,
@@ -244,15 +241,22 @@ export default function CHRVisitsMadePage() {
           setSelectedVisitForView(enrichedVisit);
           setIsViewModalOpen(true);
         };
-        return <Button variant="outline" size="sm" onClick={handleViewClick}><Eye className="mr-2 h-4 w-4" /> View</Button>;
+        return (
+          <Button
+            onClick={handleViewClick}
+            className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
+          >
+            <Eye className="mr-1.5 h-4 w-4 text-slate-500" /> View
+          </Button>
+        );
       }
     }
-  ], [allUsersForContext, allBranchesGlobal]);
+  ], [allUsersGlobal, allBranchesGlobal]);
 
   const getMultiSelectButtonText = (
-    options: FilterOption[], 
-    selectedIds: string[], 
-    defaultText: string, 
+    options: FilterOption[],
+    selectedIds: string[],
+    defaultText: string,
     singularName: string,
     pluralName: string,
     isLoadingOptions: boolean
@@ -267,8 +271,8 @@ export default function CHRVisitsMadePage() {
   };
 
   const handleMultiSelectChange = (
-    id: string, 
-    currentSelectedIds: string[], 
+    id: string,
+    currentSelectedIds: string[],
     setter: React.Dispatch<React.SetStateAction<string[]>>
   ) => {
     const newSelectedIds = currentSelectedIds.includes(id)
@@ -276,7 +280,7 @@ export default function CHRVisitsMadePage() {
       : [...currentSelectedIds, id];
     setter(newSelectedIds);
   };
-  
+
   const handleClearAllLocalFilters = () => {
     setSelectedZhrIds([]);
     setSelectedBhrIds([]);
@@ -285,9 +289,7 @@ export default function CHRVisitsMadePage() {
     setSearchTerm('');
   };
 
-  const isLoading = isLoadingAllUsers || isLoadingPageData;
-
-  if (isLoading && !user) { 
+  if (isLoading && !user) {
     return (
         <div className="flex items-center justify-center h-screen">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -298,17 +300,14 @@ export default function CHRVisitsMadePage() {
   if (!user || user.role !== 'CHR') {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
-  
+
   const pageTitleText = useMemo(() => {
     let title = "Submitted Visits";
     if (globalSelectedVhrIds.length > 0) {
-      if (globalSelectedVhrIds.length === 1) {
-        title += ` (${globalVhrOptions.find(v => v.value === globalSelectedVhrIds[0])?.label || "Selected VHR"})`;
-      } else {
-        title += ` (${globalSelectedVhrIds.length} VHRs)`;
-      }
+      if (globalSelectedVhrIds.length === 1) title += ` (${globalVhrOptions.find(v => v.value === globalSelectedVhrIds[0])?.label || "Selected VHR"})`;
+      else title += ` (${globalSelectedVhrIds.length} VHRs)`;
     } else {
-      title += " (All)";
+      title += " (Global)";
     }
     return title;
   }, [globalSelectedVhrIds, globalVhrOptions]);
@@ -319,12 +318,11 @@ export default function CHRVisitsMadePage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Local Filters</CardTitle>
+          <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Filters</CardTitle>
           <CardDescription>Refine visits by ZHR, BHR, Branch, Date Range, and Search Term. Applied with global VHR filter.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* ZHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -349,13 +347,12 @@ export default function CHRVisitsMadePage() {
                   )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
                 </DropdownMenuContent>
               </DropdownMenu>
-               {selectedZhrIds.length > 0 && (
+              {selectedZhrIds.length > 0 && (
                   <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
                     <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                   </Button>
               )}
             </div>
-            {/* BHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -386,7 +383,6 @@ export default function CHRVisitsMadePage() {
                   </Button>
               )}
             </div>
-            {/* Branch Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -398,7 +394,7 @@ export default function CHRVisitsMadePage() {
                 <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
                   <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> : 
+                  {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
                   branchOptions.length > 0 ? branchOptions.map(option => (
                     <DropdownMenuCheckboxItem
                       key={option.value}
@@ -437,8 +433,8 @@ export default function CHRVisitsMadePage() {
           </Button>
         </CardContent>
       </Card>
-      
-      {isLoading ? (
+
+      {isLoading && allSubmittedVisitsGlobal.length === 0 ? (
          <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="ml-2 text-muted-foreground">Loading visits...</p>
@@ -447,9 +443,10 @@ export default function CHRVisitsMadePage() {
         <DataTable
             columns={columns}
             data={filteredVisits}
+            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
             emptyStateMessage={
                 allSubmittedVisitsGlobal.length === 0 && !isLoading
-                ? "No submitted visits found in the system." 
+                ? "No submitted visits found in the system."
                 : (isLoading ? "Loading visits..." : "No submitted visits match your current filter combination.")
             }
         />
@@ -468,3 +465,4 @@ export default function CHRVisitsMadePage() {
     </div>
   );
 }
+

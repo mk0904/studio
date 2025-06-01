@@ -26,24 +26,24 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { cn } from '@/lib/utils';
 
 interface FilterOption { value: string; label: string; }
 
 export default function VHRBranchVisitsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { 
-    selectedZhrIds: globalSelectedZhrIds, // ZHRs selected in header
-    zhrOptions: globalZhrOptions,         // All ZHRs available to VHR
-    allBhrsInVhrVertical, 
-    isLoadingBhrsInVhrVertical 
+  const {
+    selectedZhrIds: globalSelectedZhrIds,
+    zhrOptions: globalZhrOptions,
+    allBhrsInVhrVertical,
+    isLoadingBhrsInVhrVertical
   } = useVhrFilter();
 
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [allVisitsForVhr, setAllVisitsForVhr] = useState<Visit[]>([]);
   const [allBranchesForLookup, setAllBranchesForLookup] = useState<Branch[]>([]);
 
-  // Local filters state
   const [searchTerm, setSearchTerm] = useState('');
   const [localSelectedBhrIds, setLocalSelectedBhrIds] = useState<string[]>([]);
   const [localBhrOptions, setLocalBhrOptions] = useState<FilterOption[]>([]);
@@ -52,7 +52,7 @@ export default function VHRBranchVisitsPage() {
   const [localSelectedBranchIds, setLocalSelectedBranchIds] = useState<string[]>([]);
   const [localBranchOptions, setLocalBranchOptions] = useState<FilterOption[]>([]);
   const [isLoadingLocalBranchOptions, setIsLoadingLocalBranchOptions] = useState(false);
-  
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -107,7 +107,6 @@ export default function VHRBranchVisitsPage() {
     fetchData();
   }, [fetchData]);
 
-  // Populate local BHR options based on global ZHR selection
   useEffect(() => {
     setIsLoadingLocalBhrOptions(true);
     if (allBhrsInVhrVertical.length > 0) {
@@ -119,11 +118,11 @@ export default function VHRBranchVisitsPage() {
     } else {
       setLocalBhrOptions([]);
     }
-    setLocalSelectedBhrIds([]); // Reset local BHR selection when global ZHR changes
+    setLocalSelectedBhrIds([]);
     setIsLoadingLocalBhrOptions(false);
   }, [globalSelectedZhrIds, allBhrsInVhrVertical]);
-  
-  useEffect(() => { // Reset local branch selection if BHR or global ZHR changes
+
+  useEffect(() => {
     setLocalSelectedBranchIds([]);
   },[localSelectedBhrIds, globalSelectedZhrIds])
 
@@ -131,26 +130,21 @@ export default function VHRBranchVisitsPage() {
   const filteredVisits = useMemo(() => {
     let visits = allVisitsForVhr;
 
-    // Apply global ZHR filter (implicitly done by how allVisitsForVhr is constructed if selectedZhrIds is used in its fetch,
-    // or filter here if allVisitsForVhr contains all vertical visits)
     if (globalSelectedZhrIds.length > 0) {
       const bhrIdsUnderSelectedGlobalZhrs = allBhrsInVhrVertical
         .filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to))
         .map(bhr => bhr.id);
       visits = visits.filter(visit => bhrIdsUnderSelectedGlobalZhrs.includes(visit.bhr_id));
     }
-    
-    // Apply local BHR filter
+
     if (localSelectedBhrIds.length > 0) {
       visits = visits.filter(visit => localSelectedBhrIds.includes(visit.bhr_id));
     }
-    
-    // Apply local Branch filter
+
     if (localSelectedBranchIds.length > 0) {
       visits = visits.filter(visit => localSelectedBranchIds.includes(visit.branch_id));
     }
 
-    // Apply date range filter
     if (dateRange?.from || dateRange?.to) {
       visits = visits.filter(visit => {
         const visitDate = parseISO(visit.visit_date);
@@ -163,8 +157,7 @@ export default function VHRBranchVisitsPage() {
         return true;
       });
     }
-    
-    // Apply search term filter
+
     const lowerSearchTerm = searchTerm.toLowerCase();
     if (lowerSearchTerm) {
       visits = visits.filter(visit => {
@@ -222,18 +215,21 @@ export default function VHRBranchVisitsPage() {
           setIsViewModalOpen(true);
         };
         return (
-          <Button variant="outline" size="sm" onClick={handleViewClick} >
-            <Eye className="mr-2 h-4 w-4" /> View
+          <Button
+            onClick={handleViewClick}
+            className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
+          >
+            <Eye className="mr-1.5 h-4 w-4 text-slate-500" /> View
           </Button>
         );
       }
     }
   ], [allBhrsInVhrVertical, allBranchesForLookup]);
-  
+
   const getMultiSelectButtonText = (
-    options: FilterOption[], 
-    selectedIds: string[], 
-    defaultText: string, 
+    options: FilterOption[],
+    selectedIds: string[],
+    defaultText: string,
     singularName: string,
     pluralName: string,
     isLoadingOptions: boolean
@@ -248,8 +244,8 @@ export default function VHRBranchVisitsPage() {
   };
 
   const handleMultiSelectChange = (
-    id: string, 
-    currentSelectedIds: string[], 
+    id: string,
+    currentSelectedIds: string[],
     setter: React.Dispatch<React.SetStateAction<string[]>>
   ) => {
     const newSelectedIds = currentSelectedIds.includes(id)
@@ -266,7 +262,7 @@ export default function VHRBranchVisitsPage() {
   };
 
   const isLoading = isLoadingBhrsInVhrVertical || isLoadingPageData || isLoadingLocalBhrOptions || isLoadingLocalBranchOptions;
-  
+
   const pageTitleText = useMemo(() => {
     let title = "Submitted Visits";
     let subtitle = "Visits across your vertical";
@@ -308,7 +304,6 @@ export default function VHRBranchVisitsPage() {
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* BHR Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -339,7 +334,6 @@ export default function VHRBranchVisitsPage() {
                   </Button>
               )}
             </div>
-            {/* Branch Filter */}
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -351,7 +345,7 @@ export default function VHRBranchVisitsPage() {
                 <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
                   <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isLoadingLocalBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> : 
+                  {isLoadingLocalBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
                   localBranchOptions.length > 0 ? localBranchOptions.map(option => (
                     <DropdownMenuCheckboxItem
                       key={option.value}
@@ -394,6 +388,7 @@ export default function VHRBranchVisitsPage() {
       <DataTable
         columns={columns}
         data={filteredVisits}
+        tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
         emptyStateMessage={isLoading ? "Loading visits..." : (allVisitsForVhr.length === 0 && !isLoading ? "No submitted visits found in your vertical." : "No submitted visits match your current filter combination.")}
       />
       {selectedVisitForView && (

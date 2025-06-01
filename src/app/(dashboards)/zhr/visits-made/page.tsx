@@ -14,20 +14,21 @@ import type { DateRange } from 'react-day-picker';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Eye, Search, XCircle } from 'lucide-react'; // Added Search, XCircle
+import { Loader2, Eye, Search, XCircle } from 'lucide-react';
 import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
-import { Input } from '@/components/ui/input'; // Added Input
-import { Label } from '@/components/ui/label'; // Added Label
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function ZHRVisitsMadePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [allVisits, setAllVisits] = useState<Visit[]>([]);
-  const [bhrFilter, setBhrFilter] = useState<string>('all'); 
-  const [branchFilter, setBranchFilter] = useState<string>('all'); 
+  const [bhrFilter, setBhrFilter] = useState<string>('all');
+  const [branchFilter, setBranchFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [searchTerm, setSearchTerm] = useState(''); // Added searchTerm state
-  
+  const [searchTerm, setSearchTerm] = useState('');
+
   const [bhrOptions, setBhrOptions] = useState<User[]>([]);
   const [branchOptions, setBranchOptions] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,26 +37,26 @@ export default function ZHRVisitsMadePage() {
   const [selectedVisitForView, setSelectedVisitForView] = useState<EnrichedVisitForModal | null>(null);
 
   const columns: ColumnConfig<Visit>[] = useMemo(() => [
-    { 
-      accessorKey: 'bhr_id', 
+    {
+      accessorKey: 'bhr_id',
       header: 'BHR Name',
       cell: (visit) => {
         const bhr = bhrOptions.find(b => b.id === visit.bhr_id);
-        return bhr ? bhr.name : visit.bhr_id; 
+        return bhr ? bhr.name : visit.bhr_id;
       }
     },
-    { 
-      accessorKey: 'branch_id', 
+    {
+      accessorKey: 'branch_id',
       header: 'Branch Name',
       cell: (visit) => {
         const branch = branchOptions.find(b => b.id === visit.branch_id);
-        return branch ? branch.name : visit.branch_id; 
+        return branch ? branch.name : visit.branch_id;
       }
     },
-    { 
-      accessorKey: 'visit_date', 
+    {
+      accessorKey: 'visit_date',
       header: 'Visit Date',
-      cell: (visit) => format(parseISO(visit.visit_date), 'PPP') 
+      cell: (visit) => format(parseISO(visit.visit_date), 'PPP')
     },
     {
       accessorKey: 'actions',
@@ -76,11 +77,10 @@ export default function ZHRVisitsMadePage() {
         };
         return (
           <Button
-            variant="outline"
-            size="sm"
             onClick={handleViewClick}
+            className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
           >
-            <Eye className="mr-2 h-4 w-4" /> View
+            <Eye className="mr-1.5 h-4 w-4 text-slate-500" /> View
           </Button>
         );
       }
@@ -96,10 +96,9 @@ export default function ZHRVisitsMadePage() {
     console.log("ZHRVisitsMadePage: Fetching data for ZHR:", user.id);
 
     try {
-      // 1. Fetch BHRs that report to the current ZHR (including e_code)
       const { data: bhrsData, error: bhrsError } = await supabase
         .from('users')
-        .select('id, name, e_code') // Added e_code
+        .select('id, name, e_code')
         .eq('role', 'BHR')
         .eq('reports_to', user.id);
 
@@ -112,10 +111,9 @@ export default function ZHRVisitsMadePage() {
         console.log("ZHRVisitsMadePage: Fetched BHRs:", bhrsData);
       }
 
-      // 2. Fetch all branches for filter and name lookup (including category, code, location)
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
-        .select('id, name, location, category, code'); 
+        .select('id, name, location, category, code');
 
       if (branchesError) {
         console.error("ZHRVisitsMadePage: Error fetching branches:", branchesError);
@@ -125,15 +123,14 @@ export default function ZHRVisitsMadePage() {
         setBranchOptions(branchesData || []);
         console.log("ZHRVisitsMadePage: Fetched Branches:", branchesData);
       }
-      
-      // 3. Fetch submitted visits made by these BHRs
+
       if (bhrsData && bhrsData.length > 0) {
         const bhrIds = bhrsData.map(bhr => bhr.id);
         const { data: visitsData, error: visitsError } = await supabase
           .from('visits')
           .select('*')
           .in('bhr_id', bhrIds)
-          .eq('status', 'submitted') 
+          .eq('status', 'submitted')
           .order('visit_date', { ascending: false });
 
         if (visitsError) {
@@ -145,7 +142,7 @@ export default function ZHRVisitsMadePage() {
           console.log("ZHRVisitsMadePage: Fetched Visits:", visitsData);
         }
       } else {
-        setAllVisits([]); 
+        setAllVisits([]);
         console.log("ZHRVisitsMadePage: No BHRs found for this ZHR, so no visits fetched.");
       }
 
@@ -170,7 +167,7 @@ export default function ZHRVisitsMadePage() {
 
     return allVisits.filter(visit => {
       const visitDate = parseISO(visit.visit_date);
-      const dateMatch = !dateRange || 
+      const dateMatch = !dateRange ||
                         (dateRange.from && !dateRange.to && visitDate >= dateRange.from) ||
                         (dateRange.from && dateRange.to && isWithinInterval(visitDate, { start: dateRange.from, end: dateRange.to }));
 
@@ -200,7 +197,7 @@ export default function ZHRVisitsMadePage() {
 
   if (!user) return null;
 
-  if (isLoading && user.role === 'ZHR' && allVisits.length === 0) { 
+  if (isLoading && user.role === 'ZHR' && allVisits.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -212,7 +209,7 @@ export default function ZHRVisitsMadePage() {
   return (
     <div className="space-y-8">
       <PageTitle title="Submitted Visits in Zone" description="Browse and filter all submitted visits conducted by BHRs in your zone." />
-      
+
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between gap-4 !pb-4 border-b">
             <h3 className="text-lg font-semibold">Filters</h3>
@@ -255,6 +252,7 @@ export default function ZHRVisitsMadePage() {
       <DataTable
         columns={columns}
         data={filteredVisits}
+        tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
         emptyStateMessage={isLoading ? "Loading visits..." : (allVisits.length === 0 ? "No submitted visits found for BHRs in your zone." : "No submitted visits match your current filters.")}
       />
       {selectedVisitForView && (
