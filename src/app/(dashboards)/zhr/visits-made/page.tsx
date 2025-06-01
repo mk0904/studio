@@ -11,10 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/shared/date-range-picker';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO, isWithinInterval } from 'date-fns';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { format, parseISO, isWithinInterval, formatDistanceToNow } from 'date-fns';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Eye, Search, XCircle } from 'lucide-react';
+import { Loader2, Eye, Search, XCircle, Users, Building2, Calendar, FileQuestion } from 'lucide-react';
 import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,7 +42,7 @@ export default function ZHRVisitsMadePage() {
       header: 'BHR Name',
       cell: (visit) => {
         const bhr = bhrOptions.find(b => b.id === visit.bhr_id);
-        return bhr ? bhr.name : visit.bhr_id;
+        return <span className="font-medium text-slate-700">{bhr ? bhr.name : visit.bhr_id}</span>;
       }
     },
     {
@@ -50,13 +50,23 @@ export default function ZHRVisitsMadePage() {
       header: 'Branch Name',
       cell: (visit) => {
         const branch = branchOptions.find(b => b.id === visit.branch_id);
-        return branch ? branch.name : visit.branch_id;
+        return <span className="font-medium text-slate-700">{branch ? branch.name : visit.branch_id}</span>;
       }
     },
     {
       accessorKey: 'visit_date',
       header: 'Visit Date',
-      cell: (visit) => format(parseISO(visit.visit_date), 'PPP')
+      cell: (visit) => {
+        const date = parseISO(visit.visit_date);
+        return (
+          <div className="flex flex-col space-y-0.5">
+            <span className="text-slate-700">{format(date, 'PPP')}</span>
+            <span className="text-xs text-slate-500">
+              {formatDistanceToNow(date, { addSuffix: true })}
+            </span>
+          </div>
+        );
+      }
     },
     {
       accessorKey: 'actions',
@@ -93,8 +103,6 @@ export default function ZHRVisitsMadePage() {
       return;
     }
     setIsLoading(true);
-    console.log("ZHRVisitsMadePage: Fetching data for ZHR:", user.id);
-
     try {
       const { data: bhrsData, error: bhrsError } = await supabase
         .from('users')
@@ -102,27 +110,14 @@ export default function ZHRVisitsMadePage() {
         .eq('role', 'BHR')
         .eq('reports_to', user.id);
 
-      if (bhrsError) {
-        console.error("ZHRVisitsMadePage: Error fetching BHRs:", bhrsError);
-        toast({ title: "Error", description: `Failed to fetch BHRs: ${bhrsError.message}`, variant: "destructive" });
-        setBhrOptions([]);
-      } else {
-        setBhrOptions(bhrsData || []);
-        console.log("ZHRVisitsMadePage: Fetched BHRs:", bhrsData);
-      }
+      if (bhrsError) throw bhrsError;
+      setBhrOptions(bhrsData || []);
 
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
         .select('id, name, location, category, code');
-
-      if (branchesError) {
-        console.error("ZHRVisitsMadePage: Error fetching branches:", branchesError);
-        toast({ title: "Error", description: `Failed to fetch branches: ${branchesError.message}`, variant: "destructive" });
-        setBranchOptions([]);
-      } else {
-        setBranchOptions(branchesData || []);
-        console.log("ZHRVisitsMadePage: Fetched Branches:", branchesData);
-      }
+      if (branchesError) throw branchesError;
+      setBranchOptions(branchesData || []);
 
       if (bhrsData && bhrsData.length > 0) {
         const bhrIds = bhrsData.map(bhr => bhr.id);
@@ -132,29 +127,18 @@ export default function ZHRVisitsMadePage() {
           .in('bhr_id', bhrIds)
           .eq('status', 'submitted')
           .order('visit_date', { ascending: false });
-
-        if (visitsError) {
-          console.error("ZHRVisitsMadePage: Error fetching visits:", visitsError);
-          toast({ title: "Error", description: `Failed to fetch visits: ${visitsError.message}`, variant: "destructive" });
-          setAllVisits([]);
-        } else {
-          setAllVisits((visitsData as Visit[]) || []);
-          console.log("ZHRVisitsMadePage: Fetched Visits:", visitsData);
-        }
+        if (visitsError) throw visitsError;
+        setAllVisits((visitsData as Visit[]) || []);
       } else {
         setAllVisits([]);
-        console.log("ZHRVisitsMadePage: No BHRs found for this ZHR, so no visits fetched.");
       }
-
     } catch (error: any) {
-      console.error("ZHRVisitsMadePage: General error in fetchData:", error);
-      toast({ title: "Error", description: `An unexpected error occurred: ${error.message}`, variant: "destructive" });
+      toast({ title: "Error", description: `Failed to load data: ${error.message}`, variant: "destructive" });
       setAllVisits([]);
       setBhrOptions([]);
       setBranchOptions([]);
     } finally {
       setIsLoading(false);
-      console.log("ZHRVisitsMadePage: Fetching data finished.");
     }
   }, [user, toast]);
 
@@ -164,16 +148,13 @@ export default function ZHRVisitsMadePage() {
 
   const filteredVisits = useMemo(() => {
     const lowerSearchTerm = searchTerm.toLowerCase();
-
     return allVisits.filter(visit => {
       const visitDate = parseISO(visit.visit_date);
       const dateMatch = !dateRange ||
                         (dateRange.from && !dateRange.to && visitDate >= dateRange.from) ||
                         (dateRange.from && dateRange.to && isWithinInterval(visitDate, { start: dateRange.from, end: dateRange.to }));
-
       const bhrMatch = (bhrFilter === 'all' || visit.bhr_id === bhrFilter);
       const branchMatch = (branchFilter === 'all' || visit.branch_id === branchFilter);
-
       let searchCriteriaMatch = true;
       if (lowerSearchTerm) {
         const bhr = bhrOptions.find(b => b.id === visit.bhr_id);
@@ -183,7 +164,6 @@ export default function ZHRVisitsMadePage() {
                                (bhr?.e_code && bhr.e_code.toLowerCase().includes(lowerSearchTerm)) ||
                                (branch?.location && branch.location.toLowerCase().includes(lowerSearchTerm)));
       }
-
       return bhrMatch && branchMatch && dateMatch && searchCriteriaMatch;
     });
   }, [allVisits, bhrFilter, branchFilter, dateRange, searchTerm, bhrOptions, branchOptions]);
@@ -207,54 +187,104 @@ export default function ZHRVisitsMadePage() {
   }
 
   return (
-    <div className="space-y-8">
-      <PageTitle title="Submitted Visits in Zone" description="Browse and filter all submitted visits conducted by BHRs in your zone." />
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 bg-gradient-to-br from-white via-white/95 to-white/90 p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200/50">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#004C8F]">Submitted Visits in Zone</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground/80 mt-0.5 sm:mt-1">View and filter visits by BHRs in your zone</p>
+        </div>
+      </div>
 
-      <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between gap-4 !pb-4 border-b">
-            <h3 className="text-lg font-semibold">Filters</h3>
-        </CardHeader>
-        <CardContent className="pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-              <div className="relative">
-                <Label htmlFor="search-visits" className="sr-only">Search</Label>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search-visits"
-                  placeholder="Search by BHR, Branch, E-Code, Location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+      <Card className="border-0 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
+        <CardContent className="px-4 sm:px-6 pb-6 space-y-5 sm:space-y-6">
+          <div className="space-y-4 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-8">
+              <div className="flex gap-2 sm:gap-3 items-center w-full sm:w-auto sm:flex-1">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                  </div>
+                  <Input
+                    placeholder="Search BHR, Branch, E-Code, Location..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200"
+                  />
+                </div>
+                <Button
+                  onClick={handleClearFilters}
+                  variant="outline"
+                  className="h-9 sm:h-10 text-xs sm:text-sm font-medium border-slate-200/70 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 active:bg-slate-100 transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                >
+                  <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Clear</span>
+                  <span className="sm:hidden">×</span>
+                </Button>
               </div>
-              <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
-                <SelectTrigger><SelectValue placeholder="Filter by BHR..." /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All BHRs</SelectItem>
-                    {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
-                <SelectTrigger><SelectValue placeholder="Filter by Branch..." /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full lg:col-span-1"/>
-              <Button onClick={handleClearFilters} variant="outline" className="w-full lg:col-span-2">
-                <XCircle className="mr-2 h-4 w-4" /> Clear All Filters
-              </Button>
+              
+              <div className="flex flex-row gap-2 w-full sm:w-auto sm:ml-auto">
+                <div className="flex-1 sm:w-[160px] sm:flex-none">
+                  <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
+                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                      <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                      <SelectValue placeholder="Filter by BHR" />
+                    </SelectTrigger>
+                    <SelectContent className="border-0 shadow-md">
+                      <SelectItem value="all">All BHRs</SelectItem>
+                      {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 sm:w-[160px] sm:flex-none">
+                  <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
+                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                       <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                      <SelectValue placeholder="Filter by Branch" />
+                    </SelectTrigger>
+                    <SelectContent className="border-0 shadow-md">
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
+            <div className="w-full lg:w-1/2 xl:w-1/3 mb-6">
+                <Label className="text-sm font-medium text-slate-700 mb-1.5 block">Filter by Visit Date</Label>
+                 <DatePickerWithRange
+                    date={dateRange}
+                    onDateChange={setDateRange}
+                    className="h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
+                  />
+            </div>
+
+            <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white/90 backdrop-blur-sm shadow-sm">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#004C8F]/60" />
+                </div>
+              ) : filteredVisits.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4">
+                  <div className="bg-gradient-to-br from-slate-50 to-slate-100/80 rounded-full p-4 sm:p-5 mb-4 sm:mb-5 shadow-sm ring-1 ring-slate-100">
+                    <FileQuestion className="h-8 w-8 sm:h-9 sm:w-9 text-[#004C8F]/60" />
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-2">No visits found</h3>
+                  <p className="text-sm sm:text-base text-slate-600 max-w-sm">
+                    {allVisits.length === 0 ? "No submitted visits by BHRs in your zone yet." : "Try adjusting your filters."}
+                  </p>
+                </div>
+              ) : (
+                <DataTable
+                  columns={columns}
+                  data={filteredVisits}
+                  tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+                />
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <DataTable
-        columns={columns}
-        data={filteredVisits}
-        tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
-        emptyStateMessage={isLoading ? "Loading visits..." : (allVisits.length === 0 ? "No submitted visits found for BHRs in your zone." : "No submitted visits match your current filters.")}
-      />
       {selectedVisitForView && (
         <ViewVisitDetailsModal
             visit={selectedVisitForView}
@@ -268,3 +298,4 @@ export default function ZHRVisitsMadePage() {
     </div>
   );
 }
+
