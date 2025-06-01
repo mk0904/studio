@@ -10,9 +10,9 @@ interface PageTitleProps {
 export function PageTitle({ title, description, className }: PageTitleProps) {
   return (
     <div className={className}>
-      <h1 className="text-2xl font-semibold text-foreground md:text-3xl">{title}</h1>
+      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#004C8F]">{title}</h1>
       {description && (
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <p className="text-xs sm:text-sm text-muted-foreground/80 mt-0.5 sm:mt-1">{description}</p>
       )}
     </div>
   );
