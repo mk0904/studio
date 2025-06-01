@@ -233,10 +233,10 @@ export default function ZHRBranchAssignmentsPage() {
         const category = (branch.category || 'uncategorized').toLowerCase();
         const categoryColors = {
           'diamond': 'bg-[#ECF9FF] text-[#0B4D76] hover:bg-[#ECF9FF]/80',
-          'platinum': 'bg-[#F3E8FF] text-[#6B21A8] hover:bg-[#F3E8FF]/80',
+          'platinum': 'bg-[#F3E8FF] text-[#6B21A8] hover:bg-[#F3E8FF]/80', // Updated Platinum
           'gold': 'bg-[#FFF7E6] text-[#976A1D] hover:bg-[#FFF7E6]/80',
           'silver': 'bg-[#F3F4F6] text-[#4B5563] hover:bg-[#F3F4F6]/80',
-          'bronze': 'bg-[#FBF0E4] text-[#8B4513] hover:bg-[#FBF0E4]/80',
+          'bronze': 'bg-[#FBF0E4] text-[#8B4513] hover:bg-[#FBF0E4]/80', // Updated Bronze
           'uncategorized': 'bg-slate-50 text-slate-600 hover:bg-slate-50/80'
         };
         return <Badge variant="secondary" className={cn("font-medium text-xs px-2 py-0.5", categoryColors[category as keyof typeof categoryColors] || categoryColors.uncategorized)}>{branch.category || 'N/A'}</Badge>;
@@ -274,7 +274,7 @@ export default function ZHRBranchAssignmentsPage() {
           onClick={() => handleOpenAssignDialog(branch)} 
           className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
         >
-          <UserPlus className="mr-1.5 h-4 w-4 text-slate-500" /> Assign
+          <Plus className="mr-1.5 h-4 w-4 text-slate-500" /> Assign
         </Button>
       ),
     },
@@ -372,7 +372,7 @@ export default function ZHRBranchAssignmentsPage() {
               </div>
             </div>
         </CardHeader>
-        <CardContent className="p-0 sm:p-0">
+        <CardContent className="pt-0">
           <DataTable
             columns={columns}
             data={filteredBranches}
