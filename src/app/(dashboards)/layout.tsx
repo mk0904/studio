@@ -34,13 +34,12 @@ export default function DashboardLayout({
     );
   }
 
-  const pathsToHideHeader = [
-    '/bhr/dashboard',
-    '/bhr/new-visit',
-    '/bhr/my-visits',
-    '/account',
-  ];
-  const shouldShowHeader = !pathsToHideHeader.includes(pathname);
+  const isBHRPage = pathname.startsWith('/bhr/');
+  const isZHRPage = pathname.startsWith('/zhr/');
+  const isAccountPage = pathname === '/account';
+
+  // Header should be hidden for BHR, ZHR, and Account pages.
+  const shouldShowHeader = !(isBHRPage || isZHRPage || isAccountPage);
 
   const content = (
     <div className="relative min-h-screen w-full bg-background">
