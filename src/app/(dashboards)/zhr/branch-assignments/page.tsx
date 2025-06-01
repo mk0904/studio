@@ -7,7 +7,7 @@ import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { useAuth } from '@/contexts/auth-context';
 import type { Branch, User, Assignment } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, UserPlus, Loader2, Search, XCircle, MapPin } from 'lucide-react'; // Added MapPin, Plus
+import { Plus, UserPlus, Loader2, Search, XCircle, MapPin, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabaseClient';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Added CardDescription
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -102,7 +102,7 @@ export default function ZHRBranchAssignmentsPage() {
           .from('assignments')
           .select('id, bhr_id, branch_id')
           .in('bhr_id', bhrIdsInZone);
-        if (assignmentsError) console.error("Error fetching assignments:", assignmentsError.message); // Log but continue
+        if (assignmentsError) console.error("Error fetching assignments:", assignmentsError.message);
         assignmentsForZhrsBHRs = assignmentsData || [];
       }
       
@@ -231,11 +231,10 @@ export default function ZHRBranchAssignmentsPage() {
       header: 'Category',
       cell: (branch) => {
         const category = branch.category?.toLowerCase();
-        let badgeClass = "bg-slate-100 text-slate-700 hover:bg-slate-200"; // Default
+        let badgeClass = "bg-slate-100 text-slate-700 hover:bg-slate-200"; 
         if (category === 'platinum') badgeClass = "bg-purple-100 text-purple-700 hover:bg-purple-200";
         else if (category === 'diamond') badgeClass = "bg-blue-100 text-blue-700 hover:bg-blue-200";
         else if (category === 'gold') badgeClass = "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
-        // Add more categories as needed
         return <Badge variant="secondary" className={cn("font-medium text-xs", badgeClass)}>{branch.category || 'N/A'}</Badge>;
       }
     },
@@ -243,7 +242,7 @@ export default function ZHRBranchAssignmentsPage() {
       accessorKey: 'assignedBHRs',
       header: 'Assigned BHRs',
       cell: (branch) => ( 
-        <div className="flex flex-wrap gap-1.5 items-center min-h-[24px]"> {/* Ensure min height for alignment */}
+        <div className="flex flex-wrap gap-1.5 items-center min-h-[24px]">
           {branch.assignedBHRs.length > 0 ? branch.assignedBHRs.map(bhrUser => (
             <Badge 
               key={bhrUser.id} 
@@ -268,7 +267,7 @@ export default function ZHRBranchAssignmentsPage() {
       header: 'Actions',
       cell: (branch) => ( 
         <Button variant="outline" size="sm" onClick={() => handleOpenAssignDialog(branch)} className="h-8 text-xs px-3">
-          <Plus className="mr-1.5 h-4 w-4" /> Assign
+          <UserPlus className="mr-1.5 h-4 w-4" /> Assign
         </Button>
       ),
     },
@@ -304,7 +303,7 @@ export default function ZHRBranchAssignmentsPage() {
 
   if (error && branchesInZone.length === 0) { 
      return (
-      <div className="space-y-8">
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
         <PageTitle title="Branch Mapping" description="Assign branches to Branch Head Representatives (BHRs)" />
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -325,7 +324,7 @@ export default function ZHRBranchAssignmentsPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
       <PageTitle title="Branch Mapping" description="Assign branches to Branch Head Representatives (BHRs)" />
       
       {error && branchesInZone.length > 0 && ( 
@@ -407,7 +406,7 @@ export default function ZHRBranchAssignmentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAssignBHR} disabled={isLoading || !selectedBhrForAssignment || bhrsInZoneForDialog.length === 0}><Plus className="mr-2 h-4 w-4" />Assign</Button>
+            <Button onClick={handleAssignBHR} disabled={isLoading || !selectedBhrForAssignment || bhrsInZoneForDialog.length === 0}><UserPlus className="mr-2 h-4 w-4" />Assign</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -432,4 +431,3 @@ export default function ZHRBranchAssignmentsPage() {
     </div>
   );
 }
-
