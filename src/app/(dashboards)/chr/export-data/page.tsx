@@ -20,7 +20,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Aliased to avoid conflict
+import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; 
 import { format, parseISO } from 'date-fns';
 
 interface FilterOption { value: string; label: string; }
@@ -85,21 +85,29 @@ export default function CHRExportDataPage() {
   }, [fetchInitialFilterData]);
 
   useEffect(() => {
-    if (allUsers.length === 0) return;
+    if (allUsers.length === 0 && !isLoadingPage) {
+        setZhrOptions([]);
+        setSelectedZhrIds([]);
+        return;
+    }
     let zhrs = allUsers.filter(u => u.role === 'ZHR');
     if (selectedVhrIds.length > 0) {
       zhrs = zhrs.filter(zhr => zhr.reports_to && selectedVhrIds.includes(zhr.reports_to));
     }
     setZhrOptions(zhrs.map(u => ({ value: u.id, label: u.name })));
     setSelectedZhrIds([]); 
-  }, [selectedVhrIds, allUsers]);
+  }, [selectedVhrIds, allUsers, isLoadingPage]);
 
   useEffect(() => {
-    if (allUsers.length === 0) return;
+    if (allUsers.length === 0 && !isLoadingPage) {
+        setBhrOptions([]);
+        setSelectedBhrIds([]);
+        return;
+    }
     let bhrs = allUsers.filter(u => u.role === 'BHR');
     if (selectedZhrIds.length > 0) {
       bhrs = bhrs.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
-    } else if (selectedVhrIds.length > 0) {
+    } else if (selectedVhrIds.length > 0) { // If VHRs are selected but no ZHRs, filter BHRs by ZHRs under selected VHRs
       const zhrIdsUnderSelectedVhrs = allUsers
         .filter(u => u.role === 'ZHR' && u.reports_to && selectedVhrIds.includes(u.reports_to))
         .map(z => z.id);
@@ -107,7 +115,7 @@ export default function CHRExportDataPage() {
     }
     setBhrOptions(bhrs.map(u => ({ value: u.id, label: `${u.name} (${u.e_code || 'N/A'})` })));
     setSelectedBhrIds([]); 
-  }, [selectedZhrIds, selectedVhrIds, allUsers]);
+  }, [selectedZhrIds, selectedVhrIds, allUsers, isLoadingPage]);
   
   const handleExportToCSV = async () => {
     setIsExporting(true);
@@ -131,26 +139,27 @@ export default function CHRExportDataPage() {
         if (zhrIds.length > 0) {
             targetBhrIds = allUsers.filter(u => u.role === 'BHR' && u.reports_to && zhrIds.includes(u.reports_to)).map(u => u.id);
         } else {
-             targetBhrIds = []; // No ZHRs under VHRs means no BHRs.
+             targetBhrIds = []; 
         }
       }
       
-      if (targetBhrIds !== null) { // If any hierarchy filter is active
-        if (targetBhrIds.length === 0) { // And it results in no BHRs
+      if (targetBhrIds !== null) { 
+        if (targetBhrIds.length === 0 && (selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || selectedVhrIds.length > 0) ) { 
           toast({ title: "No Data", description: "No BHRs match the selected hierarchy filters. Cannot export.", variant: "default" });
           setIsExporting(false);
           return;
         }
-        query = query.in('bhr_id', targetBhrIds);
+        if (targetBhrIds.length > 0) { // Only apply BHR filter if there are specific BHRs to filter by
+            query = query.in('bhr_id', targetBhrIds);
+        }
       }
+
 
       if (selectedBranchIds.length > 0) {
         query = query.in('branch_id', selectedBranchIds);
       }
       
-      // Filter by branch category - this requires a filter on the joined 'branches' table
       if (selectedBranchCategory !== 'all') {
-         // The join is defined in the select, so Supabase should handle filtering on the joined table.
         query = query.eq('branch.category', selectedBranchCategory);
       }
 
@@ -187,8 +196,8 @@ export default function CHRExportDataPage() {
       const csvRows = [headers.join(',')];
 
       fetchedDataForExport.forEach(visit => {
-        const bhrUser = visit.bhr_user as User | null; // Explicitly type cast
-        const branchData = visit.branch as Branch | null; // Explicitly type cast
+        const bhrUser = visit.bhr_user as User | null; 
+        const branchData = visit.branch as Branch | null; 
 
         const row = [
           visit.id,
@@ -289,131 +298,132 @@ export default function CHRExportDataPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
       <PageTitle title="Export Visit Data (CHR)" description="Filter and export submitted visit data across the organization." />
 
-      <Card className="shadow-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ListFilter className="h-5 w-5 text-primary"/>Filter Data for Export</CardTitle>
-          <CardDescription>Select criteria to refine the data before exporting.</CardDescription>
+      <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="flex items-center gap-2 text-lg text-[#004C8F]"><ListFilter className="h-5 w-5"/>Filter Data</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground/90">Select criteria to refine the data before exporting. All filters are optional.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className="space-y-6 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
             <div>
-                <Label className="text-sm font-medium mb-1 block">Filter by VHR</Label>
+                <Label className="text-sm font-medium mb-1.5 block text-slate-700">Filter by VHR</Label>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between pr-8">
+                    <Button variant="outline" className="w-full justify-between pr-3 h-10">
                         {getMultiSelectButtonText(vhrOptions, selectedVhrIds, "All VHRs", "VHRs")}
                         <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-full max-h-60 overflow-y-auto">
+                    <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
                     {vhrOptions.map(option => (
                         <DropdownMenuCheckboxItem key={option.value} checked={selectedVhrIds.includes(option.value)} onCheckedChange={() => handleMultiSelectChange(option.value, selectedVhrIds, setSelectedVhrIds)} onSelect={e => e.preventDefault()}>{option.label}</DropdownMenuCheckboxItem>
                     ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
-                 {selectedVhrIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs" onClick={() => setSelectedVhrIds([])}>Clear VHRs</Button>}
+                 {selectedVhrIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs text-slate-600 hover:text-slate-800" onClick={() => setSelectedVhrIds([])}>Clear VHRs</Button>}
             </div>
             <div>
-                <Label className="text-sm font-medium mb-1 block">Filter by ZHR</Label>
+                <Label className="text-sm font-medium mb-1.5 block text-slate-700">Filter by ZHR</Label>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between pr-8" disabled={zhrOptions.length === 0 && selectedVhrIds.length > 0 && !isLoadingPage}>
+                    <Button variant="outline" className="w-full justify-between pr-3 h-10" disabled={zhrOptions.length === 0 && selectedVhrIds.length > 0 && !isLoadingPage}>
                         {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHRs")}
                         <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-full max-h-60 overflow-y-auto">
+                    <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
                     {zhrOptions.map(option => (
                         <DropdownMenuCheckboxItem key={option.value} checked={selectedZhrIds.includes(option.value)} onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)} onSelect={e => e.preventDefault()}>{option.label}</DropdownMenuCheckboxItem>
                     ))}
-                    {zhrOptions.length === 0 && <DropdownMenuLabel className="text-muted-foreground text-xs px-2">No ZHRs match VHR filter.</DropdownMenuLabel>}
+                    {zhrOptions.length === 0 && selectedVhrIds.length > 0 && !isLoadingPage && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">No ZHRs match VHR filter.</DropdownMenuLabel>}
+                    {isLoadingPage && zhrOptions.length === 0 && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Loading ZHRs...</DropdownMenuLabel>}
                     </DropdownMenuContent>
                 </DropdownMenu>
-                {selectedZhrIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs" onClick={() => setSelectedZhrIds([])}>Clear ZHRs</Button>}
+                {selectedZhrIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs text-slate-600 hover:text-slate-800" onClick={() => setSelectedZhrIds([])}>Clear ZHRs</Button>}
             </div>
             <div>
-                <Label className="text-sm font-medium mb-1 block">Filter by BHR</Label>
+                <Label className="text-sm font-medium mb-1.5 block text-slate-700">Filter by BHR</Label>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between pr-8" disabled={bhrOptions.length === 0 && (selectedZhrIds.length > 0 || selectedVhrIds.length > 0) && !isLoadingPage}>
+                    <Button variant="outline" className="w-full justify-between pr-3 h-10" disabled={bhrOptions.length === 0 && (selectedZhrIds.length > 0 || selectedVhrIds.length > 0) && !isLoadingPage}>
                         {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHRs")}
                         <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-full max-h-60 overflow-y-auto">
+                    <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
                     {bhrOptions.map(option => (
                         <DropdownMenuCheckboxItem key={option.value} checked={selectedBhrIds.includes(option.value)} onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)} onSelect={e => e.preventDefault()}>{option.label}</DropdownMenuCheckboxItem>
                     ))}
-                    {bhrOptions.length === 0 && <DropdownMenuLabel className="text-muted-foreground text-xs px-2">No BHRs match hierarchy filter.</DropdownMenuLabel>}
+                    {bhrOptions.length === 0 && (selectedZhrIds.length > 0 || selectedVhrIds.length > 0) && !isLoadingPage && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">No BHRs match hierarchy filter.</DropdownMenuLabel>}
+                    {isLoadingPage && bhrOptions.length === 0 && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Loading BHRs...</DropdownMenuLabel>}
                     </DropdownMenuContent>
                 </DropdownMenu>
-                {selectedBhrIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs" onClick={() => setSelectedBhrIds([])}>Clear BHRs</Button>}
+                {selectedBhrIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs text-slate-600 hover:text-slate-800" onClick={() => setSelectedBhrIds([])}>Clear BHRs</Button>}
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-                <Label className="text-sm font-medium mb-1 block">Filter by Branch</Label>
+                <Label className="text-sm font-medium mb-1.5 block text-slate-700">Filter by Branch</Label>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between pr-8">
+                    <Button variant="outline" className="w-full justify-between pr-3 h-10" disabled={branchOptions.length === 0 && !isLoadingPage}>
                         {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branches")}
                         <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-full max-h-60 overflow-y-auto">
+                    <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
                     {branchOptions.map(option => (
                         <DropdownMenuCheckboxItem key={option.value} checked={selectedBranchIds.includes(option.value)} onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)} onSelect={e => e.preventDefault()}>{option.label}</DropdownMenuCheckboxItem>
                     ))}
+                    {isLoadingPage && branchOptions.length === 0 && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Loading branches...</DropdownMenuLabel>}
                     </DropdownMenuContent>
                 </DropdownMenu>
-                {selectedBranchIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs" onClick={() => setSelectedBranchIds([])}>Clear Branches</Button>}
+                {selectedBranchIds.length > 0 && <Button variant="link" size="sm" className="p-0 h-auto mt-1 text-xs text-slate-600 hover:text-slate-800" onClick={() => setSelectedBranchIds([])}>Clear Branches</Button>}
             </div>
              <div>
-                <Label className="text-sm font-medium mb-1 block">Filter by Branch Category</Label>
+                <Label className="text-sm font-medium mb-1.5 block text-slate-700">Branch Category</Label>
                 <ShadcnSelect value={selectedBranchCategory} onValueChange={setSelectedBranchCategory} disabled={branchCategoryOptions.length <= 1 && !isLoadingPage}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10">
                         <SelectValue placeholder="Select Category"/>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                         {branchCategoryOptions.map(category => (
                             <SelectItem key={category} value={category}>
                                 {category === 'all' ? 'All Categories' : category}
                             </SelectItem>
                         ))}
-                         {branchCategoryOptions.length <= 1 && <SelectItem value="no-cat" disabled>No categories found</SelectItem>}
+                         {branchCategoryOptions.length <= 1 && !isLoadingPage && <SelectItem value="no-cat" disabled>No categories found</SelectItem>}
+                         {isLoadingPage && branchCategoryOptions.length <=1 && <SelectItem value="loading-cat" disabled>Loading categories...</SelectItem>}
                     </SelectContent>
                 </ShadcnSelect>
             </div>
-            <div>
-                <Label className="text-sm font-medium mb-1 block">Filter by Visit Date</Label>
+            <div className="md:col-span-2 lg:col-span-1"> {/* Date picker takes more space or its own row on smaller screens */}
+                <Label className="text-sm font-medium mb-1.5 block text-slate-700">Visit Date Range</Label>
                 <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
             </div>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto h-10 border-slate-300 hover:bg-slate-50">
                 <XCircle className="mr-2 h-4 w-4" /> Clear All Filters
             </Button>
           </div>
           
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-destructive mt-4">{error}</p>}
           
         </CardContent>
       </Card>
 
-      <Card className="shadow-xl">
-        <CardHeader>
-          <CardTitle>Export Actions</CardTitle>
+      <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="text-lg text-[#004C8F]">Export Actions</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Button
             onClick={handleExportToCSV}
             disabled={isExporting || isLoadingPage}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto h-10 bg-[#004C8F] hover:bg-[#003972] text-white shadow hover:shadow-md transition-all duration-200"
           >
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export to CSV
