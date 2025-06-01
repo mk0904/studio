@@ -230,12 +230,16 @@ export default function ZHRBranchAssignmentsPage() {
       accessorKey: 'category', 
       header: 'Category',
       cell: (branch) => {
-        const category = branch.category?.toLowerCase();
-        let badgeClass = "bg-slate-100 text-slate-700 hover:bg-slate-200"; 
-        if (category === 'platinum') badgeClass = "bg-purple-100 text-purple-700 hover:bg-purple-200";
-        else if (category === 'diamond') badgeClass = "bg-blue-100 text-blue-700 hover:bg-blue-200";
-        else if (category === 'gold') badgeClass = "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
-        return <Badge variant="secondary" className={cn("font-medium text-xs", badgeClass)}>{branch.category || 'N/A'}</Badge>;
+        const category = (branch.category || 'uncategorized').toLowerCase();
+        const categoryColors = {
+          'diamond': 'bg-[#ECF9FF] text-[#0B4D76] hover:bg-[#ECF9FF]/80',
+          'platinum': 'bg-[#F7F7F7] text-[#374151] hover:bg-[#F7F7F7]/80',
+          'gold': 'bg-[#FFF7E6] text-[#976A1D] hover:bg-[#FFF7E6]/80',
+          'silver': 'bg-[#F3F4F6] text-[#4B5563] hover:bg-[#F3F4F6]/80',
+          'bronze': 'bg-[#FBF0E4] text-[#8B4513] hover:bg-[#FBF0E4]/80',
+          'uncategorized': 'bg-slate-50 text-slate-600 hover:bg-slate-50/80'
+        };
+        return <Badge variant="secondary" className={cn("font-medium text-xs", categoryColors[category as keyof typeof categoryColors] || categoryColors.uncategorized)}>{branch.category || 'N/A'}</Badge>;
       }
     },
     {
@@ -266,8 +270,11 @@ export default function ZHRBranchAssignmentsPage() {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (branch) => ( 
-        <Button variant="outline" size="sm" onClick={() => handleOpenAssignDialog(branch)} className="h-8 text-xs px-3">
-          <UserPlus className="mr-1.5 h-4 w-4" /> Assign
+        <Button 
+          onClick={() => handleOpenAssignDialog(branch)} 
+          className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
+        >
+          <UserPlus className="mr-1.5 h-4 w-4 text-slate-500" /> Assign
         </Button>
       ),
     },
@@ -431,3 +438,4 @@ export default function ZHRBranchAssignmentsPage() {
     </div>
   );
 }
+
