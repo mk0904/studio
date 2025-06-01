@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableHeader,
@@ -27,6 +28,7 @@ interface DataTableProps<T> {
   caption?: string;
   title?: string;
   emptyStateMessage?: string;
+  tableClassName?: string;
 }
 
 export function DataTable<T>({
@@ -35,6 +37,7 @@ export function DataTable<T>({
   caption,
   title,
   emptyStateMessage = "No data available.",
+  tableClassName,
 }: DataTableProps<T>) {
   
   const renderCellContent = (item: T, column: ColumnConfig<T>) => {
@@ -53,47 +56,57 @@ export function DataTable<T>({
   };
 
   return (
-    <Card className="shadow-lg">
+    <div className="w-full">
       {title && (
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-      )}
-      <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            {caption && <TableCaption>{caption}</TableCaption>}
-            <TableHeader>
-              <TableRow>
-                {columns.map((column) => (
-                  <TableHead key={String(column.accessorKey)} className="whitespace-nowrap">
-                    {column.header}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data && data.length > 0 ? (
-                data.map((item, rowIndex) => (
-                  <TableRow key={`row-${rowIndex}`}>
-                    {columns.map((column) => (
-                      <TableCell key={`${String(column.accessorKey)}-${rowIndex}`} className="whitespace-nowrap">
-                        {renderCellContent(item, column)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    {emptyStateMessage}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         </div>
-      </CardContent>
-    </Card>
+      )}
+      <div className="-mx-4 sm:mx-0 overflow-x-auto">
+        <Table className={cn('min-w-full', tableClassName)}>
+          {caption && <TableCaption>{caption}</TableCaption>}
+          <TableHeader>
+            <TableRow className="border-0">
+              {columns.map((column) => (
+                <TableHead 
+                  key={String(column.accessorKey)} 
+                  className="whitespace-nowrap border-0 bg-slate-50/80 py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium text-slate-600"
+                >
+                  {column.header}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data && data.length > 0 ? (
+              data.map((item, rowIndex) => (
+                <TableRow 
+                  key={`row-${rowIndex}`} 
+                  className="border-0 hover:bg-blue-50/30 transition-colors"
+                >
+                  {columns.map((column) => (
+                    <TableCell 
+                      key={`${String(column.accessorKey)}-${rowIndex}`} 
+                      className="whitespace-nowrap border-0 py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm"
+                    >
+                      {renderCellContent(item, column)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow className="border-0">
+                <TableCell 
+                  colSpan={columns.length} 
+                  className="h-20 sm:h-24 text-center text-xs sm:text-sm text-slate-500 border-0"
+                >
+                  {emptyStateMessage}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }

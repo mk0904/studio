@@ -232,9 +232,11 @@ export function VisitForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleInternalSubmit('submitted'))} className="space-y-6">
-        <Card className="shadow-lg">
-          <CardHeader><CardTitle>Basic Information</CardTitle></CardHeader>
+      <form onSubmit={form.handleSubmit(handleInternalSubmit('submitted'))} className="space-y-8 pb-8">
+        <Card className="shadow-md hover:shadow-lg border border-slate-200/50 hover:border-slate-300/50 transition-all duration-200 bg-white/80 backdrop-blur-sm [&_input]:border-slate-200 [&_input]:hover:border-slate-300 [&_input]:bg-white/80 [&_input]:h-10 [&_input:not(:focus)]:ring-0 [&_input:not(:focus)]:ring-offset-0 [&_input:focus]:!ring-2 [&_input:focus]:!ring-[#004C8F]/20 [&_input:focus]:!ring-offset-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold text-[#004C8F]">Basic Information</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
@@ -245,7 +247,7 @@ export function VisitForm({
                     <FormLabel>Branch</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingBranches || assignedBranches.length === 0}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="border border-slate-200 hover:border-slate-300 bg-white/80 h-10 [&:not(:focus)]:ring-0 [&:not(:focus)]:ring-offset-0 [&:focus]:!ring-2 [&:focus]:!ring-[#004C8F]/20 [&:focus]:!ring-offset-2 transition-all duration-200">
                           <SelectValue placeholder={isLoadingBranches ? "Loading branches..." : (assignedBranches.length === 0 ? "No branches assigned" : "Select a branch")} />
                         </SelectTrigger>
                       </FormControl>
@@ -256,7 +258,7 @@ export function VisitForm({
                         {assignedBranches.length === 0 && !isLoadingBranches && <SelectItem value="no-branch-placeholder" disabled>No branches assigned to you</SelectItem>}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-sm font-medium text-destructive mt-1" />
                   </FormItem>
                 )}
               />
@@ -271,7 +273,7 @@ export function VisitForm({
                         <FormControl>
                           <Button
                             variant={"outline"}
-                            className={cn("w-full pl-3 text-left font-normal",!field.value && "text-muted-foreground")}
+                            className={cn("w-full pl-3 text-left font-normal border border-slate-200 hover:border-slate-300 bg-white/80 h-10 [&:not(:focus)]:ring-0 [&:not(:focus)]:ring-offset-0 [&:focus]:!ring-2 [&:focus]:!ring-[#004C8F]/20 [&:focus]:!ring-offset-2 transition-all duration-200", !field.value && "text-muted-foreground")}
                           >
                             {field.value ? format(field.value instanceof Date ? field.value : parseISO(field.value as unknown as string), "PPP") : <span>Pick a date</span>}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -288,7 +290,7 @@ export function VisitForm({
                         />
                       </PopoverContent>
                     </Popover>
-                    <FormMessage />
+                    <FormMessage className="text-sm font-medium text-destructive mt-1" />
                   </FormItem>
                 )}
               />
@@ -296,24 +298,26 @@ export function VisitForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormItem>
                 <FormLabel>Branch Category</FormLabel>
-                <Input readOnly value={selectedBranchInfo?.category || "Select a branch"} className="bg-muted" />
+                <Input readOnly value={selectedBranchInfo?.category || "Select a branch"} className="bg-slate-50/50 border border-slate-200 h-10" />
               </FormItem>
               <FormItem>
                 <FormLabel>Branch Code</FormLabel>
-                <Input readOnly value={selectedBranchInfo?.code || "Select a branch"} className="bg-muted" />
+                <Input readOnly value={selectedBranchInfo?.code || "Select a branch"} className="bg-slate-50/50 border border-slate-200 h-10" />
               </FormItem>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-lg">
-          <CardHeader><CardTitle>HR Connect Session</CardTitle></CardHeader>
+        <Card className="shadow-md hover:shadow-lg border border-slate-200/50 hover:border-slate-300/50 transition-all duration-200 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold text-[#004C8F]">HR Connect Session</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             <FormField
               control={form.control}
               name="hr_connect_conducted"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border border-slate-200 hover:border-slate-300 p-4 bg-white/80 transition-all duration-200">
                   <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>HR Connect Session Conducted</FormLabel>
@@ -331,8 +335,16 @@ export function VisitForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Total Employees Invited</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
-                        <FormMessage />
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            className="placeholder:text-slate-400" 
+                            value={field.value || ''}
+                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0)} 
+                          />
+                        </FormControl>
+                        <FormMessage className="text-sm font-medium text-destructive mt-1" />
                       </FormItem>
                     )}
                   />
@@ -342,14 +354,22 @@ export function VisitForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Total Participants</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
-                        <FormMessage />
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            className="placeholder:text-slate-400" 
+                            value={field.value || ''}
+                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0)} 
+                          />
+                        </FormControl>
+                        <FormMessage className="text-sm font-medium text-destructive mt-1" />
                       </FormItem>
                     )}
                   />
                   <FormItem>
                     <FormLabel>Coverage Percentage</FormLabel>
-                    <Input readOnly value={`${coveragePercentage}%`} className="bg-muted font-semibold" />
+                    <Input readOnly value={`${coveragePercentage}%`} className="bg-slate-50/50 border border-slate-200 h-10 font-semibold text-[#004C8F]" />
                   </FormItem>
                 </div>
               </div>
@@ -357,8 +377,10 @@ export function VisitForm({
           </CardContent>
         </Card>
 
-        <Card className="shadow-lg">
-            <CardHeader><CardTitle>Branch Metrics</CardTitle></CardHeader>
+        <Card className="shadow-md hover:shadow-lg border border-slate-200/50 hover:border-slate-300/50 transition-all duration-200 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base sm:text-lg font-semibold text-[#004C8F]">Branch Metrics</CardTitle>
+            </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(['manning_percentage', 'attrition_percentage', 'non_vendor_percentage', 'er_percentage'] as const).map(metric => (
                 <FormField
@@ -368,8 +390,16 @@ export function VisitForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{metric.split('_').map(s => s.charAt(0).toUpperCase() + s.substring(1)).join(' ')} (%)</FormLabel>
-                      <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
-                      <FormMessage />
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="0" 
+                          className="placeholder:text-slate-400" 
+                          value={field.value || ''}
+                          onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value) || 0)} 
+                        />
+                      </FormControl>
+                      <FormMessage className="text-sm font-medium text-destructive mt-1" />
                     </FormItem>
                   )}
                 />
@@ -380,8 +410,16 @@ export function VisitForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>No. of CWT Cases</FormLabel>
-                    <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
-                    <FormMessage />
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="0" 
+                        className="placeholder:text-slate-400" 
+                        value={field.value || ''}
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0)} 
+                      />
+                    </FormControl>
+                    <FormMessage className="text-sm font-medium text-destructive mt-1" />
                   </FormItem>
                 )}
               />
@@ -397,15 +435,17 @@ export function VisitForm({
                         {performanceLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-sm font-medium text-destructive mt-1" />
                   </FormItem>
                 )}
               />
             </CardContent>
           </Card>
           
-          <Card className="shadow-lg">
-            <CardHeader><CardTitle>Employee Coverage</CardTitle></CardHeader>
+          <Card className="shadow-md hover:shadow-lg border border-slate-200/50 hover:border-slate-300/50 transition-all duration-200 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base sm:text-lg font-semibold text-[#004C8F]">Employee Coverage</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-6">
               <div>
                 <h4 className="font-medium mb-2 text-muted-foreground">New Employees (0-6 months)</h4>
@@ -416,8 +456,16 @@ export function VisitForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Total</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
-                        <FormMessage />
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            className="placeholder:text-slate-400" 
+                            value={field.value || ''}
+                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0)} 
+                          />
+                        </FormControl>
+                        <FormMessage className="text-sm font-medium text-destructive mt-1" />
                       </FormItem>
                     )}
                   />
@@ -427,8 +475,16 @@ export function VisitForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Covered</FormLabel>
-                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
-                        <FormMessage />
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            className="placeholder:text-slate-400" 
+                            value={field.value || ''}
+                            onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0)} 
+                          />
+                        </FormControl>
+                        <FormMessage className="text-sm font-medium text-destructive mt-1" />
                       </FormItem>
                     )}
                   />
@@ -444,7 +500,7 @@ export function VisitForm({
                       <FormItem>
                         <FormLabel>Total</FormLabel>
                         <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/></FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-sm font-medium text-destructive mt-1" />
                       </FormItem>
                     )}
                   />
@@ -455,7 +511,7 @@ export function VisitForm({
                       <FormItem>
                         <FormLabel>Covered</FormLabel>
                         <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/></FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-sm font-medium text-destructive mt-1" />
                       </FormItem>
                     )}
                   />
@@ -464,43 +520,53 @@ export function VisitForm({
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg">
-            <CardHeader><CardTitle>Qualitative Assessment</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {qualitativeQuestions.map(q => (
-                <FormField
-                  key={q.name}
-                  control={form.control}
-                  name={q.name}
-                  render={({ field }) => (
-                    <FormItem className="space-y-2 p-3 border rounded-md shadow-sm">
-                      <FormLabel className="text-sm">{q.label}</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          value={field.value || ""} 
-                          className="flex space-x-4"
-                        >
-                          <FormItem className="flex items-center space-x-2">
-                            <FormControl><RadioGroupItem value="yes" /></FormControl>
-                            <FormLabel className="font-normal">Yes</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-2">
-                            <FormControl><RadioGroupItem value="no" /></FormControl>
-                            <FormLabel className="font-normal">No</FormLabel>
-                          </FormItem>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ))}
+          <Card className="shadow-md hover:shadow-lg border border-slate-200/50 hover:border-slate-300/50 transition-all duration-200 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base sm:text-lg font-semibold text-[#004C8F]">Qualitative Assessment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-4 sm:p-6 rounded-xl bg-gradient-to-br from-white via-white/95 to-white/90 shadow-sm hover:shadow-md transition-all duration-200">
+                <div className="space-y-3 sm:space-y-4">
+                  {qualitativeQuestions.map(q => (
+                    <FormField
+                      key={q.name}
+                      control={form.control}
+                      name={q.name}
+                      render={({ field }) => (
+                        <FormItem className="border-b border-slate-100 last:border-0 pb-3 sm:pb-4 last:pb-0">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-8">
+                            <FormLabel className="text-sm sm:text-base font-medium text-slate-800 flex-1">{q.label}</FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                value={field.value?.toString() || ""} 
+                                className="flex space-x-6 shrink-0"
+                              >
+                                <FormItem className="flex items-center space-x-2 sm:space-x-3 hover:transform hover:scale-105 transition-transform duration-200">
+                                  <FormControl><RadioGroupItem value="yes" className="border-slate-300 text-[#004C8F] h-4 w-4 sm:h-5 sm:w-5" /></FormControl>
+                                  <FormLabel className="text-sm sm:text-base font-medium text-slate-600 cursor-pointer whitespace-nowrap">Yes</FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2 sm:space-x-3 hover:transform hover:scale-105 transition-transform duration-200">
+                                  <FormControl><RadioGroupItem value="no" className="border-slate-300 text-[#004C8F] h-4 w-4 sm:h-5 sm:w-5" /></FormControl>
+                                  <FormLabel className="text-sm sm:text-base font-medium text-slate-600 cursor-pointer whitespace-nowrap">No</FormLabel>
+                                </FormItem>
+                              </RadioGroup>
+                            </FormControl>
+                          </div>
+                          <FormMessage className="text-xs sm:text-sm font-medium text-destructive mt-1" />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg">
-            <CardHeader><CardTitle>Additional Remarks</CardTitle></CardHeader>
+          <Card className="shadow-md hover:shadow-lg border border-slate-200/50 hover:border-slate-300/50 transition-all duration-200 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base sm:text-lg font-semibold text-[#004C8F]">Additional Remarks</CardTitle>
+            </CardHeader>
             <CardContent>
               <FormField
                 control={form.control}
@@ -510,33 +576,33 @@ export function VisitForm({
                     <FormLabel className="sr-only">Additional Remarks</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Enter any additional remarks (optional, max 1000 characters)"
-                        className="resize-y min-h-[100px]"
+                        placeholder="Enter any additional remarks (optional, max 1000 characters)..."
+                        className="resize-y min-h-[100px] border border-slate-200 hover:border-slate-300 bg-white/80 placeholder:text-slate-400"
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Maximum 1000 characters.</FormDescription>
-                    <FormMessage />
+                    <FormDescription className="text-sm text-muted-foreground">Maximum 1000 characters. Add any important observations or findings here.</FormDescription>
+                    <FormMessage className="text-sm font-medium text-destructive mt-1" />
                   </FormItem>
                 )}
               />
             </CardContent>
           </Card>
 
-        <div className="flex flex-col sm:flex-row justify-end gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row justify-end gap-4 pt-8 border-t">
           <Button 
             type="button" 
             variant="outline" 
             onClick={form.handleSubmit(handleInternalSubmit('draft'))} 
             disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0} 
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400"
           >
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {draftButtonText}
           </Button>
           <Button 
             type="submit" 
-            className="w-full sm:w-auto" 
+            className="w-full sm:w-auto bg-gradient-to-r from-[#004C8F] to-[#003B6F] hover:from-[#003B6F] hover:to-[#002B4F] text-white shadow-md hover:shadow-lg transition-all duration-200" 
             disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0}
           >
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}

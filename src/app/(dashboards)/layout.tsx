@@ -33,15 +33,17 @@ export default function DashboardLayout({
   }
 
   const content = (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen w-full bg-background">
       <SidebarNavigation />
       <main className={cn(
-        "flex-1 overflow-y-auto p-4 md:p-6 xl:p-8",
-        "pb-24 sm:pb-24 xl:pb-8", // Add bottom padding for mobile nav
-        "xl:ml-[72px]" // Only add left margin on xl breakpoint
+        "flex min-h-screen w-full flex-col",
+        "transition-all duration-300 ease-out",
+        "xl:pl-[72px]" // Add left padding for sidebar on desktop
       )}>
         <DashboardPageHeader className="lg:block hidden" /> {/* Hide header on mobile/tablet */}
-        {children}
+        <div className="flex-1 w-full">
+          {children}
+        </div>
       </main>
     </div>
   );

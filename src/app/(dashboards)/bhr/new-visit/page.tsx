@@ -1,17 +1,16 @@
-
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { PageTitle } from '@/components/shared/page-title';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/auth-context';
-import type { Branch, VisitStatus } from '@/types';
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { PageTitle } from "@/components/shared/page-title";
+import { VisitForm, type VisitFormValues } from "@/components/bhr/visit-form";
+import type { Branch, VisitStatus } from "@/types";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from '@/lib/supabaseClient';
 import { format } from 'date-fns';
-import { VisitForm, type VisitFormValues } from '@/components/bhr/visit-form';
-import { useSearchParams, useRouter } from 'next/navigation'; 
 
 export default function ManageVisitPage() {
   const { toast } = useToast();
@@ -196,11 +195,8 @@ export default function ManageVisitPage() {
     }
   };
   
-  const pageTitle = visitIdToLoad ? (initialVisitData?.status === 'draft' ? "Edit Draft Visit" : "View/Edit Visit") : "Log New Branch Visit";
-  const pageDescription = visitIdToLoad ? `Viewing/Editing visit for ${initialVisitData?.branch_id ? assignedBranches.find(b=>b.id===initialVisitData.branch_id)?.name : '...'}` : "Record the details of your recent branch visit.";
-
-
   if (!user) return <PageTitle title="Loading user..." />;
+
   if (isLoadingVisitData && visitIdToLoad) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -210,30 +206,53 @@ export default function ManageVisitPage() {
     );
   }
 
-  return (
-    <div className="space-y-8 pb-12">
-      <PageTitle title={pageTitle} description={pageDescription} />
-      
-      {fetchError && (
-         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{fetchError}</AlertDescription>
-        </Alert>
-      )}
+  if (isLoadingBranches) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Loading branches...</p>
+      </div>
+    );
+  }
 
-      {(!visitIdToLoad || initialVisitData) && ( 
-         <VisitForm
-            initialData={initialVisitData}
-            onSubmitForm={handleFormSubmit}
-            isSubmitting={isSubmitting}
-            assignedBranches={assignedBranches}
-            isLoadingBranches={isLoadingBranches}
-            onFormReset={() => {
-              if (!visitIdToLoad) setInitialVisitData(undefined); // Only reset if it was a new entry
-            }}
-         />
-      )}
+  const pageTitle = visitIdToLoad ? (initialVisitData?.status === 'draft' ? "Edit Draft Visit" : "View/Edit Visit") : "Log New Branch Visit";
+  const pageDescription = visitIdToLoad ? 
+    `Viewing/Editing visit for ${initialVisitData?.branch_id ? assignedBranches.find((b: Branch) => b.id === initialVisitData.branch_id)?.name : '...'}` : 
+    "Please fill in the details of your recent branch visit. All fields marked with * are required.";
+
+  return (
+    <div className="min-h-screen flex justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50/80">
+      <div className="w-full max-w-6xl py-8 px-4">
+        <div className="mb-8">
+          <PageTitle 
+            title={pageTitle} 
+            description={pageDescription}
+          />
+        </div>
+
+        {fetchError ? (
+          <Alert variant="destructive" className="mt-4 border-2 border-destructive/20 bg-destructive/5">
+            <AlertCircle className="h-5 w-5" />
+            <AlertTitle className="text-base font-semibold">Error Loading Form</AlertTitle>
+            <AlertDescription className="text-sm">{fetchError}</AlertDescription>
+          </Alert>
+        ) : (
+          <div className="relative rounded-xl overflow-hidden bg-white/40 backdrop-blur-sm shadow-sm hover:shadow transition-all duration-200 border border-slate-200/50">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#004C8F]/5 via-transparent to-[#004C8F]/5" />
+            <div className="relative p-6">
+              <VisitForm
+                initialData={initialVisitData}
+                onSubmitForm={handleFormSubmit}
+                isSubmitting={isSubmitting}
+                assignedBranches={assignedBranches}
+                isLoadingBranches={isLoadingBranches}
+                submitButtonText={visitIdToLoad ? "Update Visit" : "Submit Visit"}
+                draftButtonText={visitIdToLoad ? "Save Changes" : "Save as Draft"}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -19,47 +19,51 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      className={cn("p-4 bg-white/80 backdrop-blur-sm border border-slate-200/70 rounded-xl shadow-sm", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center",
+        caption: "flex justify-center pt-1 relative items-center mb-4",
         caption_label: cn(
-          "text-sm font-medium",
-          props.captionLayout?.startsWith("dropdown") && "hidden" // Hide default label if dropdowns are used
+          "text-sm font-medium text-[#004C8F]",
+          props.captionLayout?.startsWith("dropdown") && "hidden"
         ),
-        caption_dropdowns: "rdp-caption_dropdowns flex gap-2 items-center", // class for styling the container of dropdowns
-        nav: "space-x-1 flex items-center",
+        caption_dropdowns: "flex gap-2 items-center",
+        nav: "space-x-2 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-8 w-8 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 p-0 opacity-70 hover:opacity-100 transition-all duration-200 rounded-lg"
         ),
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-y-1",
+        table: "w-full border-collapse space-y-2",
         head_row: "flex",
         head_cell:
-          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+          "text-muted-foreground/70 rounded-md w-10 font-medium text-[0.8rem] mb-1",
         row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        cell: cn(
+          "h-10 w-10 text-center text-sm p-0 relative hover:bg-slate-50/50 rounded-lg transition-colors duration-200",
+          "[&:has([aria-selected])]:bg-[#004C8F]/5 [&:has([aria-selected])]:rounded-lg",
+          "first:[&:has([aria-selected])]:rounded-lg last:[&:has([aria-selected])]:rounded-lg",
+          "focus-within:relative focus-within:z-20"
+        ),
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
+          "h-10 w-10 p-0 font-normal hover:bg-transparent aria-selected:opacity-100 rounded-lg transition-all duration-200"
         ),
         day_range_end: "day-range-end",
         day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground",
+          "bg-[#004C8F] text-white hover:bg-[#004C8F]/90 hover:text-white focus:bg-[#004C8F] focus:text-white shadow-sm",
+        day_today: "bg-slate-100/80 text-[#004C8F] font-medium",
         day_outside:
-          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30", // Ensure outside days are less prominent when selected in range
-        day_disabled: "text-muted-foreground opacity-50",
+          "text-muted-foreground/50 hover:bg-transparent hover:text-muted-foreground/70",
+        day_disabled: "text-muted-foreground/30 hover:bg-transparent cursor-not-allowed",
         day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+          "aria-selected:bg-[#004C8F]/10 aria-selected:text-[#004C8F]",
         day_hidden: "invisible",
-        // Classes for dropdowns (react-day-picker uses 'rdp-' prefix)
-        dropdown: "rdp-dropdown absolute_FIX_IF_NEEDED_BY_TAILWIND bg-background text-foreground border border-input rounded-md p-1 text-sm focus:ring-ring focus:outline-none focus:ring-2",
-        dropdown_month: "rdp-dropdown_month",
-        dropdown_year: "rdp-dropdown_year",
+        dropdown: "bg-white border border-slate-200/70 rounded-lg p-2 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1",
+        dropdown_month: "font-medium text-[#004C8F]",
+        dropdown_year: "font-medium text-[#004C8F]",
         ...classNames,
       }}
       components={{

@@ -6,7 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { PageTitle } from '@/components/shared/page-title';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
@@ -56,19 +57,26 @@ interface DetailRowProps {
   isLoading?: boolean;
 }
 
-const DetailRow: React.FC<DetailRowProps> = ({ icon: Icon, label, value, isLoading }) => (
-  <div className="flex items-start space-x-3 py-3">
-    <Icon className="h-5 w-5 text-muted-foreground mt-1" />
-    <div>
-      <p className="text-sm text-muted-foreground">{label}</p>
-      {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-      ) : (
-        <p className="text-base font-medium text-foreground">{value || 'N/A'}</p>
-      )}
+const DetailRow: React.FC<DetailRowProps> = ({ icon: Icon, label, value, isLoading }: DetailRowProps) => {
+  return (
+    <div className="flex items-center py-3 px-4 mx-2 rounded-md transition-colors hover:bg-muted/40">
+      <Icon className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
+      <div className="flex flex-1 items-center justify-between ml-4 min-w-0">
+        <div className="text-sm font-medium text-foreground/90">{label}</div>
+        <div className="text-sm text-muted-foreground truncate ml-4">
+          {isLoading ? (
+            <div className="flex items-center space-x-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Loading...</span>
+            </div>
+          ) : (
+            value || 'N/A'
+          )}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function AccountPage() {
   const { user, logout, updateUser, isLoading: isAuthLoading } = useAuth();
@@ -195,8 +203,10 @@ export default function AccountPage() {
 
   if (isAuthLoading || !user) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div className="min-h-screen flex justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50/80">
+        <div className="w-full max-w-6xl py-8 px-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
@@ -204,150 +214,192 @@ export default function AccountPage() {
   const initials = user.name.split(' ').map((n) => n[0]).join('').toUpperCase();
 
   return (
-    <>
-      <PageTitle title="My Account" description="View and manage your profile details." />
-      <div className="mt-8 max-w-3xl mx-auto">
+    <div className="min-h-screen mb-20 flex justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50/80">
+      <div className="w-full max-w-6xl py-6 sm:py-8 px-3 sm:px-4">
+        <div className="mb-8">
+          <PageTitle 
+            title="My Account" 
+            description="View and manage your account settings"
+          />
+        </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <Card className="shadow-xl">
-              <CardHeader className="pb-4">
-                <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
-                  <Avatar className="h-24 w-24 text-3xl">
-                    <AvatarImage src={`https://placehold.co/150x150.png?text=${initials}`} alt={user.name} data-ai-hint="avatar person" />
-                    <AvatarFallback>{initials}</AvatarFallback>
+            <Card className="border-0 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 shadow-lg hover:shadow-xl transition-all duration-300 max-w-3xl mx-auto">
+              <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
+                <div className="flex flex-col sm:flex-row items-center sm:items-center gap-4 sm:gap-6">
+                  <Avatar className="h-16 w-16 sm:h-24 sm:w-24 rounded-xl border-2 border-white/50 shadow-xl bg-gradient-to-br from-[#004C8F] to-[#0066CC]">
+                    <AvatarFallback className="text-white text-xl sm:text-3xl font-medium">
+                      {initials}
+                    </AvatarFallback>
                   </Avatar>
-                  <div className="text-center sm:text-left">
-                    {isEditing ? (
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem className="mb-2">
-                            <FormLabel className="sr-only">Full Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Your Name" {...field} className="text-3xl font-bold h-auto p-0 border-0 shadow-none focus-visible:ring-0" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    ) : (
-                      <CardTitle className="text-3xl">{user.name}</CardTitle>
-                    )}
-                    {isEditing ? (
-                       <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="sr-only">Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="youremail@example.com" {...field} className="text-md text-muted-foreground h-auto p-0 border-0 shadow-none focus-visible:ring-0" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    ) : (
-                      <CardDescription className="text-md mt-1">{user.email}</CardDescription>
-                    )}
-                    <Badge variant="secondary" className="mt-2 text-sm">{user.role}</Badge>
+                  <div className="space-y-2 sm:space-y-3 text-center sm:text-left w-full">
+                    <div>
+                      <CardTitle className="text-xl sm:text-3xl font-semibold mb-0.5 sm:mb-1 text-slate-800">{user.name}</CardTitle>
+                      <CardDescription className="text-sm sm:text-base text-slate-600">{user.email}</CardDescription>
+                    </div>
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-1.5 sm:gap-2">
+                      <Badge 
+                        variant="secondary" 
+                        className="px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium bg-[#004C8F]/10 text-[#004C8F] hover:bg-[#004C8F]/20 transition-colors"
+                      >
+                        {user.role}
+                      </Badge>
+                      <Badge 
+                        variant="secondary" 
+                        className="px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium bg-[#004C8F]/10 text-[#004C8F] hover:bg-[#004C8F]/20 transition-colors"
+                      >
+                        E-Code: {user.e_code}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="pt-2">
-                <div className="divide-y divide-border">
-                  {isEditing ? (
-                    <>
+              <CardContent className="p-0 space-y-4">
+
+                {isEditing ? (
+                  <>
+                    <div className="space-y-4 px-6 py-4">
                       <FormField control={form.control} name="e_code" render={({ field }) => (
-                        <FormItem className="py-3">
-                          <div className="flex items-center space-x-3">
-                            <Hash className="h-5 w-5 text-muted-foreground mt-1 flex-shrink-0" />
-                            <div className="flex-grow">
-                              <FormLabel className="text-sm text-muted-foreground">Employee Code (E-Code)</FormLabel>
-                              <FormControl><Input placeholder="E12345" {...field} value={field.value ?? ''} className="text-base font-medium p-0 border-0 shadow-none focus-visible:ring-0 h-auto mt-0.5" /></FormControl>
-                              <FormMessage />
+                        <FormItem>
+                          <div className="flex items-center py-2.5 px-4 rounded-md transition-colors hover:bg-slate-50/80">
+                            <Hash className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
+                            <div className="flex flex-1 items-center justify-between ml-3 min-w-0">
+                              <FormLabel className="text-sm font-medium text-foreground/90">Employee Code</FormLabel>
+                              <div className="flex-shrink-0 ml-4 w-[180px] sm:w-[280px]">
+                                <FormControl>
+                                  <Input 
+                                    placeholder="E12345" 
+                                    {...field} 
+                                    value={field.value ?? ''} 
+                                    className="text-sm text-muted-foreground w-full h-8 sm:h-10 bg-white/50 border border-slate-200 shadow-sm hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-primary/30 transition-colors" 
+                                  />
+                                </FormControl>
+                              </div>
                             </div>
                           </div>
+                          <FormMessage className="text-xs px-4 mt-1 text-red-500" />
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="location" render={({ field }) => (
-                        <FormItem className="py-3">
-                           <div className="flex items-center space-x-3">
-                            <MapPin className="h-5 w-5 text-muted-foreground mt-1 flex-shrink-0" />
-                            <div className="flex-grow">
-                              <FormLabel className="text-sm text-muted-foreground">Location</FormLabel>
-                              <FormControl><Input placeholder="e.g., Delhi" {...field} value={field.value ?? ''} className="text-base font-medium p-0 border-0 shadow-none focus-visible:ring-0 h-auto mt-0.5" /></FormControl>
-                              <FormMessage />
+                        <FormItem>
+                          <div className="flex items-center py-2.5 px-4 rounded-md transition-colors hover:bg-slate-50/80">
+                            <MapPin className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
+                            <div className="flex flex-1 items-center justify-between ml-3 min-w-0">
+                              <FormLabel className="text-sm font-medium text-foreground/90">Location</FormLabel>
+                              <div className="flex-shrink-0 ml-4 w-[180px] sm:w-[280px]">
+                                <FormControl>
+                                  <Input 
+                                    placeholder="e.g., Delhi" 
+                                    {...field} 
+                                    value={field.value ?? ''} 
+                                    className="text-sm text-muted-foreground w-full h-8 sm:h-10 bg-white/50 border border-slate-200 shadow-sm hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-primary/30 transition-colors" 
+                                  />
+                                </FormControl>
+                              </div>
                             </div>
                           </div>
+                          <FormMessage className="text-xs px-4 mt-1 text-red-500" />
                         </FormItem>
                       )} />
-                      {user.role !== 'CHR' && (
-                        <FormField control={form.control} name="reports_to" render={({ field }) => (
-                          <FormItem className="py-3">
-                            <div className="flex items-center space-x-3">
-                              <Users className="h-5 w-5 text-muted-foreground mt-1 flex-shrink-0" />
-                              <div className="flex-grow">
-                                <FormLabel className="text-sm text-muted-foreground">Reports To</FormLabel>
+                    </div>
+                    {user.role !== 'CHR' && (
+                      <FormField control={form.control} name="reports_to" render={({ field }) => (
+                        <FormItem>
+                          <div className="flex items-center py-3 px-4 rounded-md mx-6 mb-4 transition-colors hover:bg-slate-50/80">
+                            <Users className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
+                            <div className="flex flex-1 items-center justify-between ml-4 min-w-0">
+                              <FormLabel className="text-sm font-medium text-foreground/90">Reports To</FormLabel>
+                              <div className="flex-shrink-0 ml-4 w-[180px] sm:w-[280px]">
                                 <Select 
                                   onValueChange={(value) => field.onChange(value === 'none' ? null : value)} 
                                   value={field.value || 'none'}
                                   disabled={isLoadingPotentialManagers}
                                 >
                                   <FormControl>
-                                    <SelectTrigger className="text-base font-medium p-0 border-0 shadow-none focus-visible:ring-0 h-auto mt-0.5 data-[placeholder]:text-foreground">
+                                    <SelectTrigger className="text-sm text-muted-foreground w-full h-8 sm:h-10 bg-white/50 border border-slate-200 shadow-sm hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-primary/30 transition-colors data-[placeholder]:text-muted-foreground">
                                       <SelectValue placeholder={isLoadingPotentialManagers ? "Loading..." : "Select manager"} />
                                     </SelectTrigger>
                                   </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="none">None (Clear Selection)</SelectItem>
+                                  <SelectContent className="w-[180px] sm:w-[280px] max-h-[240px] overflow-y-auto" side="bottom" position="popper" sideOffset={4}>
+                                    <SelectItem value="none" className="text-sm">None (Clear Selection)</SelectItem>
                                     {potentialManagers.map(pm => (
-                                      <SelectItem key={pm.id} value={pm.id}>{pm.name} ({pm.role})</SelectItem>
+                                      <SelectItem key={pm.id} value={pm.id} className="text-sm">{pm.name} ({pm.role})</SelectItem>
                                     ))}
                                     {!isLoadingPotentialManagers && potentialManagers.length === 0 && user.role !== 'CHR' && (
-                                      <SelectItem value="no-managers" disabled>No eligible managers found</SelectItem>
+                                      <SelectItem value="no-managers" disabled className="text-sm">No eligible managers found</SelectItem>
                                     )}
                                   </SelectContent>
                                 </Select>
-                                <FormMessage />
                               </div>
+                            </div>
+                          </div>
+                          <FormMessage className="text-xs px-3 mt-1 text-red-500" />
+                        </FormItem>
+                      )} />
+                    )}
+                    <div className="space-y-4 px-6 py-4">
+                      <p className="text-sm font-medium text-foreground/90 px-4 mb-2">Change Password (Optional)</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <FormField control={form.control} name="newPassword" render={({ field }) => (
+                          <FormItem>
+                            <div className="py-2.5 px-4 rounded-md transition-colors hover:bg-slate-50/80">
+                              <FormLabel className="text-sm font-medium text-foreground/90 mb-2 block">New Password</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input 
+                                    type={showNewPassword ? "text" : "password"} 
+                                    placeholder="New password" 
+                                    {...field} 
+                                    className="text-sm h-8 sm:h-10 w-full bg-white/50 border border-slate-200 shadow-sm hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-primary/30 transition-colors pr-10"
+                                  />
+                                  <Button 
+                                    type="button" 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 hover:bg-slate-100/80 transition-colors" 
+                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                  >
+                                    <Eye className="h-4 w-4 text-muted-foreground/70" />
+                                  </Button>
+                                </div>
+                              </FormControl>
+                              <FormMessage className="text-xs mt-1.5 text-red-500" />
                             </div>
                           </FormItem>
                         )} />
-                      )}
-                      <div className="py-3 space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Change Password (Optional)</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <FormField control={form.control} name="newPassword" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>New Password</FormLabel>
+                        <FormField control={form.control} name="confirmNewPassword" render={({ field }) => (
+                          <FormItem>
+                            <div className="py-2.5 px-4 rounded-md transition-colors hover:bg-slate-50/80">
+                              <FormLabel className="text-sm font-medium text-foreground/90 mb-2 block">Confirm Password</FormLabel>
                               <FormControl>
                                 <div className="relative">
-                                  <Input type={showNewPassword ? "text" : "password"} placeholder="New password" {...field} />
-                                  <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2" onClick={() => setShowNewPassword(!showNewPassword)}><Eye className="h-4 w-4" /></Button>
+                                  <Input 
+                                    type={showConfirmPassword ? "text" : "password"} 
+                                    placeholder="Confirm password" 
+                                    {...field} 
+                                    className="text-sm h-8 sm:h-10 w-full bg-white/50 border border-slate-200 shadow-sm hover:border-slate-300 focus-visible:ring-1 focus-visible:ring-primary/30 transition-colors pr-10"
+                                  />
+                                  <Button 
+                                    type="button" 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 hover:bg-slate-100/80 transition-colors" 
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  >
+                                    <Eye className="h-4 w-4 text-muted-foreground/70" />
+                                  </Button>
                                 </div>
                               </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )} />
-                          <FormField control={form.control} name="confirmNewPassword" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Confirm Password</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm password" {...field} />
-                                  <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2" onClick={() => setShowConfirmPassword(!showConfirmPassword)}><Eye className="h-4 w-4" /></Button>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )} />
-                        </div>
+                              <FormMessage className="text-xs mt-1.5 text-red-500" />
+                            </div>
+                          </FormItem>
+                        )} />
                       </div>
-                    </>
-                  ) : (
-                    <>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                       <DetailRow icon={UserCircle2} label="Full Name" value={user.name} />
                       <DetailRow icon={Mail} label="Email Address" value={user.email} />
                       <DetailRow icon={Briefcase} label="Role" value={user.role} />
@@ -361,26 +413,54 @@ export default function AccountPage() {
                           isLoading={isLoadingManager && !!user.reports_to}
                         />
                       )}
-                    </>
-                  )}
-                </div>
-                <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-end">
+                    </div>
+                  </>
+                )}
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4 px-6 py-4 border-t border-slate-200/80 bg-slate-50/50">
                   {isEditing ? (
                     <>
-                      <Button variant="outline" onClick={() => { setIsEditing(false); form.reset(); /* Reset form on cancel */ }}>
-                        <X className="mr-2 h-4 w-4" /> Cancel
+                      <Button 
+                        variant="outline" 
+                        onClick={() => { setIsEditing(false); form.reset(); }}
+                        className="w-full sm:w-auto h-9 text-sm font-medium border-slate-200 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
                       </Button>
-                      <Button type="submit" disabled={isAuthLoading || isLoadingPotentialManagers}>
-                        {isAuthLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Save Changes
+                      <Button 
+                        type="submit" 
+                        disabled={isAuthLoading || isLoadingPotentialManagers}
+                        className="w-full sm:w-auto h-9 text-sm font-medium bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ease-in-out disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                      >
+                        {isAuthLoading || isLoadingPotentialManagers ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Save Changes
+                          </>
+                        )}
                       </Button>
                     </>
                   ) : (
-                    <Button variant="outline" onClick={() => setIsEditing(true)}>
-                      <Pencil className="mr-2 h-4 w-4" /> Edit Profile
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full sm:w-auto h-9 text-sm font-medium border-slate-200 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors"
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit Profile
                     </Button>
                   )}
-                  <Button variant="destructive" onClick={logout}>
+                  <Button 
+                    variant="ghost" 
+                    onClick={logout}
+                    className="w-full sm:w-auto h-9 text-sm font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors border border-red-100"
+                  >
                     <LogOut className="mr-2 h-4 w-4" /> Logout
                   </Button>
                 </div>
@@ -389,6 +469,6 @@ export default function AccountPage() {
           </form>
         </Form>
       </div>
-    </>
+    </div>
   );
 }

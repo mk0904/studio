@@ -5,12 +5,15 @@ import React, { useEffect, useState } from 'react';
 import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, Building2, ClipboardCheck, Loader2, BarChart3, PlusCircle } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, Building2, ClipboardCheck, Loader2, BarChart3, PlusCircle, ArrowUpRight, Calendar } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { isSameMonth, parseISO, startOfMonth } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { format, isSameMonth, parseISO, startOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
+import { cn } from '@/lib/utils';
 import type { ChartData } from '@/types';
 import Link from 'next/link';
 
@@ -151,100 +154,114 @@ export default function BHRDashboardPage() {
 
 
   return (
-    <div className="space-y-8">
-      <PageTitle 
-        title={`Welcome back, ${user.name}!`} 
-        description="Here's an overview of your branch visits and performance metrics for this month." 
-      />
+    <div className="flex min-h-full w-full flex-col items-center px-4 sm:px-6">
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
+        <div className="flex flex-col space-y-4 sm:space-y-6">
+          <div className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[#004C8F]">
+                Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground/80">
+                Branch visit overview for {format(new Date(), 'MMMM yyyy')}
+              </p>
+            </div>
+            <Button asChild className="bg-[#004C8F] hover:bg-[#004C8F]/90 transition-all duration-200 text-white h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm shadow hover:shadow-md w-full sm:w-auto">
+              <Link href="/bhr/new-visit" className="inline-flex items-center justify-center gap-1.5 sm:gap-2">
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span>Log New Visit</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+        </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"> 
-        <Card className="shadow-md bg-blue-50 dark:bg-blue-900/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600 dark:text-blue-400">Assigned Branches</CardTitle>
-            <Users className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{assignedBranchesCount}</div>
-            <p className="text-xs text-muted-foreground pt-1">Total branches under your supervision</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
+          <Card className="relative overflow-hidden border border-indigo-500/10 bg-gradient-to-br from-white to-indigo-500/5 transition-all duration-200 hover:border-indigo-500/20 hover:shadow-md flex flex-col col-span-1">
+            <CardHeader className="p-3 sm:p-4 pb-0">
+              <CardTitle className="text-xs sm:text-sm font-medium text-indigo-600">Assigned Branches</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground/70">Total branches assigned to you</CardDescription>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{assignedBranchesCount}</div>
+              <div className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+                <span className="text-xs text-muted-foreground/70">{branchesCoveredThisMonth} visited</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-md bg-purple-50 dark:bg-purple-900/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-600 dark:text-purple-400">Branches Covered</CardTitle>
-            <Building2 className="h-5 w-5 text-purple-500 dark:text-purple-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{branchesCoveredThisMonth}</div>
-            <p className="text-xs text-muted-foreground pt-1">Unique branches visited</p>
-            <Badge variant="outline" className="text-xs mt-1 bg-purple-100 dark:bg-purple-800/50 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300">this month</Badge>
-          </CardContent>
-        </Card>
+          <Card className="relative overflow-hidden border border-[#004C8F]/10 bg-gradient-to-br from-white to-[#004C8F]/5 transition-all duration-200 hover:border-[#004C8F]/20 hover:shadow-md flex flex-col col-span-1">
+            <CardHeader className="p-3 sm:p-4 pb-0">
+              <CardTitle className="text-xs sm:text-sm font-medium text-[#004C8F]">Monthly Progress</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground/70">Branch coverage this month</CardDescription>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{completionRate}%</div>
+              <div className="flex items-center gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                <span className="text-xs sm:text-sm text-muted-foreground/70">{branchesCoveredThisMonth} of {assignedBranchesCount}</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-md bg-green-50 dark:bg-green-900/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-600 dark:text-green-400">Total Visits</CardTitle>
-            <ClipboardCheck className="h-5 w-5 text-green-500 dark:text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{totalVisitsThisMonth}</div>
-            <p className="text-xs text-muted-foreground pt-1">Total visits made</p>
-             <Badge variant="outline" className="text-xs mt-1 bg-green-100 dark:bg-green-800/50 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">this month</Badge>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="relative overflow-hidden border border-emerald-500/10 bg-gradient-to-br from-white to-emerald-500/5 transition-all duration-200 hover:border-emerald-500/20 hover:shadow-md flex flex-col col-span-2 sm:col-span-1">
+            <CardHeader className="p-3 sm:p-4 pb-0">
+              <CardTitle className="text-xs sm:text-sm font-medium text-emerald-600">Total Visits</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground/70">Branch visits completed this month</CardDescription>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{totalVisitsThisMonth}</div>
+              <div className="flex items-center gap-1.5">
+                <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-xs text-muted-foreground/70">completed visits</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-        <Card className="shadow-md lg:col-span-1"> 
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
-            <BarChart3 className="h-5 w-5 text-accent" />
+        <div className="grid gap-4 sm:gap-6 w-full">
+        <Card className="border border-slate-200/50 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:border-slate-300/50 hover:shadow-md mb-6 sm:mb-8">
+          <CardHeader className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm sm:text-base font-medium text-slate-800">Branch Visit Distribution</CardTitle>
+                <CardDescription className="text-[10px] sm:text-xs text-muted-foreground/70">By branch category this month</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground pt-1">Of assigned branches visited</p>
-             <Badge variant="outline" className="text-xs mt-1">this month</Badge>
-          </CardContent>
-        </Card>
-         <Link href="/bhr/new-visit" className="lg:col-span-2">
-            <Card className="flex flex-col items-center justify-center h-full bg-accent text-accent-foreground hover:bg-accent/90 transition-colors cursor-pointer shadow-lg">
-              <CardHeader className="pb-2">
-                <PlusCircle className="h-10 w-10" />
-              </CardHeader>
-              <CardContent className="text-center">
-                <CardTitle className="text-lg font-semibold">Log New Visit</CardTitle>
-              </CardContent>
-            </Card>
-          </Link>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6"> {/* Changed to lg:grid-cols-1 */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Branch Visit Progress</CardTitle>
-            <CardDescription>Distribution of submitted visits by branch category this month.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading && branchCategoryDistribution.length === 0 ? (
-              <div className="flex items-center justify-center h-48">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <CardContent className="p-3 sm:p-4 pt-0">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-[200px] sm:h-[300px]">
+                <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-[#004C8F]" />
               </div>
             ) : branchCategoryDistribution.length > 0 ? (
-              <PlaceholderPieChart
-                data={branchCategoryDistribution}
-                title="" 
-                dataKey="value"
-                nameKey="name"
-              />
+              <div className="h-[200px] sm:h-[300px]">
+                <PlaceholderPieChart
+                  data={branchCategoryDistribution}
+                  title="" 
+                  dataKey="value"
+                  nameKey="name"
+                />
+              </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-48 text-center p-4">
-                <ClipboardCheck className="w-12 h-12 text-muted-foreground mb-3" />
-                <p className="text-muted-foreground font-medium">No Submitted Visits This Month</p>
-                <p className="text-xs text-muted-foreground">Visit data by branch category will appear here once visits are submitted for the current month.</p>
+              <div className="flex flex-col items-center justify-center h-[300px] text-center p-4">
+                <ClipboardCheck className="w-12 h-12 text-muted-foreground/50 mb-3" />
+                <p className="font-medium text-muted-foreground">No Visits This Month</p>
+                <p className="text-sm text-muted-foreground/80 max-w-[260px] mt-1.5">Visit data will appear here once you start logging visits for this month.</p>
               </div>
             )}
           </CardContent>
+          <CardFooter className="border-t bg-muted/5 flex justify-end">
+            <Button variant="ghost" size="sm" asChild className="text-[#004C8F] hover:text-[#004C8F]/90 hover:bg-[#004C8F]/10">
+              <Link href="/bhr/my-visits" className="inline-flex items-center gap-1">
+                View All Visits
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardFooter>
         </Card>
+        </div>
       </div>
     </div>
   );
