@@ -7,7 +7,7 @@ import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { useAuth } from '@/contexts/auth-context';
 import type { Branch, User, Assignment } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Check, PlusCircle, Trash2, UserPlus, Loader2, Search, XCircle } from 'lucide-react';
+import { Plus, Trash2, UserPlus, Loader2, Search, XCircle, MapPin } from 'lucide-react'; // Added MapPin, Plus
 import {
   Dialog,
   DialogContent,
@@ -38,8 +38,10 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabaseClient';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Added CardDescription
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface BranchAssignmentView extends Branch {
   assignedBHRs: User[];
@@ -66,47 +68,33 @@ export default function ZHRBranchAssignmentsPage() {
     if (!user || user.role !== 'ZHR') {
       setIsLoading(false);
       setError("User is not a ZHR or not logged in.");
-      console.log("ZHRBranchAssignmentsPage: User not ZHR or not logged in, bailing.", user);
       return;
     }
     setIsLoading(true);
     setError(null);
-    console.log("ZHRBranchAssignmentsPage: Starting data fetch for ZHR user:", user.id);
 
     try {
-      // 1. Fetch BHRs that report to the current ZHR (for the assignment dialog and BHR name lookup)
       const { data: bhrsData, error: bhrsError } = await supabase
         .from('users')
         .select('id, name, email, role')
         .eq('role', 'BHR')
         .eq('reports_to', user.id);
 
-      console.log("ZHRBranchAssignmentsPage: Fetched BHRs for dialog:", bhrsData);
-      if (bhrsError && bhrsError.message) {
-        console.error("ZHRBranchAssignmentsPage: Fetched BHRs error:", bhrsError.message, bhrsError);
-        throw new Error(`Failed to fetch BHRs: ${bhrsError.message}`);
-      }
+      if (bhrsError) throw bhrsError;
       setBhrsInZoneForDialog(bhrsData || []);
 
-      // 2. Fetch ALL branches
       const { data: allBranchesData, error: branchesError } = await supabase
         .from('branches')
         .select('id, name, location, category, code');
       
-      console.log("ZHRBranchAssignmentsPage: Fetched ALL branches data:", allBranchesData);
-      if (branchesError && branchesError.message) {
-        console.error("ZHRBranchAssignmentsPage: Fetched ALL branches error:", branchesError.message, branchesError);
-        throw new Error(`Failed to fetch branches: ${branchesError.message}`);
-      }
+      if (branchesError) throw branchesError;
       
       if (!allBranchesData || allBranchesData.length === 0) {
-        console.warn("ZHRBranchAssignmentsPage: No branches found in the database.");
         setBranchesInZone([]);
         setIsLoading(false);
         return;
       }
 
-      // 3. Fetch assignments ONLY for the BHRs under this ZHR
       const bhrIdsInZone = (bhrsData || []).map(bhr => bhr.id);
       let assignmentsForZhrsBHRs: Assignment[] = [];
       if (bhrIdsInZone.length > 0) {
@@ -114,36 +102,27 @@ export default function ZHRBranchAssignmentsPage() {
           .from('assignments')
           .select('id, bhr_id, branch_id')
           .in('bhr_id', bhrIdsInZone);
-
-        console.log("ZHRBranchAssignmentsPage: Fetched assignments for ZHR's BHRs:", assignmentsData);
-        if (assignmentsError && assignmentsError.message) {
-          console.error("ZHRBranchAssignmentsPage: Fetched assignments error:", assignmentsError.message, assignmentsError);
-        }
+        if (assignmentsError) console.error("Error fetching assignments:", assignmentsError.message); // Log but continue
         assignmentsForZhrsBHRs = assignmentsData || [];
-      } else {
-        console.log("ZHRBranchAssignmentsPage: No BHRs found for this ZHR, so no assignments to fetch by BHR ID.");
       }
       
-      // Map all branches, and for each branch, find if any of the ZHR's BHRs are assigned to it.
       const branchViews: BranchAssignmentView[] = allBranchesData.map(branch => {
         const assignmentsForThisBranchByZhrsBHRs = assignmentsForZhrsBHRs.filter(a => a.branch_id === branch.id);
         const assignedBHRsDetails = assignmentsForThisBranchByZhrsBHRs
           .map(a => (bhrsData || []).find(bhrUser => bhrUser.id === a.bhr_id))
-          .filter(bhrUser => bhrUser !== undefined) as User[]; // Type assertion
+          .filter(bhrUser => bhrUser !== undefined) as User[];
         return { ...branch, assignedBHRs: assignedBHRsDetails };
       });
       
-      console.log("ZHRBranchAssignmentsPage: Constructed branchViews:", branchViews);
       setBranchesInZone(branchViews);
 
     } catch (e: any) {
-      console.error("ZHRBranchAssignmentsPage: Error in fetchData's try-catch block:", e.message, e);
+      console.error("Error in fetchData:", e.message, e);
       setError(e.message || "An unexpected error occurred while fetching data.");
       toast({ title: "Error", description: e.message || "Could not load branch data.", variant: "destructive" });
       setBranchesInZone([]); 
     } finally {
       setIsLoading(false);
-      console.log("ZHRBranchAssignmentsPage: Data fetch finished. Loading state:", false);
     }
   }, [user, toast]);
 
@@ -237,22 +216,50 @@ export default function ZHRBranchAssignmentsPage() {
 
   const columns: ColumnConfig<BranchAssignmentView>[] = [
     { accessorKey: 'name', header: 'Branch Name' },
-    { accessorKey: 'location', header: 'Location' },
-    { accessorKey: 'category', header: 'Category' },
-    { accessorKey: 'code', header: 'Code' },
+    { 
+      accessorKey: 'location', 
+      header: 'Location',
+      cell: (branch) => (
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-muted-foreground/80" />
+          <span>{branch.location}</span>
+        </div>
+      )
+    },
+    { 
+      accessorKey: 'category', 
+      header: 'Category',
+      cell: (branch) => {
+        const category = branch.category?.toLowerCase();
+        let badgeClass = "bg-slate-100 text-slate-700 hover:bg-slate-200"; // Default
+        if (category === 'platinum') badgeClass = "bg-purple-100 text-purple-700 hover:bg-purple-200";
+        else if (category === 'diamond') badgeClass = "bg-blue-100 text-blue-700 hover:bg-blue-200";
+        else if (category === 'gold') badgeClass = "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
+        // Add more categories as needed
+        return <Badge variant="secondary" className={cn("font-medium text-xs", badgeClass)}>{branch.category || 'N/A'}</Badge>;
+      }
+    },
     {
       accessorKey: 'assignedBHRs',
-      header: 'Assigned BHR(s)',
+      header: 'Assigned BHRs',
       cell: (branch) => ( 
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5 items-center min-h-[24px]"> {/* Ensure min height for alignment */}
           {branch.assignedBHRs.length > 0 ? branch.assignedBHRs.map(bhrUser => (
-            <div key={bhrUser.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-xs">
+            <Badge 
+              key={bhrUser.id} 
+              variant="secondary" 
+              className="text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200/80 py-1 pl-2.5 pr-1.5"
+            >
                 {bhrUser.name}
-                <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => handleOpenUnassignDialog(branch.id, bhrUser.id, branch.name, bhrUser.name)}>
-                    <Trash2 className="h-3 w-3 text-destructive"/>
-                </Button>
-            </div>
-          )) : <span className="text-xs text-muted-foreground">None</span>}
+                <button 
+                    onClick={() => handleOpenUnassignDialog(branch.id, bhrUser.id, branch.name, bhrUser.name)} 
+                    className="ml-1.5 p-0.5 rounded-full hover:bg-slate-300 transition-colors"
+                    aria-label={`Unassign ${bhrUser.name}`}
+                >
+                    <XCircle className="h-3.5 w-3.5 text-slate-500 hover:text-destructive"/>
+                </button>
+            </Badge>
+          )) : <span className="text-xs text-slate-500 px-2">No BHRs assigned</span>}
         </div>
       ),
     },
@@ -260,8 +267,8 @@ export default function ZHRBranchAssignmentsPage() {
       accessorKey: 'actions',
       header: 'Actions',
       cell: (branch) => ( 
-        <Button variant="outline" size="sm" onClick={() => handleOpenAssignDialog(branch)}>
-          <UserPlus className="mr-2 h-4 w-4" /> Assign BHR
+        <Button variant="outline" size="sm" onClick={() => handleOpenAssignDialog(branch)} className="h-8 text-xs px-3">
+          <Plus className="mr-1.5 h-4 w-4" /> Assign
         </Button>
       ),
     },
@@ -277,19 +284,13 @@ export default function ZHRBranchAssignmentsPage() {
       const term = searchTerm.toLowerCase();
       const matchesSearch = term === '' ||
         branch.name.toLowerCase().includes(term) ||
-        (branch.location && branch.location.toLowerCase().includes(term)) || // Added null check for location
-        (branch.code && branch.code.toLowerCase().includes(term)); // Added null check for code
+        (branch.location && branch.location.toLowerCase().includes(term));
       
       const matchesCategory = selectedCategory === 'all' || branch.category === selectedCategory;
 
       return matchesSearch && matchesCategory;
     });
   }, [branchesInZone, searchTerm, selectedCategory]);
-
-  const handleClearFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory('all');
-  };
 
 
   if (isLoading && branchesInZone.length === 0) {
@@ -304,7 +305,7 @@ export default function ZHRBranchAssignmentsPage() {
   if (error && branchesInZone.length === 0) { 
      return (
       <div className="space-y-8">
-        <PageTitle title="Branch Assignments" description="Manage BHR assignments to branches within your zone." />
+        <PageTitle title="Branch Mapping" description="Assign branches to Branch Head Representatives (BHRs)" />
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error Fetching Data</AlertTitle>
@@ -323,13 +324,10 @@ export default function ZHRBranchAssignmentsPage() {
     return <PageTitle title="Access Denied" description="You do not have permission to view this page." />;
   }
 
-  console.log("ZHRBranchAssignmentsPage: Rendering DataTable with filteredBranches:", filteredBranches);
-  console.log("ZHRBranchAssignmentsPage: isLoading state:", isLoading);
-
-
   return (
-    <div className="space-y-8">
-      <PageTitle title="Branch Assignments" description="Manage BHR assignments to branches within your zone." />
+    <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
+      <PageTitle title="Branch Mapping" description="Assign branches to Branch Head Representatives (BHRs)" />
+      
       {error && branchesInZone.length > 0 && ( 
          <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
@@ -340,28 +338,22 @@ export default function ZHRBranchAssignmentsPage() {
         </Alert>
       )}
 
-      <Card className="shadow-md">
-        <CardHeader className="border-b pb-2">
-             <CardTitle className="text-lg">Filter Assignments</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 md:p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end"> {/* Changed to md:grid-cols-3 */}
-              <div className="relative md:col-span-1"> {/* Adjusted col-span */}
-                <Label htmlFor="search-assignments" className="sr-only">Search</Label>
+      <Card className="border-0 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
+        <CardHeader className="border-b pb-4 px-4 sm:px-6 pt-5">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+              <div className="relative flex-grow w-full sm:w-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="search-assignments"
-                  placeholder="Search by branch name, location, code..."
+                  placeholder="Search branches by name or location..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200"
                 />
               </div>
-              <div className="md:col-span-1"> {/* Adjusted col-span */}
-                <Label htmlFor="category-filter" className="sr-only">Category</Label>
+              <div className="w-full sm:w-auto sm:min-w-[180px]">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={branchCategories.length <= 1}>
-                  <SelectTrigger id="category-filter">
-                    <SelectValue placeholder="Filter by Category" />
+                  <SelectTrigger className="h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                    <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
                     {branchCategories.map(category => (
@@ -372,29 +364,28 @@ export default function ZHRBranchAssignmentsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleClearFilters} variant="outline" className="w-full md:w-auto md:col-span-1"> {/* Adjusted col-span and width */}
-                <XCircle className="mr-2 h-4 w-4" /> Clear Filters
-              </Button>
             </div>
-          </CardContent>
+        </CardHeader>
+        <CardContent className="p-0 sm:p-0">
+          <DataTable
+            columns={columns}
+            data={filteredBranches}
+            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-xs [&_thead_th]:font-semibold [&_thead_th]:text-slate-500 [&_thead_th]:h-12 [&_thead_th]:px-4 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-4 [&_tbody_td]:py-3 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+            emptyStateMessage={
+              isLoading ? "Loading..." : 
+              (error ? `Error loading data.` : 
+              (branchesInZone.length === 0 ? "No branches found in the system." : "No branches match your current filters."))
+            }
+          />
+        </CardContent>
       </Card>
-
-      <DataTable
-        columns={columns}
-        data={filteredBranches}
-        emptyStateMessage={
-          isLoading ? "Loading..." : 
-          (error ? `Error loading data: ${error}` : 
-          (branchesInZone.length === 0 ? "No branches found." : "No branches match your current filters."))
-        }
-      />
 
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Assign BHR to {selectedBranchForAssignment?.name}</DialogTitle>
             <DialogDescription>
-              Select a BHR from your zone to assign to this branch. A branch can have multiple BHRs from your team.
+              Select a BHR from your zone to assign to this branch.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -416,7 +407,7 @@ export default function ZHRBranchAssignmentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAssignBHR} disabled={isLoading || !selectedBhrForAssignment || bhrsInZoneForDialog.length === 0}><Check className="mr-2 h-4 w-4" />Assign</Button>
+            <Button onClick={handleAssignBHR} disabled={isLoading || !selectedBhrForAssignment || bhrsInZoneForDialog.length === 0}><Plus className="mr-2 h-4 w-4" />Assign</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -426,7 +417,7 @@ export default function ZHRBranchAssignmentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Unassignment</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to unassign {unassignTarget?.bhrName || 'this BHR'} from {unassignTarget?.branchName || 'this branch'}? This action cannot be undone.
+              Are you sure you want to unassign {unassignTarget?.bhrName || 'this BHR'} from {unassignTarget?.branchName || 'this branch'}?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -441,3 +432,4 @@ export default function ZHRBranchAssignmentsPage() {
     </div>
   );
 }
+
