@@ -1,8 +1,9 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { SidebarNavigation } from '@/components/layout/sidebar-navigation';
 import { DashboardPageHeader } from '@/components/layout/dashboard-page-header';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ export default function DashboardLayout({
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -32,6 +34,14 @@ export default function DashboardLayout({
     );
   }
 
+  const pathsToHideHeader = [
+    '/bhr/dashboard',
+    '/bhr/new-visit',
+    '/bhr/my-visits',
+    '/account',
+  ];
+  const shouldShowHeader = !pathsToHideHeader.includes(pathname);
+
   const content = (
     <div className="relative min-h-screen w-full bg-background">
       <SidebarNavigation />
@@ -40,7 +50,7 @@ export default function DashboardLayout({
         "transition-all duration-300 ease-out",
         "xl:pl-[72px]" // Add left padding for sidebar on desktop
       )}>
-        <DashboardPageHeader className="lg:block hidden" /> {/* Hide header on mobile/tablet */}
+        {shouldShowHeader && <DashboardPageHeader className="lg:block hidden" />} {/* Hide header on mobile/tablet */}
         <div className="flex-1 w-full">
           {children}
         </div>
