@@ -232,11 +232,11 @@ export default function ZHRBranchAssignmentsPage() {
       cell: (branch) => {
         const category = (branch.category || 'uncategorized').toLowerCase();
         const categoryColors = {
-          'diamond': 'bg-[#ECF9FF] text-[#0B4D76] hover:bg-[#ECF9FF]/80', // Light Blue
-          'platinum': 'bg-[#F3E8FF] text-[#6B21A8] hover:bg-[#F3E8FF]/80', // Light Purple
-          'gold': 'bg-[#FFF7E6] text-[#976A1D] hover:bg-[#FFF7E6]/80', // Light Gold/Yellow
-          'silver': 'bg-[#F3F4F6] text-[#4B5563] hover:bg-[#F3F4F6]/80', // Light Grey
-          'bronze': 'bg-[#FBF0E4] text-[#8B4513] hover:bg-[#FBF0E4]/80', // Light Brown
+          'diamond': 'bg-[#ECF9FF] text-[#0B4D76] hover:bg-[#ECF9FF]/80',
+          'platinum': 'bg-[#F3E8FF] text-[#6B21A8] hover:bg-[#F3E8FF]/80',
+          'gold': 'bg-[#FFF7E6] text-[#976A1D] hover:bg-[#FFF7E6]/80',
+          'silver': 'bg-[#F3F4F6] text-[#4B5563] hover:bg-[#F3F4F6]/80',
+          'bronze': 'bg-[#FBF0E4] text-[#8B4513] hover:bg-[#FBF0E4]/80',
           'uncategorized': 'bg-slate-50 text-slate-600 hover:bg-slate-50/80'
         };
         return <Badge variant="secondary" className={cn("font-medium text-xs px-2 py-0.5", categoryColors[category as keyof typeof categoryColors] || categoryColors.uncategorized)}>{branch.category || 'N/A'}</Badge>;
@@ -274,7 +274,7 @@ export default function ZHRBranchAssignmentsPage() {
           onClick={() => handleOpenAssignDialog(branch)} 
           className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
         >
-          <Plus className="mr-1.5 h-4 w-4 text-slate-500" /> Assign
+          <UserPlus className="mr-1.5 h-4 w-4 text-slate-500" /> Assign
         </Button>
       ),
     },
@@ -376,7 +376,7 @@ export default function ZHRBranchAssignmentsPage() {
           <DataTable
             columns={columns}
             data={filteredBranches}
-            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-xs [&_thead_th]:font-semibold [&_thead_th]:text-slate-500 [&_thead_th]:h-12 [&_thead_th]:px-4 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-4 [&_tbody_td]:py-3 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-[0.7rem] [&_thead_th]:sm:text-xs [&_thead_th]:font-semibold [&_thead_th]:text-slate-500 [&_thead_th]:h-10 [&_thead_th]:sm:h-12 [&_thead_th]:px-2 [&_thead_th]:sm:px-4 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-2 [&_tbody_td]:sm:px-4 [&_tbody_td]:py-2 [&_tbody_td]:sm:py-3 [&_tbody_td]:text-xs [&_tbody_td]:sm:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
             emptyStateMessage={
               isLoading ? "Loading..." : 
               (error ? `Error loading data.` : 
