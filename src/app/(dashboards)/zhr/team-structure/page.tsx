@@ -6,12 +6,12 @@ import { PageTitle } from '@/components/shared/page-title';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Branch, Assignment } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Users as UsersIcon } from 'lucide-react'; // Renamed Users to UsersIcon to avoid conflict
 import { HierarchyNode, type UserNode } from '@/components/chr/hierarchy-node';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BhrSubmissionsListModal } from '@/components/shared/bhr-submissions-list-modal';
 
@@ -32,7 +32,7 @@ export default function ZHRTeamStructurePage() {
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-    }, 500);
+    }, 300); // Slightly shorter debounce for better responsiveness
     return () => clearTimeout(timerId);
   }, [searchTerm]);
 
@@ -50,9 +50,6 @@ export default function ZHRTeamStructurePage() {
 
     setIsLoading(true);
     setError(null);
-
-    // For ZHR, the children are BHRs directly. No deeper recursion needed for display hierarchy.
-    // However, we still need branch and assignment data for BHR cards.
 
     try {
       const { data: bhrUsers, error: bhrError } = await supabase
@@ -80,7 +77,7 @@ export default function ZHRTeamStructurePage() {
         return {
           ...bhrUser,
           assignedBranchNames: currentAssignedBranchNames,
-          children: [] // BHRs are the leaf nodes in ZHR's direct view
+          children: [] 
         };
       });
       setInitialRootUserNodes(roots);
@@ -103,7 +100,7 @@ export default function ZHRTeamStructurePage() {
       return nodes;
     }
     const lowerTerm = term.toLowerCase();
-    return nodes.map(node => { // For ZHR, nodes are BHRs, no children to filter recursively in this specific view.
+    return nodes.map(node => { 
       const selfMatches = 
         node.name.toLowerCase().includes(lowerTerm) ||
         node.email.toLowerCase().includes(lowerTerm) ||
@@ -135,46 +132,49 @@ export default function ZHRTeamStructurePage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading team structure...</p>
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]"> {/* Adjust height as needed */}
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="mt-3 text-muted-foreground">Loading team structure...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageTitle title={pageTitle} description="Visual representation of BHRs in your zone. Search users below." />
 
-      <Card className="shadow-md">
-        <CardHeader><CardTitle className="text-lg">Search Team Members</CardTitle></CardHeader>
+      <Card className="shadow-md border-slate-200/50 hover:shadow-lg transition-shadow duration-200">
+        <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold text-slate-800">Search Team Members</CardTitle>
+            <CardDescription className="text-sm text-slate-500">Filter by name, email, role, E-Code, or location.</CardDescription>
+        </CardHeader>
         <CardContent>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, email, role, E-Code, location..."
+                placeholder="Search users..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200"
               />
             </div>
         </CardContent>
       </Card>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="shadow-md">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>Error Loading Data</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       {!isLoading && !error && displayedRootUserNodes.length === 0 && (
-        <Card className="shadow-md">
+        <Card className="shadow-md border-slate-200/50">
             <CardContent className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-                 <Search className="h-12 w-12 text-muted-foreground/70" />
-                <h3 className="text-xl font-semibold">No Team Structure to Display</h3>
-                <p className="text-muted-foreground max-w-md">
+                 <UsersIcon className="h-12 w-12 text-slate-400" />
+                <h3 className="text-xl font-semibold text-slate-700">No Team Structure to Display</h3>
+                <p className="text-slate-500 max-w-md">
                 {debouncedSearchTerm ? "No users match your search criteria." : 
                  "You have no direct BHR reports, or no users were found in your zone."
                 }
@@ -208,4 +208,3 @@ export default function ZHRTeamStructurePage() {
     </div>
   );
 }
-
