@@ -142,18 +142,23 @@ export default function VHRExportDataPage() {
     }
 
     try {
-      let query = supabase.from('visits').select(\`
+      const selectString = `
         *,
         bhr_user:users!visits_bhr_id_fkey (id, name, e_code, location, role),
         branch:branches!visits_branch_id_fkey (id, name, code, location, category)
-      \`)
-      .eq('status', 'submitted')
-      .in('bhr_id', targetBhrIds);
+      `;
+      
+      let query = supabase
+        .from('visits')
+        .select(selectString)
+        .eq('status', 'submitted')
+        .in('bhr_id', targetBhrIds);
 
       if (selectedBranchIds.length > 0) {
         query = query.in('branch_id', selectedBranchIds);
       }
       if (selectedBranchCategory !== 'all') {
+        // Ensure the foreign table alias is used for filtering related table columns
         query = query.eq('branch.category', selectedBranchCategory);
       }
       if (dateRange?.from) {
@@ -185,8 +190,8 @@ export default function VHRExportDataPage() {
       ];
       const csvRows = [headers.join(',')];
       data.forEach(visit => {
-        const bhrUser = visit.bhr_user as User | null;
-        const branchData = visit.branch as Branch | null;
+        const bhrUser = visit.bhr_user as User | null; // Cast based on your select string
+        const branchData = visit.branch as Branch | null; // Cast based on your select string
         const row = [
           visit.id,
           bhrUser?.name || 'N/A', bhrUser?.e_code || 'N/A', bhrUser?.location || 'N/A', bhrUser?.role || 'N/A',
@@ -201,7 +206,7 @@ export default function VHRExportDataPage() {
           visit.star_employees_total ?? 'N/A', visit.star_employees_covered ?? 'N/A',
           visit.qual_aligned_conduct || 'N/A', visit.qual_safe_secure || 'N/A', visit.qual_motivated || 'N/A',
           visit.qual_abusive_language || 'N/A', visit.qual_comfortable_escalate || 'N/A', visit.qual_inclusive_culture || 'N/A',
-          \`"\${(visit.additional_remarks || '').replace(/"/g, '""')}"\`
+          `"${(visit.additional_remarks || '').replace(/"/g, '""')}"`
         ];
         csvRows.push(row.join(','));
       });
@@ -211,30 +216,30 @@ export default function VHRExportDataPage() {
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', \`vhr_hr_view_export_\${format(new Date(), 'yyyyMMdd_HHmmss')}.csv\`);
+        link.setAttribute('download', `vhr_hr_view_export_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ title: "Export Successful", description: \`\${data.length} records exported.\` });
+        toast({ title: "Export Successful", description: `${data.length} records exported.` });
       }
     } catch (e: any) {
       console.error("Error during VHR export:", e);
-      toast({ title: "Export Error", description: \`Failed to export data: \${e.message}\`, variant: "destructive" });
-      setError(\`Failed to export data: \${e.message}\`);
+      toast({ title: "Export Error", description: `Failed to export data: ${e.message}`, variant: "destructive" });
+      setError(`Failed to export data: ${e.message}`);
     } finally {
       setIsExporting(false);
     }
   };
   
   const getMultiSelectButtonText = (options: FilterOption[], selectedIds: string[], defaultText: string, pluralName: string) => {
-    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return \`Loading \${pluralName}...\`;
+    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return `Loading ${pluralName}...`;
     if (selectedIds.length === 0) return defaultText;
     if (selectedIds.length === 1) {
       const selectedOption = options.find(opt => opt.value === selectedIds[0]);
-      return selectedOption ? selectedOption.label : \`1 \${pluralName.slice(0,-1)} Selected\`;
+      return selectedOption ? selectedOption.label : `1 ${pluralName.slice(0,-1)} Selected`;
     }
-    return \`\${selectedIds.length} \${pluralName} Selected\`;
+    return `${selectedIds.length} ${pluralName} Selected`;
   };
 
   const handleMultiSelectChange = (id: string, currentSelectedIds: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
