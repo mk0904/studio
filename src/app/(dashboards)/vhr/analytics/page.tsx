@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import { useVhrFilter } from '@/contexts/vhr-filter-context';
+import { cn } from '@/lib/utils';
 
 interface MetricConfig {
   key: keyof Visit;
@@ -452,7 +453,7 @@ export default function VHRAnalyticsPage() {
           <CardDescription>Refine analytics by BHR, specific Branches, and Timeframe. Applied with the global ZHR filter from the header.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -571,9 +572,9 @@ export default function VHRAnalyticsPage() {
             </ResponsiveContainer>
           ) : ( 
              <div className="flex flex-col items-center justify-center h-96 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
-              <TrendingUp className="w-20 h-20 text-primary/70 mb-5" />
-              <p className="text-lg font-semibold text-slate-700 mb-1.5">No Metric Data</p>
-              <p className="text-sm text-slate-500 max-w-xs">Try adjusting your filters or check if data has been submitted for the selected criteria.</p>
+                <TrendingUp className="w-20 h-20 text-primary/70 mb-5" />
+                <p className="text-lg font-semibold text-slate-700 mb-1.5">No Metric Data</p>
+                <p className="text-sm text-slate-500 max-w-xs">Try adjusting your filters or check if data has been submitted for the selected criteria.</p>
             </div>
           )}
         </CardContent>
@@ -592,12 +593,12 @@ export default function VHRAnalyticsPage() {
                   <PolarGrid stroke="hsl(var(--border))" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                  <Radar name="Avg Score" dataKey="score" stroke={`hsl(var(--chart-1))`} fill={`hsl(var(--chart-3))`} fillOpacity={0.6} strokeWidth={2} />
+                  <Radar name="Avg Score" dataKey="score" stroke={`hsl(var(--chart-3))`} fill={`hsl(var(--chart-3))`} fillOpacity={0.6} strokeWidth={2} />
                   <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
                 </RadarChart>
               </ResponsiveContainer>
             ) : ( 
-              <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+               <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
                 <ShieldQuestion className="w-20 h-20 text-primary/70 mb-5" />
                 <p className="text-lg font-semibold text-slate-700 mb-1.5">No Qualitative Data</p>
                 <p className="text-sm text-slate-500 max-w-xs">Ensure qualitative assessments were part of the submitted visits for the selected filters.</p>
@@ -696,4 +697,5 @@ export default function VHRAnalyticsPage() {
     
 
     
+
 
