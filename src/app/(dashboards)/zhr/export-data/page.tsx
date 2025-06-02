@@ -109,15 +109,17 @@ export default function ZHRExportDataPage() {
         return;
     }
 
-
     try {
-      let query = supabase.from('visits').select(\`
-        *,
-        bhr_user:users!visits_bhr_id_fkey (id, name, e_code, location, role),
-        branch:branches!visits_branch_id_fkey (id, name, code, location, category)
-      \`)
-      .eq('status', 'submitted')
-      .in('bhr_id', targetBhrIds);
+      const selectFields =
+        '*, ' +
+        'bhr_user:users!visits_bhr_id_fkey(id,name,e_code,location,role), ' +
+        'branch:branches!visits_branch_id_fkey(id,name,code,location,category)';
+
+      let query = supabase
+        .from('visits')
+        .select(selectFields)
+        .eq('status', 'submitted')
+        .in('bhr_id', targetBhrIds);
 
       if (selectedBranchIds.length > 0) {
         query = query.in('branch_id', selectedBranchIds);
@@ -170,7 +172,7 @@ export default function ZHRExportDataPage() {
           visit.star_employees_total ?? 'N/A', visit.star_employees_covered ?? 'N/A',
           visit.qual_aligned_conduct || 'N/A', visit.qual_safe_secure || 'N/A', visit.qual_motivated || 'N/A',
           visit.qual_abusive_language || 'N/A', visit.qual_comfortable_escalate || 'N/A', visit.qual_inclusive_culture || 'N/A',
-          \`"\${(visit.additional_remarks || '').replace(/"/g, '""')}"\`
+          `"${(visit.additional_remarks || '').replace(/"/g, '""')}"`
         ];
         csvRows.push(row.join(','));
       });
@@ -180,30 +182,30 @@ export default function ZHRExportDataPage() {
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', \`zhr_hr_view_export_\${format(new Date(), 'yyyyMMdd_HHmmss')}.csv\`);
+        link.setAttribute('download', `zhr_hr_view_export_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ title: "Export Successful", description: \`\${data.length} records exported.\` });
+        toast({ title: "Export Successful", description: `${data.length} records exported.` });
       }
     } catch (e: any) {
       console.error("Error during ZHR export:", e);
-      toast({ title: "Export Error", description: \`Failed to export data: \${e.message}\`, variant: "destructive" });
-      setError(\`Failed to export data: \${e.message}\`);
+      toast({ title: "Export Error", description: `Failed to export data: ${e.message}`, variant: "destructive" });
+      setError(`Failed to export data: ${e.message}`);
     } finally {
       setIsExporting(false);
     }
   };
   
   const getMultiSelectButtonText = (options: FilterOption[], selectedIds: string[], defaultText: string, pluralName: string) => {
-    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return \`Loading \${pluralName}...\`;
+    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return `Loading ${pluralName}...`;
     if (selectedIds.length === 0) return defaultText;
     if (selectedIds.length === 1) {
       const selectedOption = options.find(opt => opt.value === selectedIds[0]);
-      return selectedOption ? selectedOption.label : \`1 \${pluralName.slice(0,-1)} Selected\`;
+      return selectedOption ? selectedOption.label : `1 ${pluralName.slice(0,-1)} Selected`;
     }
-    return \`\${selectedIds.length} \${pluralName} Selected\`;
+    return `${selectedIds.length} ${pluralName} Selected`;
   };
 
   const handleMultiSelectChange = (id: string, currentSelectedIds: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
@@ -248,6 +250,8 @@ export default function ZHRExportDataPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                    <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
+                    <DropdownMenuSeparator/>
                     {bhrOptions.map(o => (<DropdownMenuCheckboxItem key={o.value} checked={selectedBhrIds.includes(o.value)} onCheckedChange={() => handleMultiSelectChange(o.value, selectedBhrIds, setSelectedBhrIds)} onSelect={e => e.preventDefault()}>{o.label}</DropdownMenuCheckboxItem>))}
                     {bhrOptions.length === 0 && !isLoadingPage && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">No BHRs in your zone.</DropdownMenuLabel>}
                     {isLoadingPage && bhrOptions.length === 0 && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Loading BHRs...</DropdownMenuLabel>}
@@ -265,6 +269,8 @@ export default function ZHRExportDataPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                    <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
+                    <DropdownMenuSeparator/>
                     {branchOptions.map(o => (<DropdownMenuCheckboxItem key={o.value} checked={selectedBranchIds.includes(o.value)} onCheckedChange={() => handleMultiSelectChange(o.value, selectedBranchIds, setSelectedBranchIds)} onSelect={e => e.preventDefault()}>{o.label}</DropdownMenuCheckboxItem>))}
                     {isLoadingPage && branchOptions.length === 0 && <DropdownMenuLabel className="text-xs text-muted-foreground px-2">Loading branches...</DropdownMenuLabel>}
                     </DropdownMenuContent>
@@ -284,7 +290,7 @@ export default function ZHRExportDataPage() {
             </div>
           </div>
           {error && <p className="text-sm text-destructive mt-4">{error}</p>}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-slate-100 mt-2">
+          <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 pt-6 border-t border-slate-100 mt-2">
             <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto h-10 border-slate-300 hover:bg-slate-50">
                 <XCircle className="mr-2 h-4 w-4" /> Clear All Filters
             </Button>
