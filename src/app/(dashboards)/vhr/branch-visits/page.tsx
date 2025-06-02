@@ -9,7 +9,7 @@ import type { Visit, Branch, User } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
 import { format, parseISO, isWithinInterval, isValid, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Eye, Search, XCircle, Filter as FilterIcon, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Eye, Search, XCircle, Filter as FilterIcon, ChevronsUpDown, Users, Building2, Calendar, FileQuestion } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 import { useVhrFilter } from '@/contexts/vhr-filter-context';
@@ -261,7 +261,7 @@ export default function VHRBranchVisitsPage() {
     setDateRange(undefined);
   };
 
-  const isLoading = isLoadingBhrsInVhrVertical || isLoadingPageData || isLoadingLocalBhrOptions || isLoadingLocalBranchOptions;
+  const isLoadingCombined = isLoadingBhrsInVhrVertical || isLoadingPageData || isLoadingLocalBhrOptions || isLoadingLocalBranchOptions;
 
   const pageTitleText = useMemo(() => {
     let title = "Submitted Visits";
@@ -284,7 +284,7 @@ export default function VHRBranchVisitsPage() {
 
   if (!user) return null;
 
-  if (isLoading && user.role === 'VHR' && allVisitsForVhr.length === 0) {
+  if (isLoadingCombined && user.role === 'VHR' && allVisitsForVhr.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -303,94 +303,120 @@ export default function VHRBranchVisitsPage() {
           <CardDescription>Refine visits by BHR, Branch, Date Range, and Search Term. Applied with global ZHR filter from header.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="relative flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
-                    {getMultiSelectButtonText(localBhrOptions, localSelectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingLocalBhrOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {isLoadingLocalBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                  localBhrOptions.length > 0 ? localBhrOptions.map(option => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={localSelectedBhrIds.includes(option.value)}
-                      onCheckedChange={() => handleMultiSelectChange(option.value, localSelectedBhrIds, setLocalSelectedBhrIds)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No BHRs match current ZHR filter.</DropdownMenuLabel>}
-                </DropdownMenuContent>
-              </DropdownMenu>
-               {localSelectedBhrIds.length > 0 && (
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setLocalSelectedBhrIds([]); }} aria-label="Clear BHR filter">
-                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
-              )}
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+              <div className="flex gap-2 items-center w-full lg:flex-1">
+                <div className="relative flex-1 w-full">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                  </div>
+                  <Input
+                    placeholder="Search BHR, Branch, E-Code, Location..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200 w-full"
+                  />
+                </div>
+                <Button
+                  onClick={handleClearLocalFilters}
+                  variant="outline"
+                  className="h-9 sm:h-10 text-xs sm:text-sm font-medium border-slate-200/70 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 active:bg-slate-100 transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                >
+                  <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Clear</span>
+                  <span className="sm:hidden">×</span>
+                </Button>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:flex-shrink-0">
+                <div className="flex-1 lg:min-w-[180px]">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between pr-3 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                        <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                        {getMultiSelectButtonText(localBhrOptions, localSelectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingLocalBhrOptions)}
+                        <ChevronsUpDown className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
+                      <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {isLoadingLocalBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                      localBhrOptions.length > 0 ? localBhrOptions.map(option => (
+                        <DropdownMenuCheckboxItem
+                          key={option.value}
+                          checked={localSelectedBhrIds.includes(option.value)}
+                          onCheckedChange={() => handleMultiSelectChange(option.value, localSelectedBhrIds, setLocalSelectedBhrIds)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {option.label}
+                        </DropdownMenuCheckboxItem>
+                      )) : <DropdownMenuLabel>No BHRs match ZHR filter.</DropdownMenuLabel>}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="flex-1 lg:min-w-[180px]">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between pr-3 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                        <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                        {getMultiSelectButtonText(localBranchOptions, localSelectedBranchIds, "All Branches", "Branch", "Branches", isLoadingLocalBranchOptions)}
+                        <ChevronsUpDown className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
+                      <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {isLoadingLocalBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                      localBranchOptions.length > 0 ? localBranchOptions.map(option => (
+                        <DropdownMenuCheckboxItem
+                          key={option.value}
+                          checked={localSelectedBranchIds.includes(option.value)}
+                          onCheckedChange={() => handleMultiSelectChange(option.value, localSelectedBranchIds, setLocalSelectedBranchIds)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {option.label}
+                        </DropdownMenuCheckboxItem>
+                      )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="flex-1 lg:min-w-[200px] lg:w-auto">
+                  <DatePickerWithRange
+                    date={dateRange}
+                    onDateChange={setDateRange}
+                    className="h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="relative flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
-                    {getMultiSelectButtonText(localBranchOptions, localSelectedBranchIds, "All Branches", "Branch", "Branches", isLoadingLocalBranchOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {isLoadingLocalBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                  localBranchOptions.length > 0 ? localBranchOptions.map(option => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={localSelectedBranchIds.includes(option.value)}
-                      onCheckedChange={() => handleMultiSelectChange(option.value, localSelectedBranchIds, setLocalSelectedBranchIds)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
-                </DropdownMenuContent>
-              </DropdownMenu>
-               {localSelectedBranchIds.length > 0 && (
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setLocalSelectedBranchIds([]); }} aria-label="Clear Branch filter">
-                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-                <Label htmlFor="search-vhr-visits" className="sr-only">Search</Label>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search-vhr-visits"
-                  placeholder="Search by BHR, Branch, E-Code, Location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-            </div>
-            <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full"/>
-          </div>
-          <Button variant="outline" onClick={handleClearLocalFilters} className="w-full md:w-auto mt-4">
-            <XCircle className="mr-2 h-4 w-4" /> Clear All Local Filters & Dates
-          </Button>
         </CardContent>
       </Card>
+      
+      {isLoadingCombined && allVisitsForVhr.length === 0 ? (
+         <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="ml-2 text-muted-foreground">Loading visits...</p>
+        </div>
+      ) : filteredVisits.length === 0 && !isLoadingCombined ? (
+        <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4 mt-8">
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100/80 rounded-full p-4 sm:p-5 mb-4 sm:mb-5 shadow-sm ring-1 ring-slate-100">
+            <FileQuestion className="h-8 w-8 sm:h-9 sm:w-9 text-[#004C8F]/60" />
+          </div>
+          <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-2">No visits found</h3>
+          <p className="text-sm sm:text-base text-slate-600 max-w-sm">
+            {allVisitsForVhr.length === 0 ? "No submitted visits in your vertical yet." : "Try adjusting your filters."}
+          </p>
+        </div>
+      ) : (
+        <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white/90 backdrop-blur-sm shadow-sm mt-8">
+          <DataTable
+            columns={columns}
+            data={filteredVisits}
+            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+          />
+        </div>
+      )}
 
-      <DataTable
-        columns={columns}
-        data={filteredVisits}
-        tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
-        emptyStateMessage={isLoading ? "Loading visits..." : (allVisitsForVhr.length === 0 && !isLoading ? "No submitted visits found in your vertical." : "No submitted visits match your current filter combination.")}
-      />
       {selectedVisitForView && (
         <ViewVisitDetailsModal
             visit={selectedVisitForView}
