@@ -98,12 +98,12 @@ export default function ZHRExportDataPage() {
       targetBhrIds = allBhrsInZone.map(b => b.id); 
     }
 
-    if (targetBhrIds.length === 0 && allBhrsInZone.length > 0) { // Case where BHR filter leads to no BHRs but zone has BHRs
+    if (targetBhrIds.length === 0 && allBhrsInZone.length > 0) { 
       toast({ title: "No Data", description: "No BHRs match the selected BHR filter. Cannot export.", variant: "default" });
       setIsExporting(false);
       return;
     }
-    if (allBhrsInZone.length === 0) { // Case where zone has no BHRs at all
+    if (allBhrsInZone.length === 0) { 
         toast({ title: "No Data", description: "No BHRs in your zone to fetch data for. Cannot export.", variant: "default" });
         setIsExporting(false);
         return;
@@ -111,11 +111,11 @@ export default function ZHRExportDataPage() {
 
 
     try {
-      let query = supabase.from('visits').select(`
+      let query = supabase.from('visits').select(\`
         *,
         bhr_user:users!visits_bhr_id_fkey (id, name, e_code, location, role),
         branch:branches!visits_branch_id_fkey (id, name, code, location, category)
-      `)
+      \`)
       .eq('status', 'submitted')
       .in('bhr_id', targetBhrIds);
 
@@ -170,7 +170,7 @@ export default function ZHRExportDataPage() {
           visit.star_employees_total ?? 'N/A', visit.star_employees_covered ?? 'N/A',
           visit.qual_aligned_conduct || 'N/A', visit.qual_safe_secure || 'N/A', visit.qual_motivated || 'N/A',
           visit.qual_abusive_language || 'N/A', visit.qual_comfortable_escalate || 'N/A', visit.qual_inclusive_culture || 'N/A',
-          `"${(visit.additional_remarks || '').replace(/"/g, '""')}"`
+          \`"\${(visit.additional_remarks || '').replace(/"/g, '""')}"\`
         ];
         csvRows.push(row.join(','));
       });
@@ -180,30 +180,30 @@ export default function ZHRExportDataPage() {
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `zhr_hr_view_export_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+        link.setAttribute('download', \`zhr_hr_view_export_\${format(new Date(), 'yyyyMMdd_HHmmss')}.csv\`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ title: "Export Successful", description: `${data.length} records exported.` });
+        toast({ title: "Export Successful", description: \`\${data.length} records exported.\` });
       }
     } catch (e: any) {
       console.error("Error during ZHR export:", e);
-      toast({ title: "Export Error", description: `Failed to export data: ${e.message}`, variant: "destructive" });
-      setError(`Failed to export data: ${e.message}`);
+      toast({ title: "Export Error", description: \`Failed to export data: \${e.message}\`, variant: "destructive" });
+      setError(\`Failed to export data: \${e.message}\`);
     } finally {
       setIsExporting(false);
     }
   };
   
   const getMultiSelectButtonText = (options: FilterOption[], selectedIds: string[], defaultText: string, pluralName: string) => {
-    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return `Loading ${pluralName}...`;
+    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return \`Loading \${pluralName}...\`;
     if (selectedIds.length === 0) return defaultText;
     if (selectedIds.length === 1) {
       const selectedOption = options.find(opt => opt.value === selectedIds[0]);
-      return selectedOption ? selectedOption.label : `1 ${pluralName.slice(0,-1)} Selected`;
+      return selectedOption ? selectedOption.label : \`1 \${pluralName.slice(0,-1)} Selected\`;
     }
-    return `${selectedIds.length} ${pluralName} Selected`;
+    return \`\${selectedIds.length} \${pluralName} Selected\`;
   };
 
   const handleMultiSelectChange = (id: string, currentSelectedIds: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
@@ -242,7 +242,7 @@ export default function ZHRExportDataPage() {
                 <Label className="text-sm font-medium mb-1.5 block text-slate-700">Filter by BHR</Label>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between pr-3 h-10" disabled={bhrOptions.length === 0 && !isLoadingPage}>
+                        <Button variant="outline" className="w-full justify-between pr-3 h-10 border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.2)] text-gray-700" disabled={bhrOptions.length === 0 && !isLoadingPage}>
                             {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs in Zone", "BHRs")}
                             <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                         </Button>
@@ -259,7 +259,7 @@ export default function ZHRExportDataPage() {
                 <Label className="text-sm font-medium mb-1.5 block text-slate-700">Filter by Branch</Label>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between pr-3 h-10" disabled={branchOptions.length === 0 && !isLoadingPage}>
+                        <Button variant="outline" className="w-full justify-between pr-3 h-10 border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.2)] text-gray-700" disabled={branchOptions.length === 0 && !isLoadingPage}>
                             {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branches")}
                             <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                         </Button>
@@ -278,35 +278,28 @@ export default function ZHRExportDataPage() {
                     <SelectContent className="max-h-60 overflow-y-auto">{branchCategoryOptions.map(c => (<SelectItem key={c} value={c}>{c === 'all' ? 'All Categories' : c}</SelectItem>))}</SelectContent>
                 </ShadcnSelect>
             </div>
-            <div className="md:col-span-2 lg:col-span-1"> {/* Date picker takes more space or its own row on smaller screens */}
+            <div className="md:col-span-2 lg:col-span-1"> 
                 <Label className="text-sm font-medium mb-1.5 block text-slate-700">Visit Date Range</Label>
                 <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          {error && <p className="text-sm text-destructive mt-4">{error}</p>}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-slate-100 mt-2">
             <Button onClick={handleClearAllFilters} variant="outline" className="w-full sm:w-auto h-10 border-slate-300 hover:bg-slate-50">
                 <XCircle className="mr-2 h-4 w-4" /> Clear All Filters
             </Button>
+             <Button 
+                onClick={handleExportToCSV} 
+                disabled={isExporting || isLoadingPage} 
+                className="w-full sm:w-auto h-10 bg-[#004C8F] hover:bg-[#003972] text-white shadow hover:shadow-md transition-all duration-200"
+              >
+                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} 
+                Export to CSV
+            </Button>
           </div>
-          {error && <p className="text-sm text-destructive mt-4">{error}</p>}
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
-        <CardHeader className="border-b border-slate-100">
-            <CardTitle className="text-lg text-[#004C8F]">Export Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <Button 
-            onClick={handleExportToCSV} 
-            disabled={isExporting || isLoadingPage} 
-            className="w-full sm:w-auto h-10 bg-[#004C8F] hover:bg-[#003972] text-white shadow hover:shadow-md transition-all duration-200"
-          >
-            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} 
-            Export to CSV
-          </Button>
         </CardContent>
       </Card>
     </div>
   );
 }
+
