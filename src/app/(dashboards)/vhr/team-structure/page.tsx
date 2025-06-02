@@ -163,15 +163,17 @@ export default function VHRTeamStructurePage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-3 text-muted-foreground">Loading team structure...</p>
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="mt-3 text-muted-foreground">Loading team structure...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6">
       <PageTitle title={pageTitle} description="Visual representation of ZHRs and BHRs in your vertical. Search users below." />
 
       <Card className="shadow-md border-slate-200/50 hover:shadow-lg transition-shadow duration-200">
