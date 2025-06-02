@@ -259,10 +259,10 @@ export default function VHRBranchVisitsPage() {
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
       <PageTitle title={pageTitleText.title} description={pageTitleText.subtitle} />
 
-      <div className="space-y-4 mb-8">
+      <div className="space-y-2 mb-8">
         {/* Row 1: Search and Clear Button */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+          <div className="relative flex-1 w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
             </div>
@@ -277,7 +277,7 @@ export default function VHRBranchVisitsPage() {
             onClick={handleClearLocalFilters}
             variant="outline"
             className={cn(
-                "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm flex-shrink-0",
+                "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm flex-shrink-0 w-full sm:w-auto",
                 "text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:bg-red-100"
             )}
           >
@@ -287,46 +287,43 @@ export default function VHRBranchVisitsPage() {
           </Button>
         </div>
         
-        {/* Container for subsequent filter rows */}
-        <div className="flex flex-col gap-2">
-          {/* Row 2: BHR Select and Branch Select */}
-          <div className="flex flex-row gap-2">
-            <div className="flex-1 min-w-0">
-              <Select value={localBhrFilter} onValueChange={setLocalBhrFilter} disabled={localBhrOptions.length === 0 && !isLoadingBhrsInVhrVertical}>
-                <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                  <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                  <SelectValue placeholder="All BHRs" />
-                </SelectTrigger>
-                <SelectContent className="border-0 shadow-md">
-                  <SelectItem value="all">All BHRs</SelectItem>
-                  {localBhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
-                  {localBhrOptions.length === 0 && !isLoadingBhrsInVhrVertical && <SelectItem value="no-bhr" disabled>No BHRs match ZHR filter</SelectItem>}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 min-w-0">
-              <Select value={localBranchFilter} onValueChange={setLocalBranchFilter} disabled={localBranchOptions.length === 0 && !isLoadingPageData}>
-                <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                    <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                  <SelectValue placeholder="All Branches" />
-                </SelectTrigger>
-                <SelectContent className="border-0 shadow-md">
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {localBranchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
-                  {localBranchOptions.length === 0 && !isLoadingPageData && <SelectItem value="no-branch" disabled>No branches available</SelectItem>}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Row 2: BHR Select and Branch Select */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex-1 min-w-0">
+            <Select value={localBhrFilter} onValueChange={setLocalBhrFilter} disabled={localBhrOptions.length === 0 && !isLoadingBhrsInVhrVertical}>
+              <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                <SelectValue placeholder="All BHRs" />
+              </SelectTrigger>
+              <SelectContent className="border-0 shadow-md">
+                <SelectItem value="all">All BHRs</SelectItem>
+                {localBhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
+                {localBhrOptions.length === 0 && !isLoadingBhrsInVhrVertical && <SelectItem value="no-bhr" disabled>No BHRs match ZHR filter</SelectItem>}
+              </SelectContent>
+            </Select>
           </div>
-          
-          {/* Row 3: Date Picker */}
-          <div className="w-full">
-            <DatePickerWithRange
-              date={dateRange}
-              onDateChange={setDateRange}
-              className="w-full h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
-            />
+          <div className="flex-1 min-w-0">
+            <Select value={localBranchFilter} onValueChange={setLocalBranchFilter} disabled={localBranchOptions.length === 0 && !isLoadingPageData}>
+              <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                  <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                <SelectValue placeholder="All Branches" />
+              </SelectTrigger>
+              <SelectContent className="border-0 shadow-md">
+                <SelectItem value="all">All Branches</SelectItem>
+                {localBranchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
+                {localBranchOptions.length === 0 && !isLoadingPageData && <SelectItem value="no-branch" disabled>No branches available</SelectItem>}
+              </SelectContent>
+            </Select>
           </div>
+        </div>
+        
+        {/* Row 3: Date Picker */}
+        <div className="w-full">
+          <DatePickerWithRange
+            date={dateRange}
+            onDateChange={setDateRange}
+            className="w-full h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
+          />
         </div>
       </div>
       
