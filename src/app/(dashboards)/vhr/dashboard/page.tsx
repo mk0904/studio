@@ -213,50 +213,59 @@ export default function VHRDashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-          <Card className="relative overflow-hidden border border-indigo-500/10 bg-gradient-to-br from-white to-indigo-500/5 transition-all duration-200 hover:border-indigo-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group">
-            <CardHeader className="p-3 sm:p-4 pb-0">
-              <CardTitle className="text-xs sm:text-sm font-medium text-indigo-600">ZHRs in Scope</CardTitle>
+          <Card className="shadow-lg bg-gradient-to-br from-indigo-50 to-indigo-100/60 border-indigo-100 hover:shadow-xl transition-all duration-200 flex flex-col">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-indigo-700">ZHRs in Scope</CardTitle>
+              <CardDescription className="text-xs text-indigo-500/90">
+                {selectedZhrIds.length > 0 ? "Selected ZHRs" : "Total ZHRs in your vertical"}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{dashboardStats.zhrCount}</div>
-              <Users className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-500 mt-0 sm:mt-1" />
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.zhrCount}</div>
+              <div className="text-xs text-indigo-600/90 flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                <span>ZHRs</span>
+              </div>
             </CardContent>
-            <CardFooter className="p-3 sm:p-4 pt-1">
-              <p className="text-xs text-muted-foreground/70">{selectedZhrIds.length > 0 ? "Selected ZHRs" : "Total ZHRs in your vertical"}</p>
-            </CardFooter>
           </Card>
 
-          <Card className="relative overflow-hidden border border-[#004C8F]/10 bg-gradient-to-br from-white to-[#004C8F]/5 transition-all duration-200 hover:border-[#004C8F]/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group">
-            <CardHeader className="p-3 sm:p-4 pb-0">
-              <CardTitle className="text-xs sm:text-sm font-medium text-[#004C8F]">BHRs in Scope</CardTitle>
+          <Card className="shadow-lg bg-gradient-to-br from-sky-50 to-sky-100/60 border-sky-100 hover:shadow-xl transition-all duration-200 flex flex-col">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-sky-700">BHRs in Scope</CardTitle>
+              <CardDescription className="text-xs text-sky-500/90">
+                 BHRs under current ZHR selection
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{dashboardStats.bhrCount}</div>
-              <Users className="h-5 w-5 sm:h-6 sm:w-6 text-[#004C8F] mt-0 sm:mt-1" />
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.bhrCount}</div>
+              <div className="text-xs text-sky-600/90 flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                <span>BHRs</span>
+              </div>
             </CardContent>
-            <CardFooter className="p-3 sm:p-4 pt-1">
-               <p className="text-xs text-muted-foreground/70">BHRs under current ZHR selection</p>
-            </CardFooter>
           </Card>
           
-          <Card className="relative overflow-hidden border border-emerald-500/10 bg-gradient-to-br from-white to-emerald-500/5 transition-all duration-200 hover:border-emerald-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group">
-            <CardHeader className="p-3 sm:p-4 pb-0">
-              <CardTitle className="text-xs sm:text-sm font-medium text-emerald-600">Total Submitted Visits</CardTitle>
+          <Card className="shadow-lg bg-gradient-to-br from-emerald-50 to-emerald-100/60 border-emerald-100 hover:shadow-xl transition-all duration-200 flex flex-col">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-emerald-700">Total Submitted Visits</CardTitle>
+              <CardDescription className="text-xs text-emerald-500/90">
+                By BHRs in current scope
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{dashboardStats.totalSubmittedVisits}</div>
-              <CalendarCheck className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500 mt-0 sm:mt-1" />
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.totalSubmittedVisits}</div>
+              <div className="text-xs text-emerald-600/90 flex items-center gap-1">
+                <CalendarCheck className="h-3.5 w-3.5" />
+                <span>Visits</span>
+              </div>
             </CardContent>
-             <CardFooter className="p-3 sm:p-4 pt-1">
-                <p className="text-xs text-muted-foreground/70">By BHRs in current scope</p>
-            </CardFooter>
           </Card>
 
-          <Card className="relative overflow-hidden border border-orange-500/10 bg-gradient-to-br from-white to-orange-500/5 transition-all duration-200 hover:border-orange-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group items-stretch">
-            <Link href="/vhr/analytics" className="flex flex-col flex-1 justify-center items-center p-3 sm:p-4 text-center hover:bg-orange-500/5">
-                <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 mb-2" />
-                <p className="text-sm sm:text-base font-semibold text-orange-700">View Detailed Analytics</p>
-                <p className="text-xs text-muted-foreground/80 mt-0.5">Dive deeper into trends</p>
+          <Card className="shadow-lg bg-gradient-to-br from-orange-50 to-orange-100/60 border-orange-100 hover:shadow-xl transition-all duration-200 flex flex-col group items-stretch">
+            <Link href="/vhr/analytics" className="flex flex-col flex-1 justify-center items-center p-4 text-center hover:bg-orange-500/5 rounded-lg">
+                <BarChart3 className="h-7 w-7 text-orange-600 mb-2" />
+                <p className="text-sm font-semibold text-orange-700">View Detailed Analytics</p>
+                <p className="text-xs text-orange-500/90 mt-0.5">Dive deeper into trends</p>
             </Link>
           </Card>
         </div>
