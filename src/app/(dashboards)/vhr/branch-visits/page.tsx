@@ -37,8 +37,8 @@ export default function VHRBranchVisitsPage() {
   const [localBhrFilter, setLocalBhrFilter] = useState<string>('all');
   const [localBranchFilter, setLocalBranchFilter] = useState<string>('all');
   
-  const [localBhrOptions, setLocalBhrOptions] = useState<User[]>([]); // Store full User objects for name
-  const [localBranchOptions, setLocalBranchOptions] = useState<Branch[]>([]); // Store full Branch objects for name
+  const [localBhrOptions, setLocalBhrOptions] = useState<User[]>([]);
+  const [localBranchOptions, setLocalBranchOptions] = useState<Branch[]>([]);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
@@ -103,14 +103,13 @@ export default function VHRBranchVisitsPage() {
     } else {
       setLocalBhrOptions([]);
     }
-    setLocalBhrFilter('all'); // Reset local BHR filter when global ZHR filter changes or BHR list updates
+    setLocalBhrFilter('all');
   }, [globalSelectedZhrIds, allBhrsInVhrVertical]);
 
 
   const filteredVisits = useMemo(() => {
     let visits = allVisitsForVhr;
 
-    // Apply global ZHR filter effect
     if (globalSelectedZhrIds.length > 0) {
       const bhrIdsUnderSelectedGlobalZhrs = allBhrsInVhrVertical
         .filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to))
@@ -118,12 +117,10 @@ export default function VHRBranchVisitsPage() {
       visits = visits.filter(visit => bhrIdsUnderSelectedGlobalZhrs.includes(visit.bhr_id));
     }
     
-    // Apply local BHR filter
     if (localBhrFilter !== 'all') {
       visits = visits.filter(visit => visit.bhr_id === localBhrFilter);
     }
 
-    // Apply local Branch filter
     if (localBranchFilter !== 'all') {
       visits = visits.filter(visit => visit.branch_id === localBranchFilter);
     }
@@ -262,9 +259,10 @@ export default function VHRBranchVisitsPage() {
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
       <PageTitle title={pageTitleText.title} description={pageTitleText.subtitle} />
 
-      <div className="flex flex-col lg:flex-row lg:items-end gap-4 mb-8">
-        <div className="flex flex-col sm:flex-row gap-2 items-center w-full lg:flex-1">
-          <div className="relative flex-1 w-full">
+      <div className="space-y-4 mb-8">
+        {/* Row 1: Search and Clear Button */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
             </div>
@@ -279,7 +277,7 @@ export default function VHRBranchVisitsPage() {
             onClick={handleClearLocalFilters}
             variant="outline"
             className={cn(
-                "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm w-full sm:w-auto",
+                "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm flex-shrink-0",
                 "text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:bg-red-100"
             )}
           >
@@ -289,8 +287,9 @@ export default function VHRBranchVisitsPage() {
           </Button>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:flex-shrink-0">
-          <div className="flex-1 lg:min-w-[180px]">
+        {/* Row 2: BHR Select, Branch Select, Date Picker */}
+        <div className="flex flex-col gap-2 md:flex-row">
+          <div className="flex-1 min-w-0">
             <Select value={localBhrFilter} onValueChange={setLocalBhrFilter} disabled={localBhrOptions.length === 0 && !isLoadingBhrsInVhrVertical}>
               <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
                 <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
@@ -303,7 +302,7 @@ export default function VHRBranchVisitsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex-1 lg:min-w-[180px]">
+          <div className="flex-1 min-w-0">
             <Select value={localBranchFilter} onValueChange={setLocalBranchFilter} disabled={localBranchOptions.length === 0 && !isLoadingPageData}>
               <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
                   <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
@@ -316,7 +315,7 @@ export default function VHRBranchVisitsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex-1 lg:min-w-[200px] lg:w-auto">
+          <div className="flex-1 min-w-0">
             <DatePickerWithRange
               date={dateRange}
               onDateChange={setDateRange}
