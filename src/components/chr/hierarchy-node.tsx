@@ -47,21 +47,38 @@ export function HierarchyNode({ node, level, onShowSubmissions }: HierarchyNodeP
 
   const hasChildren = node.children && node.children.length > 0;
 
-  const toggleExpand = () => {
+  const toggleExpand = (e: React.MouseEvent) => {
+    // Ensure that clicks on buttons or links within the card don't trigger expand/collapse
+    if (e.target !== e.currentTarget && (e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement || (e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a'))) {
+      return;
+    }
     if (hasChildren) {
       setIsExpanded(!isExpanded);
     }
   };
+  
+  const handleShowSubmissionsClick = (e: React.MouseEvent, bhr: User) => {
+    e.stopPropagation(); // Prevent card click from triggering
+    if (onShowSubmissions) {
+        onShowSubmissions(bhr);
+    }
+  };
+
 
   return (
     <div style={{ marginLeft: level > 0 ? `${level * 20}px` : '0px' }} className="mb-3">
-      <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 border-slate-200/50 hover:border-slate-300/50">
+      <Card 
+        className={cn(
+            "shadow-md hover:shadow-lg transition-shadow duration-200 border-slate-200/50 hover:border-slate-300/50",
+            hasChildren && "cursor-pointer"
+        )}
+        onClick={toggleExpand}
+      >
         <CardHeader
           className={cn(
             "flex flex-row items-center justify-between space-y-0 pb-2 pt-3 px-4 border-b border-slate-100",
-            hasChildren && "cursor-pointer hover:bg-slate-50/50 transition-colors"
+            hasChildren && "hover:bg-slate-50/50 transition-colors" // Header hover only if children exist
           )}
-          onClick={toggleExpand}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {hasChildren ? (
@@ -100,7 +117,7 @@ export function HierarchyNode({ node, level, onShowSubmissions }: HierarchyNodeP
                     variant="outline" 
                     size="sm"
                     className="h-8 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-slate-200 shadow-sm hover:shadow"
-                    onClick={() => onShowSubmissions(node)}
+                    onClick={(e) => handleShowSubmissionsClick(e, node)}
                 >
                     <ListChecks className="mr-1.5 h-3.5 w-3.5 text-slate-500" /> Show Submissions
                 </Button>
