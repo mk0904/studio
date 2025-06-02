@@ -2,26 +2,26 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { PageTitle } from '@/components/shared/page-title';
-import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
+import type { Visit, User, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, CalendarCheck, BarChart3, Loader2, Eye } from 'lucide-react';
+import { Users, CalendarCheck, BarChart3, Loader2, Eye, Calendar, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import type { Visit, User, Branch } from '@/types';
 import { DataTable, ColumnConfig } from '@/components/shared/data-table';
 import { format, parseISO } from 'date-fns';
 import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 import { useVhrFilter } from '@/contexts/vhr-filter-context';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export default function VHRDashboardPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { 
-    selectedZhrIds, 
-    zhrOptions, 
+  const {
+    selectedZhrIds,
+    zhrOptions,
     isLoadingZhrOptions,
     allBhrsInVhrVertical,
     isLoadingBhrsInVhrVertical
@@ -29,7 +29,7 @@ export default function VHRDashboardPage() {
 
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [allSubmittedVisitsInVertical, setAllSubmittedVisitsInVertical] = useState<Visit[]>([]);
-  const [allBranches, setAllBranches] = useState<Branch[]>([]); // For branch name lookups in modal
+  const [allBranches, setAllBranches] = useState<Branch[]>([]);
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedVisitForView, setSelectedVisitForView] = useState<EnrichedVisitForModal | null>(null);
@@ -37,18 +37,16 @@ export default function VHRDashboardPage() {
   useEffect(() => {
     if (user && user.role === 'VHR') {
       const fetchData = async () => {
-        if (isLoadingBhrsInVhrVertical) return; // Wait for BHRs to be loaded by context
+        if (isLoadingBhrsInVhrVertical) return;
 
         setIsLoadingPageData(true);
         try {
-          // Fetch all branches once for modal name lookups
           const { data: branchesData, error: branchesErr } = await supabase
             .from('branches')
             .select('id, name, category, code');
           if (branchesErr) throw branchesErr;
           setAllBranches(branchesData || []);
 
-          // Fetch submitted visits by BHRs in the entire VHR vertical
           const bhrIdsInEntireVertical = allBhrsInVhrVertical.map(b => b.id);
           if (bhrIdsInEntireVertical.length > 0) {
             const { data: visits, error: visitsError } = await supabase
@@ -79,7 +77,7 @@ export default function VHRDashboardPage() {
 
   const filteredBhrs = useMemo(() => {
     if (selectedZhrIds.length === 0) {
-      return allBhrsInVhrVertical; // All BHRs under this VHR
+      return allBhrsInVhrVertical;
     }
     return allBhrsInVhrVertical.filter(bhr => bhr.reports_to && selectedZhrIds.includes(bhr.reports_to));
   }, [selectedZhrIds, allBhrsInVhrVertical]);
@@ -87,7 +85,6 @@ export default function VHRDashboardPage() {
   const filteredSubmittedVisits = useMemo(() => {
     const bhrIdsInScope = filteredBhrs.map(b => b.id);
     if (bhrIdsInScope.length === 0 && (selectedZhrIds.length > 0 || allBhrsInVhrVertical.length > 0)) {
-        // If a ZHR filter is active but results in no BHRs, or if there are BHRs in vertical but none match current ZHR filter
         return [];
     }
     return allSubmittedVisitsInVertical.filter(visit => bhrIdsInScope.includes(visit.bhr_id));
@@ -97,7 +94,7 @@ export default function VHRDashboardPage() {
     const zhrCountDisplay = selectedZhrIds.length > 0 ? selectedZhrIds.length : zhrOptions.length;
     const bhrCountDisplay = filteredBhrs.length;
     const totalVisitsDisplay = filteredSubmittedVisits.length;
-    
+
     return {
       zhrCount: zhrCountDisplay,
       bhrCount: bhrCountDisplay,
@@ -108,7 +105,7 @@ export default function VHRDashboardPage() {
   const recentVisitsForTable = useMemo(() => {
     return filteredSubmittedVisits.slice(0, 5).map(v => {
       const branch = allBranches.find(b => b.id === v.branch_id);
-      const bhr = allBhrsInVhrVertical.find(u => u.id === v.bhr_id); // Use allBhrs for BHR name lookup
+      const bhr = allBhrsInVhrVertical.find(u => u.id === v.bhr_id);
       return {
           ...v,
           branch_name_display: branch?.name || v.branch_id,
@@ -118,7 +115,7 @@ export default function VHRDashboardPage() {
       };
     });
   }, [filteredSubmittedVisits, allBranches, allBhrsInVhrVertical]);
-  
+
   const recentVisitsColumns: ColumnConfig<EnrichedVisitForModal>[] = useMemo(() => [
     {
       accessorKey: 'bhr_id',
@@ -146,13 +143,14 @@ export default function VHRDashboardPage() {
             setSelectedVisitForView(visit);
             setIsViewModalOpen(true);
           }}
+          className="h-9 px-3 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150"
         >
-          <Eye className="mr-2 h-4 w-4" /> View
+          <Eye className="mr-1.5 h-4 w-4 text-slate-500" /> View
         </Button>
       ),
     }
   ], []);
-  
+
   const isLoading = isLoadingZhrOptions || isLoadingBhrsInVhrVertical || isLoadingPageData;
 
   const pageTitleText = useMemo(() => {
@@ -175,39 +173,137 @@ export default function VHRDashboardPage() {
 
   if (isLoading && user.role === 'VHR') {
     return (
-      <div className="space-y-8">
-        <PageTitle title={pageTitleText} description={`Loading data...`} />
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div className="flex min-h-full w-full flex-col items-center bg-gradient-to-b from-slate-50 to-white">
+        <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
+          <div className="flex flex-col space-y-4 sm:space-y-6">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#004C8F] to-[#0070CC]">
+                {pageTitleText}
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground/90 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-[#004C8F]/70" />
+                Loading data for {format(new Date(), 'MMMM yyyy')}...
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-12 w-12 animate-spin text-[#004C8F]" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <PageTitle title={pageTitleText} description={`Submitted Data Overview. ${selectedZhrIds.length === 0 ? "Showing all ZHRs in your vertical." : ""}`} />
+    <div className="flex min-h-full w-full flex-col items-center bg-gradient-to-b from-slate-50 to-white">
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="ZHRs in Scope" value={dashboardStats.zhrCount} icon={Users} description={selectedZhrIds.length > 0 ? "Selected ZHRs" : "Total ZHRs in your vertical."} />
-        <StatCard title="BHRs in Scope" value={dashboardStats.bhrCount} icon={Users} description="BHRs under selected ZHR(s) or all in vertical." />
-        <StatCard title="Total Submitted Visits" value={dashboardStats.totalSubmittedVisits} icon={CalendarCheck} description="Submitted visits by BHRs in scope." />
-        <Link href="/vhr/analytics" className="lg:col-span-1 md:col-span-2">
-          <Button className="w-full h-full text-lg py-6 md:py-8" variant="outline">
-            <BarChart3 className="mr-2 h-6 w-6" /> View Detailed Analytics
-          </Button>
-        </Link>
+        <div className="flex flex-col space-y-4 sm:space-y-6">
+          <div className="flex flex-col gap-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#004C8F] to-[#0070CC]">
+                {pageTitleText}
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground/90 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-[#004C8F]/70" />
+                Submitted Data Overview for {format(new Date(), 'MMMM yyyy')}. {selectedZhrIds.length === 0 ? "Showing all ZHRs in your vertical." : ""}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+          <Card className="relative overflow-hidden border border-indigo-500/10 bg-gradient-to-br from-white to-indigo-500/5 transition-all duration-200 hover:border-indigo-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group">
+            <CardHeader className="p-3 sm:p-4 pb-0">
+              <CardTitle className="text-xs sm:text-sm font-medium text-indigo-600">ZHRs in Scope</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{dashboardStats.zhrCount}</div>
+              <Users className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-500 mt-0 sm:mt-1" />
+            </CardContent>
+            <CardFooter className="p-3 sm:p-4 pt-1">
+              <p className="text-xs text-muted-foreground/70">{selectedZhrIds.length > 0 ? "Selected ZHRs" : "Total ZHRs in your vertical"}</p>
+            </CardFooter>
+          </Card>
+
+          <Card className="relative overflow-hidden border border-[#004C8F]/10 bg-gradient-to-br from-white to-[#004C8F]/5 transition-all duration-200 hover:border-[#004C8F]/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group">
+            <CardHeader className="p-3 sm:p-4 pb-0">
+              <CardTitle className="text-xs sm:text-sm font-medium text-[#004C8F]">BHRs in Scope</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{dashboardStats.bhrCount}</div>
+              <Users className="h-5 w-5 sm:h-6 sm:w-6 text-[#004C8F] mt-0 sm:mt-1" />
+            </CardContent>
+            <CardFooter className="p-3 sm:p-4 pt-1">
+               <p className="text-xs text-muted-foreground/70">BHRs under current ZHR selection</p>
+            </CardFooter>
+          </Card>
+          
+          <Card className="relative overflow-hidden border border-emerald-500/10 bg-gradient-to-br from-white to-emerald-500/5 transition-all duration-200 hover:border-emerald-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group">
+            <CardHeader className="p-3 sm:p-4 pb-0">
+              <CardTitle className="text-xs sm:text-sm font-medium text-emerald-600">Total Submitted Visits</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4 pt-2 flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start flex-1">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{dashboardStats.totalSubmittedVisits}</div>
+              <CalendarCheck className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500 mt-0 sm:mt-1" />
+            </CardContent>
+             <CardFooter className="p-3 sm:p-4 pt-1">
+                <p className="text-xs text-muted-foreground/70">By BHRs in current scope</p>
+            </CardFooter>
+          </Card>
+
+          <Card className="relative overflow-hidden border border-orange-500/10 bg-gradient-to-br from-white to-orange-500/5 transition-all duration-200 hover:border-orange-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group items-stretch">
+            <Link href="/vhr/analytics" className="flex flex-col flex-1 justify-center items-center p-3 sm:p-4 text-center hover:bg-orange-500/5">
+                <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 mb-2" />
+                <p className="text-sm sm:text-base font-semibold text-orange-700">View Detailed Analytics</p>
+                <p className="text-xs text-muted-foreground/80 mt-0.5">Dive deeper into trends</p>
+            </Link>
+          </Card>
+        </div>
+
+        <div className="w-full">
+          <Card className="border border-slate-200/50 bg-white/95 backdrop-blur-sm transition-all duration-200 hover:border-slate-300/50 hover:shadow-lg hover:-translate-y-0.5 overflow-hidden">
+            <div className="flex flex-col min-h-[300px]">
+              <CardHeader className="items-start p-6 sm:p-8 pb-4">
+                <CardTitle className="text-base font-semibold text-slate-800">Recent Submitted Visits in Scope (Top 5)</CardTitle>
+                <CardDescription className="text-xs text-slate-600">Quick overview of the latest visit reports from BHRs under the current filter.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow p-0 sm:p-0">
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#004C8F]" />
+                  </div>
+                ) : recentVisitsForTable.length > 0 ? (
+                  <DataTable
+                    columns={recentVisitsColumns}
+                    data={recentVisitsForTable}
+                    tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+                  />
+                ) : (
+                  <div className="text-center py-10 px-6">
+                    <Eye className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
+                    <p className="font-medium text-muted-foreground">No Recent Submitted Visits</p>
+                    <p className="text-sm text-muted-foreground/80 max-w-xs mx-auto mt-1.5">
+                      No BHRs in the current scope have submitted any visits recently, or there are no visits matching filters.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="border-t border-slate-100 bg-gradient-to-b from-slate-50/50 to-white p-4 sm:p-6">
+                <div className="flex justify-end w-full">
+                  <Button variant="ghost" size="sm" asChild className="text-[#004C8F] hover:text-[#004C8F]/90 hover:bg-[#004C8F]/10">
+                    <Link href="/vhr/branch-visits" className="inline-flex items-center gap-1.5">
+                      View All Submitted Visits
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </CardFooter>
+            </div>
+          </Card>
+        </div>
+
       </div>
-
-      <div className="grid grid-cols-1 gap-6">
-         <DataTable
-          columns={recentVisitsColumns}
-          data={recentVisitsForTable}
-          title="Recent Submitted Visits in Scope (Top 5)"
-          emptyStateMessage={isLoading ? "Loading..." : "No recent submitted visits for the current filter."}
-        />
-      </div>
-
       {selectedVisitForView && (
         <ViewVisitDetailsModal
             visit={selectedVisitForView}
