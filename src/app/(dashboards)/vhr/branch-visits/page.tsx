@@ -278,7 +278,10 @@ export default function VHRBranchVisitsPage() {
           <Button
             onClick={handleClearLocalFilters}
             variant="outline"
-            className="h-9 sm:h-10 text-xs sm:text-sm font-medium border-slate-200/70 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 active:bg-slate-100 transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm w-full sm:w-auto"
+            className={cn(
+                "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm w-full sm:w-auto",
+                "text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:bg-red-100"
+            )}
           >
             <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Clear</span>
@@ -362,4 +365,3 @@ export default function VHRBranchVisitsPage() {
     </div>
   );
 }
-
