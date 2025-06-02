@@ -569,7 +569,13 @@ export default function VHRAnalyticsPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          ) : ( <div className="flex flex-col items-center justify-center h-96 text-center p-4"><TrendingUp className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No metric data for current filter combination.</p></div> )}
+          ) : ( 
+             <div className="flex flex-col items-center justify-center h-96 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+              <TrendingUp className="w-20 h-20 text-primary/70 mb-5" />
+              <p className="text-lg font-semibold text-slate-700 mb-1.5">No Metric Data</p>
+              <p className="text-sm text-slate-500 max-w-xs">Try adjusting your filters or check if data has been submitted for the selected criteria.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -586,11 +592,17 @@ export default function VHRAnalyticsPage() {
                   <PolarGrid stroke="hsl(var(--border))" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                  <Radar name="Avg Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-3))" fillOpacity={0.6} strokeWidth={2} />
+                  <Radar name="Avg Score" dataKey="score" stroke={`hsl(var(--chart-1))`} fill={`hsl(var(--chart-3))`} fillOpacity={0.6} strokeWidth={2} />
                   <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
                 </RadarChart>
               </ResponsiveContainer>
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No qualitative data for current filter combination.</p></div>)}
+            ) : ( 
+              <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                <ShieldQuestion className="w-20 h-20 text-primary/70 mb-5" />
+                <p className="text-lg font-semibold text-slate-700 mb-1.5">No Qualitative Data</p>
+                <p className="text-sm text-slate-500 max-w-xs">Ensure qualitative assessments were part of the submitted visits for the selected filters.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -603,7 +615,13 @@ export default function VHRAnalyticsPage() {
                 <CardContent>
                     {branchCategoryPieChartData.length > 0 ? (
                         <PlaceholderPieChart data={branchCategoryPieChartData} title="" dataKey="value" nameKey="name"/>
-                    ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No category data for current filter combination.</p></div>)}
+                    ) : ( 
+                      <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                        <PieChartIcon className="w-20 h-20 text-primary/70 mb-5" />
+                        <p className="text-lg font-semibold text-slate-700 mb-1.5">No Category Data</p>
+                        <p className="text-sm text-slate-500 max-w-xs">No visit data found for branch categories under the current filter combination.</p>
+                      </div>
+                    )}
                 </CardContent>
             </Card>
         )}
@@ -619,7 +637,13 @@ export default function VHRAnalyticsPage() {
               <CardContent>
                 {topPerformingBranchesChartData.length > 0 ? (
                     <PlaceholderBarChart data={topPerformingBranchesChartData} title="" xAxisKey="name" dataKey="value" />
-                ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><BarChartBig className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No branch visit data for current filter combination.</p></div>)}
+                ) : ( 
+                  <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                    <BarChartBig className="w-20 h-20 text-primary/70 mb-5" />
+                    <p className="text-lg font-semibold text-slate-700 mb-1.5">No Branch Visit Data</p>
+                    <p className="text-sm text-slate-500 max-w-xs">No data available for top branches by visits with the current filters.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -633,7 +657,13 @@ export default function VHRAnalyticsPage() {
             <CardContent>
               {visitsByZHRChartData.length > 0 ? (
                   <PlaceholderPieChart data={visitsByZHRChartData} title="" dataKey="value" nameKey="name"/>
-              ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><Users className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No ZHR visit data for the current timeframe.</p></div>)}
+              ) : ( 
+                <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                  <Users className="w-20 h-20 text-primary/70 mb-5" />
+                  <p className="text-lg font-semibold text-slate-700 mb-1.5">No ZHR Visit Data</p>
+                  <p className="text-sm text-slate-500 max-w-xs">No data available for ZHR visits within the selected timeframe.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -666,3 +696,4 @@ export default function VHRAnalyticsPage() {
     
 
     
+
