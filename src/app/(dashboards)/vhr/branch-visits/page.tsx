@@ -192,7 +192,7 @@ export default function VHRBranchVisitsPage() {
       header: 'Actions',
       cell: (visit) => {
         const handleViewClick = () => {
-          if (!user) return; // user check added for safety
+          if (!user) return; 
           const branch = localBranchOptions.find(b => b.id === visit.branch_id);
           const bhr = localBhrOptions.find(u => u.id === visit.bhr_id);
           const enrichedVisit: EnrichedVisitForModal = {
@@ -261,8 +261,8 @@ export default function VHRBranchVisitsPage() {
       <PageTitle title={pageTitleText.title} description={pageTitleText.subtitle} />
 
       <div className="space-y-2 mb-8">
-        {/* Row 1: Search and Clear Button */}
-        <div className="flex flex-col sm:flex-row items-center gap-2">
+        {/* Row 1: Search and Clear Button - Always in a row */}
+        <div className="flex items-center gap-2">
           <div className="relative flex-1 w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
@@ -278,7 +278,7 @@ export default function VHRBranchVisitsPage() {
             onClick={handleClearLocalFilters}
             variant="outline"
             className={cn(
-                "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm flex-shrink-0 w-full sm:w-auto",
+                "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm flex-shrink-0",
                 "text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 active:bg-red-100"
             )}
           >
