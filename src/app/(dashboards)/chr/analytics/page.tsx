@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import { useChrFilter } from '@/contexts/chr-filter-context';
+import { cn } from '@/lib/utils';
 
 interface MetricConfig {
   key: keyof Visit;
@@ -90,9 +91,20 @@ interface TimeframeButtonsProps {
 const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, onTimeframeChange }) => (
   <div className="flex flex-wrap gap-2">
     {TIMEFRAME_OPTIONS.map(tf => (
-      <Button key={tf.key} variant={selectedTimeframe === tf.key ? 'default' : 'outline'} size="sm" onClick={() => onTimeframeChange(tf.key)}>
+      <Button 
+        key={tf.key} 
+        variant={selectedTimeframe === tf.key ? 'default' : 'outline'} 
+        size="sm" 
+        onClick={() => onTimeframeChange(tf.key)}
+        className={cn(
+            "h-9 text-xs sm:text-sm font-medium transition-all duration-200 rounded-md",
+            selectedTimeframe === tf.key 
+                ? "bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow-md" 
+                : "border-slate-300 hover:bg-slate-50 hover:border-slate-400"
+        )}
+    >
         {tf.label}
-      </Button>
+    </Button>
     ))}
   </div>
 );
@@ -138,10 +150,10 @@ export default function CHRAnalyticsPage() {
         if (isLoadingAllUsers) return; 
         setIsLoadingPageData(true);
         try {
-          const { data: branchesData, error: branchesError } = await supabase.from('branches').select('id, name, category, location');
+          const { data: branchesData, error: branchesError } = await supabase.from('branches').select('id, name, category, location, code');
           if (branchesError) throw branchesError;
           setAllBranchesGlobal(branchesData || []);
-          setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: b.name }))); 
+          setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: `${b.name} (${b.code})` }))); 
           setIsLoadingBranchOptions(false);
 
           const { data: visitsData, error: visitsError } = await supabase
@@ -439,28 +451,28 @@ export default function CHRAnalyticsPage() {
   const showBranchSpecificCharts = selectedBranchIds.length === 0;
 
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
       <PageTitle title={pageTitleText} description={`Analyze key metrics, qualitative assessments, and visit distributions based on current filters.`} />
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Local Filters</CardTitle>
-          <CardDescription>Refine analytics by ZHR, BHR, specific Branches, and Timeframe. These are applied with the global VHR filter from the header.</CardDescription>
+      <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><FilterIcon className="h-5 w-5"/>Local Filters</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground/90">Refine analytics by ZHR, BHR, specific Branches, and Timeframe. These are applied with the global VHR filter from the header.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className="space-y-5 pt-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full justify-between pr-3 h-10 border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.2)] text-gray-700">
                     {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                   <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                  {isLoadingZhrOptions ? <DropdownMenuItem disabled>Loading...</DropdownMenuItem> :
                   zhrOptions.length > 0 ? zhrOptions.map(option => (
                     <DropdownMenuCheckboxItem
                       key={option.value}
@@ -470,7 +482,7 @@ export default function CHRAnalyticsPage() {
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
+                  )) : <DropdownMenuItem disabled>No ZHRs match VHR filter.</DropdownMenuItem>}
                    <DropdownMenuSeparator />
                    <DropdownMenuItem onSelect={() => setSelectedZhrIds([])} disabled={selectedZhrIds.length === 0}>Show All ZHRs</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -484,15 +496,15 @@ export default function CHRAnalyticsPage() {
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full justify-between pr-3 h-10 border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.2)] text-gray-700">
                     {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                   <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                  {isLoadingBhrOptions ? <DropdownMenuItem disabled>Loading...</DropdownMenuItem> :
                   bhrOptions.length > 0 ? bhrOptions.map(option => (
                     <DropdownMenuCheckboxItem
                       key={option.value}
@@ -502,7 +514,7 @@ export default function CHRAnalyticsPage() {
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No BHRs match current VHR/ZHR filter.</DropdownMenuLabel>}
+                  )) : <DropdownMenuItem disabled>No BHRs match VHR/ZHR filter.</DropdownMenuItem>}
                    <DropdownMenuSeparator />
                    <DropdownMenuItem onSelect={() => setSelectedBhrIds([])} disabled={selectedBhrIds.length === 0}>Show All BHRs</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -517,15 +529,15 @@ export default function CHRAnalyticsPage() {
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full justify-between pr-3 h-10 border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.2)] text-gray-700">
                     {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                   <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> : 
+                  {isLoadingBranchOptions ? <DropdownMenuItem disabled>Loading...</DropdownMenuItem> : 
                   branchOptions.length > 0 ? branchOptions.map(option => (
                     <DropdownMenuCheckboxItem
                       key={option.value}
@@ -535,7 +547,7 @@ export default function CHRAnalyticsPage() {
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+                  )) : <DropdownMenuItem disabled>No branches available.</DropdownMenuItem>}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={() => setSelectedBranchIds([])} disabled={selectedBranchIds.length === 0}>Show All Branches</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -547,35 +559,39 @@ export default function CHRAnalyticsPage() {
               )}
             </div>
           </div>
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Select Timeframe</Label>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium block text-gray-700">Select Timeframe</Label>
             <TimeframeButtons selectedTimeframe={globalTimeframe} onTimeframeChange={setGlobalTimeframe} />
           </div>
-          <Button variant="outline" onClick={handleClearAllLocalFilters} className="w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={handleClearAllLocalFilters} 
+            className="w-full sm:w-auto h-9 border-slate-300 hover:bg-slate-50 hover:border-slate-400 text-xs"
+          >
             <XCircle className="mr-2 h-4 w-4" /> Clear All Local Filters & Timeframe
           </Button>
         </CardContent>
       </Card>
 
 
-      <Card className="shadow-xl">
+      <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
         <CardHeader>
-            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Metric Trends</CardTitle>
-            <CardDescription>Trendlines for selected metrics from submitted visits, reflecting all active filters and the global timeframe.</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><TrendingUp className="h-5 w-5" />Metric Trends</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground/90">Trendlines for selected metrics from submitted visits, reflecting all active filters and the global timeframe.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
             {METRIC_CONFIGS.map(metric => (
               <div key={metric.key} className="flex items-center space-x-2">
-                <Checkbox id={`metric-chr-${metric.key}`} checked={!!activeMetrics[metric.key]} onCheckedChange={() => handleMetricToggle(metric.key)} style={{ accentColor: metric.color } as React.CSSProperties}/>
-                <Label htmlFor={`metric-chr-${metric.key}`} className="text-sm font-medium" style={{ color: metric.color }}>{metric.label}</Label>
+                <Checkbox id={`metric-chr-${metric.key}`} checked={!!activeMetrics[metric.key]} onCheckedChange={() => handleMetricToggle(metric.key)} style={{ accentColor: metric.color } as React.CSSProperties} className="border-slate-400 data-[state=checked]:bg-[var(--primary)] data-[state=checked]:border-[var(--primary)]"/>
+                <Label htmlFor={`metric-chr-${metric.key}`} className="text-sm font-medium cursor-pointer" style={{ color: metric.color }}>{metric.label}</Label>
               </div>
             ))}
           </div>
           {metricTrendChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={metricTrendChartData} isAnimationActive={false}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.7)" />
                 <XAxis dataKey="date" type="category" tickFormatter={(tick) => format(parseISO(tick), 'MMM d')} stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }}/>
                 <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" orientation="left" tick={{ fontSize: 12 }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                 <YAxis yAxisId="right" stroke="hsl(var(--muted-foreground))" orientation="right" tick={{ fontSize: 12 }} allowDecimals={false} />
@@ -588,51 +604,69 @@ export default function CHRAnalyticsPage() {
                       dataKey={metric.key.toString()} 
                       name={metric.label} 
                       stroke={metric.color} 
-                      strokeWidth={2} 
+                      strokeWidth={2.5} 
                       yAxisId={metric.yAxisId || 'left'} 
                       connectNulls={true}
                       strokeDasharray={metric.strokeDasharray}
-                      dot={{ r: 2, fill: metric.color, strokeWidth: 0 }}
-                      activeDot={{ r: 5, stroke: 'hsl(var(--background))', strokeWidth: 1 }}
+                      dot={{ r: 3, fill: metric.color, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
+                      activeDot={{ r: 6, stroke: 'hsl(var(--background))', strokeWidth: 2, fill: metric.color }}
                     />
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          ) : ( <div className="flex flex-col items-center justify-center h-96 text-center p-4"><TrendingUp className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No metric data for current filter combination.</p></div> )}
+          ) : ( 
+            <div className="flex flex-col items-center justify-center h-96 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+              <TrendingUp className="w-20 h-20 text-primary/70 mb-5" />
+              <p className="text-lg font-semibold text-slate-700 mb-1.5">No Metric Data</p>
+              <p className="text-sm text-slate-500 max-w-xs">Try adjusting your filters or check if data has been submitted for the selected criteria.</p>
+            </div> 
+          )}
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="shadow-xl">
+        <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary"/>Qualitative Assessment</CardTitle>
-            <CardDescription>Average scores for qualitative questions from submitted visits (0-5 scale), reflecting all active filters and the global timeframe.</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><Target className="h-5 w-5"/>Qualitative Assessment</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground/90">Average scores for qualitative questions from submitted visits (0-5 scale), reflecting all active filters and the global timeframe.</CardDescription>
           </CardHeader>
           <CardContent>
             {qualitativeSpiderChartData.length > 0 && qualitativeSpiderChartData.some(d => d.score > 0) ? (
               <ResponsiveContainer width="100%" height={350}>
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderChartData}>
-                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarGrid stroke="hsl(var(--border)/0.7)" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                  <Radar name="Avg Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} />
+                  <Radar name="Avg Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} strokeWidth={2} />
                   <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
                 </RadarChart>
               </ResponsiveContainer>
-            ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No qualitative data for current filter combination.</p></div>)}
+            ) : ( 
+              <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                <ShieldQuestion className="w-20 h-20 text-primary/70 mb-5" />
+                <p className="text-lg font-semibold text-slate-700 mb-1.5">No Qualitative Data</p>
+                <p className="text-sm text-slate-500 max-w-xs">Try adjusting your filters or ensure qualitative assessments were part of the submitted visits.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {showBranchSpecificCharts && (
-            <Card className="shadow-xl">
+            <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary"/>Branch Category Visits</CardTitle>
-                    <CardDescription>Distribution of submitted visits by branch category, reflecting current filters and global timeframe (hidden if specific branches are selected).</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><PieChartIcon className="h-5 w-5"/>Branch Category Visits</CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground/90">Distribution of submitted visits by branch category, reflecting current filters and global timeframe (hidden if specific branches are selected).</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {branchCategoryPieChartData.length > 0 ? (
                         <PlaceholderPieChart data={branchCategoryPieChartData} title="" dataKey="value" nameKey="name"/>
-                    ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No category data for current filter combination.</p></div>)}
+                    ) : ( 
+                      <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                        <PieChartIcon className="w-20 h-20 text-primary/70 mb-5" />
+                        <p className="text-lg font-semibold text-slate-700 mb-1.5">No Category Data</p>
+                        <p className="text-sm text-slate-500 max-w-xs">No visit data found for branch categories under the current filter combination.</p>
+                      </div>
+                    )}
                 </CardContent>
             </Card>
         )}
@@ -640,24 +674,30 @@ export default function CHRAnalyticsPage() {
 
       {showBranchSpecificCharts && (
            <div className="grid grid-cols-1 gap-8">
-            <Card className="shadow-xl">
+            <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><BarChartBig className="h-5 w-5 text-primary"/>Top Branches by Visits</CardTitle>
-                <CardDescription>Branches with the most submitted HR visits, reflecting current filters and global timeframe (hidden if specific branches are selected).</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><BarChartBig className="h-5 w-5"/>Top Branches by Visits</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground/90">Branches with the most submitted HR visits, reflecting current filters and global timeframe (hidden if specific branches are selected).</CardDescription>
               </CardHeader>
               <CardContent>
                 {topPerformingBranchesChartData.length > 0 ? (
                     <PlaceholderBarChart data={topPerformingBranchesChartData} title="" xAxisKey="name" dataKey="value" />
-                ) : ( <div className="flex flex-col items-center justify-center h-80 text-center p-4"><BarChartBig className="w-16 h-16 text-muted-foreground mb-4" /><p className="text-muted-foreground font-semibold">No branch visit data for current filter combination.</p></div>)}
+                ) : ( 
+                  <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                    <BarChartBig className="w-20 h-20 text-primary/70 mb-5" />
+                    <p className="text-lg font-semibold text-slate-700 mb-1.5">No Branch Visit Data</p>
+                    <p className="text-sm text-slate-500 max-w-xs">No data available for top branches by visits with the current filters.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
       )}
        {!showBranchSpecificCharts && (
-        <Card className="shadow-xl">
+        <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
             <CardHeader>
-                <CardTitle>Branch Specific Charts Hidden</CardTitle>
-                <CardDescription>The "Top Branches by Visits" and "Branch Category Visits" charts are hidden when specific branches are selected in the filter above. Clear the branch filter to see these charts.</CardDescription>
+                <CardTitle className="text-lg font-semibold text-slate-700">Branch Specific Charts Hidden</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground/90">The "Top Branches by Visits" and "Branch Category Visits" charts are hidden when specific branches are selected in the filter above. Clear the branch filter to see these charts.</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-center h-40">
                 <BarChartBig className="w-12 h-12 text-muted-foreground opacity-50 mr-2"/>
@@ -671,3 +711,4 @@ export default function CHRAnalyticsPage() {
     
 
     
+
