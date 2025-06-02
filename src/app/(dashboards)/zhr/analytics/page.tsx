@@ -36,6 +36,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { PlaceholderPieChart } from '@/components/charts/placeholder-pie-chart';
 import type { ChartData } from "@/types";
+import { cn } from '@/lib/utils';
 
 
 interface MetricConfig {
@@ -90,7 +91,18 @@ interface TimeframeButtonsProps {
 const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, onTimeframeChange }) => (
   <div className="flex flex-wrap gap-2">
     {TIMEFRAME_OPTIONS.map(tf => (
-      <Button key={tf.key} variant={selectedTimeframe === tf.key ? 'default' : 'outline'} size="sm" onClick={() => onTimeframeChange(tf.key)}>
+      <Button 
+        key={tf.key} 
+        variant={selectedTimeframe === tf.key ? 'default' : 'outline'} 
+        size="sm" 
+        onClick={() => onTimeframeChange(tf.key)}
+        className={cn(
+          "h-9 text-xs sm:text-sm font-medium transition-all duration-200 rounded-md",
+          selectedTimeframe === tf.key 
+              ? "bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow-md" 
+              : "border-slate-300 hover:bg-slate-50 hover:border-slate-400"
+        )}
+      >
         {tf.label}
       </Button>
     ))}
@@ -176,10 +188,10 @@ export default function ZHRAnalyticsPage() {
 
           const { data: branchesData, error: branchesError } = await supabase
             .from('branches')
-            .select('id, name, category'); 
+            .select('id, name, category, code'); 
           if (branchesError) throw branchesError;
           setAllBranchesForCategoryLookup(branchesData || []); 
-          setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: b.name })));
+          setBranchOptions((branchesData || []).map(b => ({ value: b.id, label: `${b.name} (${b.code})` })));
           setIsLoadingBranchOptions(false);
 
         } catch (error: any) {
@@ -362,25 +374,25 @@ export default function ZHRAnalyticsPage() {
     <div className="space-y-8">
       <PageTitle title="Zonal Performance Trends" description="Analyze key metrics and qualitative assessments from submitted visits in your zone over time." />
       
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Filters</CardTitle>
-          <CardDescription>Refine analytics by BHR, Branch, and Timeframe.</CardDescription>
+      <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><FilterIcon className="h-5 w-5"/>Filters</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground/90">Refine analytics by BHR, Branch, and Timeframe.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 pt-4">
+        <CardContent className="space-y-5 pt-5">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full justify-between pr-3 h-10 border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.2)] text-gray-700">
                     {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                   <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                  {isLoadingBhrOptions ? <DropdownMenuItem disabled>Loading...</DropdownMenuItem> :
                   bhrOptions.length > 0 ? bhrOptions.map(option => (
                     <DropdownMenuCheckboxItem
                       key={option.value}
@@ -390,7 +402,7 @@ export default function ZHRAnalyticsPage() {
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No BHRs report to you.</DropdownMenuLabel>}
+                  )) : <DropdownMenuItem disabled>No BHRs report to you.</DropdownMenuItem>}
                    <DropdownMenuSeparator />
                    <DropdownMenuItem onSelect={() => setSelectedBhrIds([])} disabled={selectedBhrIds.length === 0}>Show All BHRs</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -405,15 +417,15 @@ export default function ZHRAnalyticsPage() {
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full justify-between pr-3 h-10 border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(59,130,246,0.2)] text-gray-700">
                     {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                   <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> : 
+                  {isLoadingBranchOptions ? <DropdownMenuItem disabled>Loading...</DropdownMenuItem> : 
                   branchOptions.length > 0 ? branchOptions.map(option => (
                     <DropdownMenuCheckboxItem
                       key={option.value}
@@ -423,7 +435,7 @@ export default function ZHRAnalyticsPage() {
                     >
                       {option.label}
                     </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+                  )) : <DropdownMenuItem disabled>No branches available.</DropdownMenuItem>}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={() => setSelectedBranchIds([])} disabled={selectedBranchIds.length === 0}>Show All Branches</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -435,23 +447,27 @@ export default function ZHRAnalyticsPage() {
               )}
             </div>
           </div>
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Select Timeframe</Label>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium block text-gray-700">Select Timeframe</Label>
             <TimeframeButtons selectedTimeframe={globalTimeframe} onTimeframeChange={setGlobalTimeframe} />
           </div>
-          <Button variant="outline" onClick={handleClearAllLocalFilters} className="w-full md:w-auto">
-            <XCircle className="mr-2 h-4 w-4" /> Clear Filters & Timeframe
+          <Button 
+            variant="outline" 
+            onClick={handleClearAllLocalFilters} 
+            className="w-full sm:w-auto h-9 border-slate-300 hover:bg-slate-50 hover:border-slate-400 text-xs"
+          >
+            <XCircle className="mr-2 h-4 w-4" /> Clear All Filters & Timeframe
           </Button>
         </CardContent>
       </Card>
 
-      <Card className="shadow-xl">
+      <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
         <CardHeader>
-            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Metric Trends</CardTitle>
-            <CardDescription>Trendlines for selected metrics, reflecting active filters.</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><TrendingUp className="h-5 w-5" />Metric Trends</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground/90">Trendlines for selected metrics, reflecting active filters.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
             {METRIC_CONFIGS.map(metric => (
               <div key={metric.key} className="flex items-center space-x-2">
                 <Checkbox
@@ -459,8 +475,9 @@ export default function ZHRAnalyticsPage() {
                   checked={!!activeMetrics[metric.key]}
                   onCheckedChange={() => handleMetricToggle(metric.key)}
                   style={{ accentColor: metric.color } as React.CSSProperties}
+                  className="border-slate-400 data-[state=checked]:bg-[var(--primary)] data-[state=checked]:border-[var(--primary)]"
                 />
-                <Label htmlFor={`metric-${metric.key}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" style={{ color: metric.color }}>
+                <Label htmlFor={`metric-${metric.key}`} className="text-sm font-medium cursor-pointer" style={{ color: metric.color }}>
                   {metric.label}
                 </Label>
               </div>
@@ -469,7 +486,7 @@ export default function ZHRAnalyticsPage() {
           {metricTrendChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={metricTrendChartData} isAnimationActive={false}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border)/0.7)" />
                 <XAxis
                   dataKey="date"
                   tickFormatter={(tick) => format(parseISO(tick), 'MMM d')}
@@ -483,7 +500,6 @@ export default function ZHRAnalyticsPage() {
                     backgroundColor: 'hsl(var(--background))',
                     borderColor: 'hsl(var(--border))',
                     borderRadius: 'var(--radius)',
-                    boxShadow: 'var(--shadow-md)'
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
                   formatter={(value: number, name) => { 
@@ -501,41 +517,41 @@ export default function ZHRAnalyticsPage() {
                       dataKey={metric.key.toString()}
                       name={metric.label}
                       stroke={metric.color}
-                      strokeWidth={2}
+                      strokeWidth={2.5}
                       connectNulls={true} 
                       yAxisId={metric.yAxisId || 'left'}
                       strokeDasharray={metric.strokeDasharray}
-                      dot={{ r: 2, fill: metric.color, strokeWidth: 0 }} 
-                      activeDot={{ r: 5, stroke: 'hsl(var(--background))', strokeWidth: 1 }} 
+                      dot={{ r: 3, fill: metric.color, strokeWidth: 1, stroke: 'hsl(var(--background))' }}
+                      activeDot={{ r: 6, stroke: 'hsl(var(--background))', strokeWidth: 2, fill: metric.color }}
                     />
                   )
                 )}
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex flex-col items-center justify-center h-96 text-center p-4">
-                <TrendingUp className="w-16 h-16 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground font-semibold">No data available for the current filter combination.</p>
-                <p className="text-xs text-muted-foreground">Try adjusting filters or ensure BHRs have submitted visits.</p>
+            <div className="flex flex-col items-center justify-center h-96 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+              <TrendingUp className="w-20 h-20 text-primary/70 mb-5" />
+              <p className="text-lg font-semibold text-slate-700 mb-1.5">No Metric Data</p>
+              <p className="text-sm text-slate-500 max-w-xs">Try adjusting filters or ensure BHRs in your zone have submitted visits with relevant data.</p>
             </div>
           )}
         </CardContent>
       </Card>
 
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="shadow-xl">
+        <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary"/>Qualitative Assessment Overview</CardTitle>
-            <CardDescription>Average scores for qualitative questions, reflecting active filters.</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><Target className="h-5 w-5"/>Qualitative Assessment Overview</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground/90">Average scores for qualitative questions (0-5 scale), reflecting active filters.</CardDescription>
           </CardHeader>
           <CardContent>
             {qualitativeSpiderChartData.length > 0 && qualitativeSpiderChartData.some(d => d.score > 0) ? (
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={350}>
                 <RadarChart cx="50%" cy="50%" outerRadius="80%" data={qualitativeSpiderChartData}>
-                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarGrid stroke="hsl(var(--border)/0.7)" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                  <Radar name="Average Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} />
+                  <Radar name="Average Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} strokeWidth={2}/>
                   <Tooltip
                       contentStyle={{
                           backgroundColor: 'hsl(var(--background))',
@@ -546,19 +562,19 @@ export default function ZHRAnalyticsPage() {
                 </RadarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex flex-col items-center justify-center h-96 text-center p-4">
-                <ShieldQuestion className="w-16 h-16 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground font-semibold">No qualitative assessment data for current filters.</p>
-                <p className="text-xs text-muted-foreground">Ensure BHRs have submitted visits with qualitative answers.</p>
+              <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                <ShieldQuestion className="w-20 h-20 text-primary/70 mb-5" />
+                <p className="text-lg font-semibold text-slate-700 mb-1.5">No Qualitative Data</p>
+                <p className="text-sm text-slate-500 max-w-xs">Ensure BHRs have submitted visits with qualitative answers for the selected filters.</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="shadow-xl">
+        <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-primary"/>Branch Category Distribution</CardTitle>
-                <CardDescription>Distribution of submitted visits by branch category, reflecting active filters.</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><PieChartIcon className="h-5 w-5"/>Branch Category Distribution</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground/90">Distribution of submitted visits by branch category, reflecting active filters.</CardDescription>
             </CardHeader>
             <CardContent>
                 {branchCategoryPieChartData.length > 0 ? (
@@ -569,10 +585,10 @@ export default function ZHRAnalyticsPage() {
                         nameKey="name"
                     />
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-96 text-center p-4">
-                        <PieChartIcon className="w-16 h-16 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground font-semibold">No branch category data for current filters.</p>
-                        <p className="text-xs text-muted-foreground">Ensure BHRs have submitted visits and branches have categories assigned.</p>
+                    <div className="flex flex-col items-center justify-center h-80 text-center p-6 bg-slate-50/70 rounded-lg border border-slate-200/60">
+                        <PieChartIcon className="w-20 h-20 text-primary/70 mb-5" />
+                        <p className="text-lg font-semibold text-slate-700 mb-1.5">No Category Data</p>
+                        <p className="text-sm text-slate-500 max-w-xs">Ensure visits are submitted and branches have categories assigned for the current filters.</p>
                     </div>
                 )}
             </CardContent>
