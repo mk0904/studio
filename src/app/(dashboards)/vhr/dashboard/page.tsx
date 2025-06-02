@@ -212,7 +212,7 @@ export default function VHRDashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
           <Card className="relative overflow-hidden border border-indigo-500/10 bg-gradient-to-br from-white to-indigo-500/5 transition-all duration-200 hover:border-indigo-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col group">
             <CardHeader className="p-3 sm:p-4 pb-0">
               <CardTitle className="text-xs sm:text-sm font-medium text-indigo-600">ZHRs in Scope</CardTitle>
