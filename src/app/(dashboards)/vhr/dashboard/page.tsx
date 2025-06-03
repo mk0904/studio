@@ -213,7 +213,7 @@ export default function VHRDashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-          <Card className="shadow-md bg-indigo-50/70 dark:bg-indigo-900/20 border-indigo-100/50 dark:border-indigo-800/30 hover:shadow-lg transition-all duration-200 flex flex-col">
+          <Card className="relative overflow-hidden border border-indigo-500/10 bg-gradient-to-br from-white to-indigo-500/5 transition-all duration-200 hover:border-indigo-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-sm font-semibold text-indigo-700">ZHRs in Scope</CardTitle>
               <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
@@ -229,7 +229,7 @@ export default function VHRDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-md bg-sky-50/70 dark:bg-sky-900/20 border-sky-100/50 dark:border-sky-800/30 hover:shadow-lg transition-all duration-200 flex flex-col">
+          <Card className="relative overflow-hidden border border-[#004C8F]/10 bg-gradient-to-br from-white to-[#004C8F]/5 transition-all duration-200 hover:border-[#004C8F]/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-sm font-semibold text-sky-700">BHRs in Scope</CardTitle>
               <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
@@ -245,7 +245,7 @@ export default function VHRDashboardPage() {
             </CardContent>
           </Card>
           
-          <Card className="shadow-md bg-emerald-50/70 dark:bg-emerald-900/20 border-emerald-100/50 dark:border-emerald-800/30 hover:shadow-lg transition-all duration-200 flex flex-col">
+          <Card className="relative overflow-hidden border border-emerald-500/10 bg-gradient-to-br from-white to-emerald-500/5 transition-all duration-200 hover:border-emerald-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-2 sm:col-span-1 group">
             <CardHeader className="pb-1 pt-3 px-4">
               <CardTitle className="text-sm font-semibold text-emerald-700">Total Submitted Visits</CardTitle>
               <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
@@ -261,7 +261,7 @@ export default function VHRDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-md bg-gradient-to-br from-orange-50 to-orange-100/60 border-orange-100/50 dark:border-orange-800/30 hover:shadow-lg transition-all duration-200 flex flex-col group items-stretch">
+          <Card className="relative overflow-hidden border border-orange-500/10 bg-gradient-to-br from-white to-orange-500/5 transition-all duration-200 hover:border-orange-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-2 sm:col-span-1 group">
             <Link href="/vhr/analytics" className="flex flex-col flex-1 justify-center items-center p-4 text-center hover:bg-orange-500/5 rounded-lg">
                 <BarChart3 className="h-7 w-7 text-orange-600 mb-2" />
                 <p className="text-sm font-semibold text-orange-700">View Detailed Analytics</p>
