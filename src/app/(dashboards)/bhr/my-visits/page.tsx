@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
@@ -19,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { Building2, Calendar, CheckCircle, Edit, Eye, FileEdit, FileQuestion, ListFilter, Loader2, PlusCircle, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EditVisitModal } from '@/components/bhr/edit-visit-modal';
+import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 
 export default function MyVisitsPage() {
   const { user } = useAuth();
@@ -32,6 +32,8 @@ export default function MyVisitsPage() {
   const [activeStatusTab, setActiveStatusTab] = useState<VisitStatus | 'all'>('all');
   const [selectedVisitForEdit, setSelectedVisitForEdit] = useState<Visit | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedVisitForView, setSelectedVisitForView] = useState<EnrichedVisitForModal | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const columns: ColumnConfig<Visit>[] = [
     {
@@ -123,12 +125,13 @@ export default function MyVisitsPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => handleEditVisit(row)}
+          onClick={() => handleOpenModal(row)}
           className={cn(
             "h-9 px-3 text-sm font-medium transition-colors duration-150",
+            "text-slate-700 bg-white border-slate-200 shadow-sm",
             row.status === 'draft'
-              ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              : "text-slate-700 bg-white border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800"
+              ? "hover:bg-slate-100 hover:border-slate-300 hover:text-slate-900"
+              : "hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800"
           )}
         >
           {row.status === 'draft' ? (
@@ -223,9 +226,27 @@ export default function MyVisitsPage() {
     });
   }, [myVisits, allBranches, searchTerm, selectedMonth, selectedCategory, activeStatusTab]);
 
-  const handleEditVisit = (visit: Visit) => {
-    setSelectedVisitForEdit(visit);
-    setIsEditModalOpen(true);
+  const handleOpenModal = (visit: Visit) => {
+    if (visit.status === 'draft') {
+      setSelectedVisitForEdit(visit);
+      setIsEditModalOpen(true);
+      setSelectedVisitForView(null);
+      setIsViewModalOpen(false);
+    } else if (visit.status === 'submitted') {
+      const branch = allBranches.find(b => b.id === visit.branch_id);
+      // Prepare enriched data for the view modal
+      const enrichedVisit: EnrichedVisitForModal = {
+        ...visit,
+        branch_name_display: branch?.name || 'N/A',
+        branch_category_display: branch?.category || 'N/A',
+        branch_code_display: branch?.code || 'N/A',
+        // Assuming bhr_name is already on the visit object fetched
+      };
+      setSelectedVisitForView(enrichedVisit);
+      setIsViewModalOpen(true);
+      setSelectedVisitForEdit(null);
+      setIsEditModalOpen(false);
+    }
   };
 
   const handleCloseEditModal = () => {
@@ -261,19 +282,20 @@ export default function MyVisitsPage() {
 
       <Card className="border-0 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
         <CardContent className="px-4 sm:px-6 pb-6 space-y-5 sm:space-y-6">
-          <div className="space-y-4 sm:space-y-0">
-            <div className="flex flex-col lg:flex-row gap-3 items-center mb-8"> {/* Main filter container */}
-              {/* Search + Clear Group */}
-              <div className="flex gap-2 items-center w-full lg:flex-1">
-                <div className="relative flex-1">
+          <div className="space-y-4 sm:space-y-0 mb-6">
+            {/* Top Row: Search, Clear, Status Tabs */}
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-center w-full mb-6">
+              {/* Search Input and Clear Button Group (Phone View) */}
+              <div className="flex gap-2 items-center w-full md:flex-1">
+                <div className="relative flex-grow">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                    <Search className="h-4 w-4 text-[#004C8F]" />
                   </div>
                   <Input
                     placeholder="Search branch name or location..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200"
+                    className="pl-9 h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200"
                   />
                 </div>
                 <Button
@@ -283,39 +305,35 @@ export default function MyVisitsPage() {
                     setSelectedCategory('all');
                     setActiveStatusTab('all');
                   }}
-                  variant="outline"
-                  className="h-9 sm:h-10 text-xs sm:text-sm font-medium border-slate-200/70 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 active:bg-slate-100 transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                  variant="ghost"
+                  className="h-10 text-sm font-medium border text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors duration-200 whitespace-nowrap rounded-lg px-3 md:px-4 inline-flex items-center gap-2 shadow-sm"
                 >
-                  <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Clear</span>
-                  <span className="sm:hidden">×</span>
+                  <X className="h-4 w-4" />
+                  <span className="hidden md:inline">Clear Filters</span>
                 </Button>
               </div>
-
-              {/* Status Tabs Group */}
-              <div className="w-full lg:w-auto lg:flex-shrink-0">
+              {/* Status Tabs */}
+              <div className="w-full md:w-auto md:flex-shrink-0 mt-2 md:mt-0">
                 <Tabs value={activeStatusTab} onValueChange={(value) => setActiveStatusTab(value as VisitStatus | 'all')} className="w-full">
-                  <TabsList className="grid grid-cols-3 h-9 sm:h-10 p-1 bg-white/80 backdrop-blur-sm border border-slate-200/70 shadow-sm rounded-lg">
+                  <TabsList className="grid grid-cols-3 h-10 p-1 bg-white/80 backdrop-blur-sm border border-slate-200/70 shadow-sm rounded-lg">
                     <TabsTrigger
                       value="all"
                       className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center"
                       title="All Status"
                     >
                       <ListFilter className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-1.5">All Status</span>
+                      <span className="hidden sm:inline ml-1.5">All</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="draft"
-                      className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center"
-                      title="Draft"
+                      className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center" title="Draft"
                     >
                       <FileQuestion className="h-4 w-4" />
                       <span className="hidden sm:inline ml-1.5">Draft</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="submitted"
-                      className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center"
-                      title="Submitted"
+                      className="text-sm font-medium data-[state=active]:bg-[#004C8F] data-[state=active]:text-white data-[state=active]:shadow-md rounded-md transition-all duration-200 hover:bg-slate-50 data-[state=active]:hover:bg-[#004C8F]/90 inline-flex items-center justify-center" title="Submitted"
                     >
                       <Eye className="h-4 w-4" />
                       <span className="hidden sm:inline ml-1.5">Submitted</span>
@@ -323,58 +341,49 @@ export default function MyVisitsPage() {
                   </TabsList>
                 </Tabs>
               </div>
+            </div>
 
-              {/* Month + Category Selects Group */}
-              <div className="flex flex-row gap-2 w-full lg:w-auto lg:flex-shrink-0">
-                <div className="flex-1 lg:w-[160px] lg:flex-none">
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                      <Calendar className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                      <SelectValue placeholder="Month" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="border-0 shadow-md"
-                      style={{ maxHeight: '300px', overflowY: 'auto' }}
-                    >
-                      <div className="max-h-[300px] overflow-y-auto">
-                        {monthOptions.map(month => (
-                          <SelectItem
-                            key={month.value}
-                            value={month.value}
-                            className="text-sm py-2 px-3 cursor-pointer hover:bg-slate-50 focus:bg-slate-50 outline-none"
-                          >
-                            {month.label}
-                          </SelectItem>
-                        ))}
-                      </div>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex-1 lg:w-[160px] lg:flex-none">
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                      <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="border-0 shadow-md"
-                      style={{ maxHeight: '300px', overflowY: 'auto' }}
-                    >
-                      <div className="max-h-[300px] overflow-y-auto">
-                        {branchCategories.map(category => (
-                          <SelectItem
-                            key={category.value}
-                            value={category.value}
-                            className="text-sm py-2 px-3 cursor-pointer hover:bg-slate-50 focus:bg-slate-50 outline-none"
-                          >
-                            {category.label}
-                          </SelectItem>
-                        ))}
-                      </div>
-                    </SelectContent>
-                  </Select>
-                </div>
+            {/* Bottom Row: Month and Category Selects */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center w-full mb-6">
+              {/* Month Select */}
+              <div className="flex-1 w-full">
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="w-full h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                    <Calendar className="mr-2 h-4 w-4 text-[#004C8F]" />
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent className="border-0 shadow-md max-h-60 overflow-y-auto">
+                    {monthOptions.map(month => (
+                      <SelectItem
+                        key={month.value}
+                        value={month.value}
+                        className="text-sm py-2 px-3 cursor-pointer hover:bg-slate-50 focus:bg-slate-50 outline-none relative"
+                      >
+                        <span className="block pl-5">{month.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Category Select */}
+              <div className="flex-1 w-full">
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-full h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                    <Building2 className="mr-2 h-4 w-4 text-[#004C8F]" />
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent className="border-0 shadow-md max-h-60 overflow-y-auto">
+                    {branchCategories.map(category => (
+                      <SelectItem
+                        key={category.value}
+                        value={category.value}
+                        className="text-sm py-2 px-3 cursor-pointer hover:bg-slate-50 focus:bg-slate-50 outline-none relative"
+                      >
+                        <span className="block pl-5">{category.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -417,6 +426,18 @@ export default function MyVisitsPage() {
           onVisitUpdated={() => {
             handleCloseEditModal();
             fetchVisitsAndBranches();
+          }}
+        />
+      )}
+
+      {/* View Visit Details Modal */}
+      {selectedVisitForView && (
+        <ViewVisitDetailsModal
+          visit={selectedVisitForView}
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setSelectedVisitForView(null);
           }}
         />
       )}

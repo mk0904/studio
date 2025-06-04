@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -19,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface EditVisitModalProps {
   visitToEdit: Visit | null;
@@ -28,12 +29,6 @@ interface EditVisitModalProps {
 }
 
 export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }: EditVisitModalProps) {
-  const getModalTitle = () => {
-    if (!visitToEdit) return '';
-    const branchName = visitToEdit.branch_name || 'Branch';
-    const visitDate = visitToEdit.visit_date ? format(new Date(visitToEdit.visit_date), 'MMMM do, yyyy') : '';
-    return `${branchName} - ${visitDate}`;
-  };
   const { toast } = useToast();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,6 +142,14 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
   
   if (!visitToEdit) return null;
 
+  const getModalTitle = () => {
+    if (!visitToEdit) return '';
+    const branch = assignedBranches.find(b => b.id === visitToEdit.branch_id);
+    const branchName = branch?.name || 'Branch';
+    const visitDate = visitToEdit.visit_date ? format(new Date(visitToEdit.visit_date), 'MMMM do, yyyy') : '';
+    return `${branchName} - ${visitDate}`;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <div className="max-w-4xl mx-auto">
@@ -156,15 +159,16 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
             <div className="h-8 w-1 rounded-full bg-gradient-to-b from-[#004C8F] to-[#0066BD]" />
             <div>
               <DialogTitle className="text-2xl font-semibold bg-gradient-to-br from-[#004C8F] to-[#0066BD] bg-clip-text text-transparent">
-                Edit Draft Visit
+                {visitToEdit?.status === 'draft' ? 'Edit Draft Visit' : 'View Visit Details'}
               </DialogTitle>
               <DialogDescription className="text-base text-slate-600 mt-1">
-                Update the details of your draft visit to <span className="font-medium text-slate-700">{getModalTitle()}</span>
+                {visitToEdit?.status === 'draft' ? 'Update the details of your draft visit' : 'Details for the visit'} to <span className="font-medium text-slate-700">{getModalTitle()}</span>
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
         
+        <ScrollArea className="max-h-[calc(90vh-140px)] pr-4 -mr-4 px-6 py-4">
         <VisitForm
           initialData={initialDataForForm}
           onSubmitForm={handleFormSubmitInModal}
@@ -173,7 +177,9 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
           isLoadingBranches={isLoadingBranches}
           submitButtonText="Update & Submit"
           draftButtonText="Save Changes as Draft"
+          isViewMode={visitToEdit?.status === 'submitted'}
         />
+        </ScrollArea>
         <DialogFooter>
         </DialogFooter>
       </DialogContent>

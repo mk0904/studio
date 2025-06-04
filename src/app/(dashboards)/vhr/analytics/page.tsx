@@ -135,7 +135,7 @@ const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, 
         onClick={() => onTimeframeChange(tf.key)}
         className={cn(
           "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 rounded-lg shadow-sm",
-          selectedTimeframe === tf.key 
+          selectedTimeframe === tf.key
             ? "bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow-md"
             : "border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
         )}
@@ -193,6 +193,8 @@ export default function VHRAnalyticsPage() {
   const [branchOptions, setBranchOptions] = useState<FilterOption[]>([]);
   const [isLoadingBranchOptions, setIsLoadingBranchOptions] = useState(false);
 
+  const [selectedBhrIds, setSelectedBhrIds] = useState<string[]>([]);
+
   const [globalTimeframe, setGlobalTimeframe] = useState<TimeframeKey>('past_month');
 
   const pageTitleText = useMemo(() => {
@@ -224,7 +226,7 @@ export default function VHRAnalyticsPage() {
           if (bhrIdsInEntireVertical.length > 0) {
             const { data: visits, error: visitsError } = await supabase
               .from('visits')
-              .select('bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture')
+              .select('id, bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, er_percentage, cwt_cases, qual_aligned_conduct, qual_safe_secure, qual_motivated, qual_abusive_language, qual_comfortable_escalate, qual_inclusive_culture')
               .in('bhr_id', bhrIdsInEntireVertical)
               .eq('status', 'submitted');
             if (visitsError) throw visitsError;
@@ -235,7 +237,7 @@ export default function VHRAnalyticsPage() {
 
           const { data: branches, error: branchesError } = await supabase
             .from('branches')
-            .select('id, name, category');
+            .select('id, name, category, location, code');
           if (branchesError) throw branchesError;
           setAllBranchesForLookup(branches || []);
           setBranchOptions((branches || []).map(b => ({ id: b.id, value: b.id, label: b.name, name: b.name } as FilterOption)));
@@ -266,7 +268,6 @@ export default function VHRAnalyticsPage() {
     } else {
       setBhrOptions([]);
     }
-    setSelectedMetrics(METRIC_CONFIGS.map(config => config.key).slice(0, 3));
     setIsLoadingBhrOptions(false);
   }, [globalSelectedZhrIds, allBhrsInVhrVertical]);
 
@@ -274,26 +275,7 @@ export default function VHRAnalyticsPage() {
     setSelectedBranchIds([]);
   }, [selectedMetrics, globalSelectedZhrIds]);
 
-  const filteredVisitsData = useMemo(() => {
-    let visits = allVisitsInVertical;
-
-    let relevantBhrIds = new Set<string>();
-    const bhrsConsideredForFiltering = globalSelectedZhrIds.length > 0
-      ? allBhrsInVhrVertical.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to))
-      : allBhrsInVhrVertical;
-
-    bhrsConsideredForFiltering.forEach(b => relevantBhrIds.add(b.id));
-
-    if (relevantBhrIds.size > 0) {
-      visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
-    }
-
-    if (selectedBranchIds.length > 0) {
-      visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
-    }
-    return visits;
-  }, [allVisitsInVertical, globalSelectedZhrIds, selectedMetrics, selectedBranchIds, allBhrsInVhrVertical]);
-
+  // Move filterVisitsByTimeframe definition before filteredVisitsData useMemo
   const filterVisitsByTimeframe = (visits: Visit[], timeframe: TimeframeKey): Visit[] => {
     const now = new Date();
     let startDateFilter: Date;
@@ -314,6 +296,33 @@ export default function VHRAnalyticsPage() {
       return isValid(visitDate) && isWithinInterval(visitDate, { start: startDateFilter, end: endDateFilter });
     });
   };
+
+  const filteredVisitsData = useMemo(() => {
+    // Apply timeframe filter first
+    let visits = filterVisitsByTimeframe(allVisitsInVertical, globalTimeframe);
+
+    // Filter by ZHRs (implicitly by relevant BHRs reporting to selected ZHRs)
+    let relevantBhrIds = new Set<string>();
+    const bhrsConsideredForFiltering = globalSelectedZhrIds.length > 0
+      ? allBhrsInVhrVertical.filter(bhr => bhr.reports_to && globalSelectedZhrIds.includes(bhr.reports_to))
+      : allBhrsInVhrVertical;
+
+    bhrsConsideredForFiltering.forEach(b => relevantBhrIds.add(b.id));
+
+    // Filter by selected BHRs or relevant BHRs if no specific BHRs are selected
+    if (selectedBhrIds.length > 0) {
+      visits = visits.filter(visit => selectedBhrIds.includes(visit.bhr_id));
+    } else if (relevantBhrIds.size > 0) {
+      visits = visits.filter(visit => relevantBhrIds.has(visit.bhr_id));
+    }
+
+    // Filter by selected branches
+    if (selectedBranchIds.length > 0) {
+      visits = visits.filter(visit => selectedBranchIds.includes(visit.branch_id));
+    }
+
+    return visits;
+  }, [allVisitsInVertical, globalTimeframe, globalSelectedZhrIds, selectedBhrIds, selectedBranchIds, allBhrsInVhrVertical]);
 
   const metricTrendChartData = useMemo(() => {
     const visitsForChart = filterVisitsByTimeframe(filteredVisitsData, globalTimeframe);
@@ -447,7 +456,7 @@ export default function VHRAnalyticsPage() {
   }, [filteredVisitsData, globalTimeframe, allBranchesForLookup]);
 
   const visitsByZHRChartData = useMemo(() => {
-    // Use filteredVisitsData which is already filtered by BHR, Branch, and Timeframe
+    // Use filteredVisitsData which is already filtered by Timeframe, BHR, and Branch
     const visitsToProcess = filteredVisitsData;
     if (visitsToProcess.length === 0 || globalZhrOptions.length === 0) return [];
 
@@ -477,6 +486,84 @@ export default function VHRAnalyticsPage() {
       }))
       .sort((a, b) => b.value - a.value);
   }, [filteredVisitsData, allBhrsInVhrVertical, globalZhrOptions]);
+
+  const metricsByBranchCategoryChartData = useMemo(() => {
+    const visitsToProcess = filteredVisitsData;
+    if (visitsToProcess.length === 0 || allBranchesForLookup.length === 0) return { labels: [], datasets: [] };
+
+    const branchCategoryMap = new Map(allBranchesForLookup.map(b => [b.id, b.category]));
+    const categoryData: Record<string, { [key: string]: { sum: number; count: number } }> = {};
+    const categoriesOrder = ['Gold', 'Silver', 'Bronze', 'Platinum', 'Diamond']; // Desired order
+    const allCategories = new Set<string>();
+
+    visitsToProcess.forEach(visit => {
+      const category = branchCategoryMap.get(visit.branch_id);
+      if (category) {
+        allCategories.add(category);
+        if (!categoryData[category]) {
+          categoryData[category] = {};
+          METRIC_CONFIGS.forEach(m => { categoryData[category][m.key] = { sum: 0, count: 0 }; });
+        }
+        METRIC_CONFIGS.forEach(m => {
+          const value = visit[m.key] as number | undefined;
+          if (typeof value === 'number' && !isNaN(value)) {
+            categoryData[category][m.key].sum += value;
+            categoryData[category][m.key].count += 1;
+          }
+        });
+      }
+    });
+
+    // Sort categories according to desired order, placing others at the end
+    const sortedCategories = Array.from(allCategories).sort((a, b) => {
+      const aIndex = categoriesOrder.indexOf(a);
+      const bIndex = categoriesOrder.indexOf(b);
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b); // Alphabetical for unknown
+      if (aIndex === -1) return 1; // Unknown comes after known
+      if (bIndex === -1) return -1; // Known comes before unknown
+      return aIndex - bIndex; // Order by predefined array
+    });
+
+    const datasets = METRIC_CONFIGS.map(metric => {
+      const data = sortedCategories.map(category => {
+        const agg = categoryData[category]?.[metric.key];
+        if (!agg || agg.count === 0) return 0; // Show 0 if no data or count is 0
+        if (metric.key === 'cwt_cases') return agg.sum; // CWT is a sum
+        return parseFloat((agg.sum / agg.count).toFixed(2)); // Others are averages
+      });
+      return {
+        label: metric.label,
+        data: data,
+        backgroundColor: [
+          '#0E2B72',  // HDFC Navy Blue
+          '#2D4B73',  // Steel Blue
+          '#00A3E0',  // HDFC Light Blue
+          '#1B4D89',  // Royal Blue
+          '#386FA4',  // Sapphire Blue
+          '#133C55',  // Deep Ocean Blue
+          '#5D4E6D',  // Elegant Purple
+          '#7E6B8F',  // Dusty Purple
+          '#4A5859',  // Slate Gray
+          '#3F4E4F'   // Charcoal
+        ][METRIC_CONFIGS.findIndex(m => m.key === metric.key) % 10],
+        borderColor: [
+          '#0E2B72',  // HDFC Navy Blue
+          '#2D4B73',  // Steel Blue
+          '#00A3E0',  // HDFC Light Blue
+          '#1B4D89',  // Royal Blue
+          '#386FA4',  // Sapphire Blue
+          '#133C55',  // Deep Ocean Blue
+          '#5D4E6D',  // Elegant Purple
+          '#7E6B8F',  // Dusty Purple
+          '#4A5859',  // Slate Gray
+          '#3F4E4F'   // Charcoal
+        ][METRIC_CONFIGS.findIndex(m => m.key === metric.key) % 10],
+        borderWidth: 1,
+      };
+    });
+
+    return { labels: sortedCategories, datasets: datasets };
+  }, [filteredVisitsData, allBranchesForLookup]);
 
   const handleMetricToggle = (metricKey: string) => {
     setSelectedMetrics(prev => prev.includes(metricKey) ? prev.filter(m => m !== metricKey) : [...prev, metricKey]);
@@ -513,6 +600,7 @@ export default function VHRAnalyticsPage() {
   const handleClearAllLocalFilters = () => {
     setSelectedMetrics(METRIC_CONFIGS.map(config => config.key).slice(0, 3));
     setSelectedBranchIds([]);
+    setSelectedBhrIds([]);
     setGlobalTimeframe('past_month');
   };
 
@@ -534,10 +622,10 @@ export default function VHRAnalyticsPage() {
   return (
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
       <PageTitle
-  title="VHR Analytics Dashboard"
-  description={`Review key metrics and trends for your ZHRs and Branches. ${user?.name ? `Welcome, ${user.name}!` : ''}`}
-  action={<ZhrFilterDropdown />}
-/>
+        title="VHR Analytics Dashboard"
+        description={`Review key metrics and trends for your ZHRs and Branches. ${user?.name ? `Welcome, ${user.name}!` : ''}`}
+        action={<ZhrFilterDropdown />}
+      />
 
       <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
         <CardContent className="space-y-6 pt-4">
@@ -548,31 +636,31 @@ export default function VHRAnalyticsPage() {
                   <Button className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
                     <div className="flex items-center overflow-hidden">
                       <User2 className="mr-2 h-4 w-4 text-blue-600 shrink-0" />
-                      <span className="truncate">{getMultiSelectButtonText(bhrOptions, selectedMetrics, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}</span>
+                      <span className="truncate">{getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}</span>
                     </div>
                     <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto border-0 shadow-md">
+                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-72 overflow-y-auto border-0 shadow-md">
                   <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
                     bhrOptions.length > 0 ? bhrOptions.map(option => (
                       <DropdownMenuCheckboxItem
                         key={option.id}
-                        checked={selectedMetrics.includes(option.id)}
-                        onCheckedChange={() => handleMultiSelectChange(option.id, selectedMetrics, setSelectedMetrics)}
+                        checked={selectedBhrIds.includes(option.id)}
+                        onCheckedChange={() => handleMultiSelectChange(option.id, selectedBhrIds, setSelectedBhrIds)}
                         onSelect={(e) => e.preventDefault()}
                       >
                         {option.name}
                       </DropdownMenuCheckboxItem>
                     )) : <DropdownMenuLabel>No BHRs match current ZHR filter.</DropdownMenuLabel>}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => setSelectedMetrics(METRIC_CONFIGS.map(config => config.key))} disabled={selectedMetrics.length === METRIC_CONFIGS.length}>Show All BHRs</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setSelectedBhrIds([])} disabled={selectedBhrIds.length === 0}>Show All BHRs</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              {selectedMetrics.length > 0 && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedMetrics(METRIC_CONFIGS.map(config => config.key)); }} aria-label="Clear BHR filter">
+              {selectedBhrIds.length > 0 && (
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
                   <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
                 </Button>
               )}
@@ -589,7 +677,7 @@ export default function VHRAnalyticsPage() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto border-0 shadow-md">
+                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-72 overflow-y-auto border-0 shadow-md">
                   <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
@@ -620,8 +708,8 @@ export default function VHRAnalyticsPage() {
               <div className="flex-1">
                 <TimeframeButtons selectedTimeframe={globalTimeframe} onTimeframeChange={setGlobalTimeframe} />
               </div>
-              <Button 
-                onClick={handleClearAllLocalFilters} 
+              <Button
+                onClick={handleClearAllLocalFilters}
                 className="h-9 sm:h-10 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center justify-center p-2 sm:px-4 shrink-0">
                 <XCircle className="h-4 w-4 text-red-600 sm:mr-2" /> <span className="hidden sm:inline">Clear</span>
               </Button>
@@ -655,25 +743,25 @@ export default function VHRAnalyticsPage() {
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
                       return (
-                        <div className="rounded-lg border bg-background p-2 shadow-md">
-                          <div className="font-semibold text-base text-slate-700 mb-2">{format(parseISO(label), 'yyyy-MM-dd')}</div>
-                          <div className="space-y-1">
-  {payload.map((entry, idx) => (
-    <div
-      key={entry.dataKey || idx}
-      className="flex justify-between items-center text-sm font-medium text-slate-700 mb-1 last:mb-0"
-    >
-      <span className="flex items-center">
-        <span
-          className="inline-block w-3 h-3 rounded-full mr-2"
-          style={{ backgroundColor: entry.color }}
-        />
-        {entry.name}
-      </span>
-      <span className="ml-4">{entry.value}{METRIC_CONFIGS.find(m => m.label === entry.name)?.key.toString().includes('percentage') ? '%' : ''}</span>
-    </div>
-  ))}
-</div>
+                        <div className="rounded-lg bg-white p-3 shadow-lg">
+                          <div className="text-sm font-semibold mb-2">{format(parseISO(label), 'yyyy-MM-dd')}</div>
+                          <div className="space-y-1.5">
+                            {payload.map((entry, idx) => (
+                              <div
+                                key={entry.dataKey || idx}
+                                className="flex justify-between items-center text-sm"
+                              >
+                                <span className="flex items-center">
+                                  <span
+                                    className="inline-block w-3 h-3 rounded-full mr-2"
+                                    style={{ backgroundColor: entry.color }}
+                                  />
+                                  {entry.name}
+                                </span>
+                                <span className="text-muted-foreground ml-4">{entry.value}{METRIC_CONFIGS.find(m => m.label === entry.name)?.key.toString().includes('percentage') ? '%' : ''}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       );
                     }
@@ -708,6 +796,154 @@ export default function VHRAnalyticsPage() {
         </CardContent>
       </Card>
 
+      {/* Metrics by Branch Category Chart */}
+      <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]"><BarChartBig className="h-5 w-5" />Metrics by Branch Category</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground/90">Comparison of key metrics across different branch categories, reflecting all active filters and the global timeframe.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {metricsByBranchCategoryChartData.labels.length > 0 ? (
+            <div className="relative w-full h-[400px] p-4">
+              <Bar
+                data={metricsByBranchCategoryChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  animation: {
+                    duration: 800,
+                    easing: 'easeOutQuart'
+                  },
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                      labels: {
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 20,
+                        font: {
+                          size: 12,
+                          weight: 500
+                        }
+                      }
+                    },
+                    tooltip: {
+                      backgroundColor: 'white',
+                      titleColor: '#1F2937',
+                      bodyColor: '#4B5563',
+                      borderColor: '#E5E7EB',
+                      borderWidth: 1,
+                      padding: 12,
+                      cornerRadius: 8,
+                      boxPadding: 6,
+                      titleFont: {
+                        size: 13,
+                        weight: 'bold'
+                      },
+                      bodyFont: {
+                        size: 12
+                      },
+                      callbacks: {
+                        label: function (context) {
+                          const label = context.dataset.label || '';
+                          const value = context.parsed.y;
+                          const isPercentage = label.includes('%');
+                          return `${label}: ${value}${isPercentage ? '%' : ''}`;
+                        }
+                      }
+                    }
+                  },
+                  scales: {
+                    x: {
+                      grid: {
+                        display: false
+                      },
+                      border: {
+                        display: false
+                      },
+                      ticks: {
+                        color: '#666666',
+                        font: {
+                          size: 12,
+                          weight: 'normal'
+                        },
+                        padding: 8
+                      }
+                    },
+                    y: {
+                      type: 'linear' as const,
+                      position: 'left' as const,
+                      grid: {
+                        color: '#E5E5E5',
+                        drawTicks: false,
+                        lineWidth: 1
+                      },
+                      border: {
+                        display: false
+                      },
+                      ticks: {
+                        color: '#666666',
+                        font: {
+                          size: 12,
+                          weight: 'normal'
+                        },
+                        padding: 12,
+                        callback: function (value) {
+                          return value + '%';
+                        }
+                      },
+                      beginAtZero: true,
+                      title: {
+                        display: true,
+                        text: 'Percentage',
+                        color: '#666666',
+                        font: { size: 12, weight: 'bold' }
+                      }
+                    },
+                    y1: {
+                      type: 'linear' as const,
+                      position: 'right' as const,
+                      grid: {
+                        drawOnChartArea: false,
+                        color: '#E5E5E5',
+                        drawTicks: false,
+                        lineWidth: 1
+                      },
+                      ticks: {
+                        color: '#666666',
+                        font: {
+                          size: 12,
+                          weight: 'normal'
+                        },
+                        padding: 12,
+                        stepSize: 1,
+                        callback: function (value) {
+                          return typeof value === 'number' ? Math.round(value).toString() : value;
+                        }
+                      },
+                      beginAtZero: true,
+                      title: {
+                        display: true,
+                        text: 'CWT Cases',
+                        color: '#666666',
+                        font: { size: 12, weight: 'bold' }
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <div className="shadow-lg flex items-center justify-center min-h-[300px]">
+              <div className="text-center text-muted-foreground">
+                <BarChartBig className="mx-auto h-12 w-12 mb-2" />
+                <div className="text-lg font-semibold text-slate-700 mb-1.5">No metric data by branch category to display.</div>
+                <div className="text-sm text-slate-500 max-w-xs">Try adjusting filters or check if data has been submitted for the selected criteria.</div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
           <CardHeader>
@@ -769,25 +1005,24 @@ export default function VHRAnalyticsPage() {
                     cursor={false}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
-                        const data = payload[0].payload;
+                        const entry = payload[0]; // Get the first (and usually only) data entry for the hovered point
+                        const data = entry.payload; // Access the original data point object
                         return (
-                          <div className="rounded-lg border bg-background p-3 shadow-lg">
+                          <div className="rounded-lg bg-white p-3 shadow-lg">
                             <div className="text-base font-semibold mb-2">{data.subject}</div>
-                            {payload.map((entry, index) => (
+                            <div
+                              key={entry.name}
+                              className="flex items-center gap-2 text-sm"
+                            >
                               <div
-                                key={entry.name}
-                                className="flex items-center gap-2 text-sm mb-1"
-                              >
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: entry.color }}
-                                />
-                                <span>{entry.name}:</span>
-                                <span className="text-muted-foreground ml-1">
-                                  {Number(entry.value).toFixed(1)} / 5
-                                </span>
-                              </div>
-                            ))}
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span>{entry.name}:</span>
+                              <span className="text-muted-foreground ml-1">
+                                {Number(entry.value).toFixed(1)} / 5
+                              </span>
+                            </div>
                           </div>
                         );
                       }
@@ -831,7 +1066,7 @@ export default function VHRAnalyticsPage() {
                           if (active && payload && payload.length) {
                             const data = payload[0].payload;
                             return (
-                              <div className="rounded-lg border bg-background p-3 shadow-lg">
+                              <div className="rounded-lg bg-white p-3 shadow-lg">
                                 <div className="text-base font-semibold mb-1">{data.name}</div>
                                 <div className="text-sm text-muted-foreground">
                                   {data.value} visits ({((data.value / branchCategoryPieChartData.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)}%)
@@ -853,17 +1088,16 @@ export default function VHRAnalyticsPage() {
                         dataKey="value"
                         nameKey="name"
                         label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                        labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                        labelLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                       >
                         {(() => {
-                          // Premium metallic colors defined once
                           const categoryColors = {
-                            'gold': '#FFB800',       // Richer, warmer gold
-                            'silver': '#D1D1D1',     // Brighter silver
-                            'bronze': '#B87333',     // Warmer bronze
-                            'platinum': '#F8F9F9',   // Bright platinum white
-                            'diamond': '#E8F6FF',    // Icy diamond blue
-                            'standard': '#4A5568'    // Professional gray
+                            'diamond': '#E8F6FF',
+                            'platinum': '#F8F9F9',
+                            'gold': '#FFB800',
+                            'silver': '#D1D1D1',
+                            'bronze': '#B87333',
+                            'uncategorized': '#4A5568'
                           };
 
                           return branchCategoryPieChartData.map((entry) => (
@@ -1213,23 +1447,6 @@ export default function VHRAnalyticsPage() {
           </Card>
         )}
       </div>
-      {!showBranchSpecificCharts && (
-        <Card className="bg-white border-none shadow-sm hover:shadow transition-shadow duration-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]">
-              <PieChartIcon className="h-5 w-5" />
-              Branch Category Distribution
-            </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground/90">
-              Distribution of visits by branch category.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-40">
-            <BarChartBig className="w-12 h-12 text-muted-foreground opacity-50 mr-2" />
-            <PieChartIcon className="w-12 h-12 text-muted-foreground opacity-50" />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
