@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -54,7 +53,7 @@ export default function CHRExportDataPage() {
     setError(null);
     try {
       const [usersRes, branchesRes] = await Promise.all([
-        supabase.from('users').select('id, name, role, reports_to, e_code, location'),
+        supabase.from('users').select('id, name, role, reports_to, e_code, location, email'),
         supabase.from('branches').select('id, name, code, location, category')
       ]);
 
@@ -123,11 +122,7 @@ export default function CHRExportDataPage() {
     let fetchedDataForExport: any[] = [];
 
     try {
-      let query = supabase.from('visits').select(\`
-        *,
-        bhr_user:users!visits_bhr_id_fkey (id, name, e_code, location, role),
-        branch:branches!visits_branch_id_fkey (id, name, code, location, category)
-      \`).eq('status', 'submitted');
+      let query = supabase.from('visits').select('*, bhr_user:users!visits_bhr_id_fkey (id, name, e_code, location, role), branch:branches!visits_branch_id_fkey (id, name, code, location, category)').eq('status', 'submitted');
 
       let targetBhrIds: string[] | null = null;
       if (selectedBhrIds.length > 0) {
@@ -224,7 +219,7 @@ export default function CHRExportDataPage() {
           visit.qual_abusive_language || 'N/A',
           visit.qual_comfortable_escalate || 'N/A',
           visit.qual_inclusive_culture || 'N/A',
-          \`"\${(visit.additional_remarks || '').replace(/"/g, '""')}"\`
+          "\"" + (visit.additional_remarks || '').replace(/"/g, '""') + "\""
         ];
         csvRows.push(row.join(','));
       });
@@ -235,18 +230,18 @@ export default function CHRExportDataPage() {
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', \`hr_view_export_\${format(new Date(), 'yyyyMMdd_HHmmss')}.csv\`);
+        link.setAttribute('download', 'hr_view_export_' + format(new Date(), 'yyyyMMdd_HHmmss') + '.csv');
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ title: "Export Successful", description: \`\${fetchedDataForExport.length} records exported to CSV.\` });
+        toast({ title: "Export Successful", description: `${fetchedDataForExport.length} records exported to CSV.` });
       }
 
     } catch (e: any) {
       console.error("Error during export process:", e);
-      toast({ title: "Error", description: \`Failed to export data: \${e.message}\`, variant: "destructive" });
-      setError(\`Failed to export data: \${e.message}\`);
+      toast({ title: "Error", description: 'Failed to export data: ' + e.message, variant: "destructive" });
+      setError('Failed to export data: ' + e.message);
     } finally {
       setIsExporting(false);
     }
@@ -258,13 +253,13 @@ export default function CHRExportDataPage() {
     defaultText: string, 
     pluralName: string
   ) => {
-    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return \`Loading \${pluralName}...\`;
+    if (isLoadingPage && options.length === 0 && selectedIds.length === 0) return 'Loading ' + pluralName + '...';
     if (selectedIds.length === 0) return defaultText;
     if (selectedIds.length === 1) {
       const selectedOption = options.find(opt => opt.value === selectedIds[0]);
-      return selectedOption ? selectedOption.label : \`1 \${pluralName.slice(0,-1)} Selected\`;
+      return selectedOption ? selectedOption.label : '1 ' + pluralName.slice(0,-1) + ' Selected';
     }
-    return \`\${selectedIds.length} \${pluralName} Selected\`;
+    return selectedIds.length + ' ' + pluralName + ' Selected';
   };
 
   const handleMultiSelectChange = (

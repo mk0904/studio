@@ -139,20 +139,20 @@ export default function CHRVisitsMadePage() {
 
     let relevantBhrIds = new Set<string>();
     if (selectedBhrIds.length > 0) {
-        selectedBhrIds.forEach(id => relevantBhrIds.add(id));
+      selectedBhrIds.forEach(id => relevantBhrIds.add(id));
     } else if (selectedZhrIds.length > 0) {
-        allUsersGlobal
-            .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
-            .forEach(b => relevantBhrIds.add(b.id));
+      allUsersGlobal
+        .filter(u => u.role === 'BHR' && u.reports_to && selectedZhrIds.includes(u.reports_to))
+        .forEach(b => relevantBhrIds.add(b.id));
     } else if (globalSelectedVhrIds.length > 0) {
-        const zhrsInSelectedVhrs = allUsersGlobal
-            .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
-            .map(z => z.id);
-        allUsersGlobal
-            .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
-            .forEach(b => relevantBhrIds.add(b.id));
+      const zhrsInSelectedVhrs = allUsersGlobal
+        .filter(u => u.role === 'ZHR' && u.reports_to && globalSelectedVhrIds.includes(u.reports_to))
+        .map(z => z.id);
+      allUsersGlobal
+        .filter(u => u.role === 'BHR' && u.reports_to && zhrsInSelectedVhrs.includes(u.reports_to))
+        .forEach(b => relevantBhrIds.add(b.id));
     } else {
-        allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
+      allUsersGlobal.filter(u => u.role === 'BHR').forEach(b => relevantBhrIds.add(b.id));
     }
 
     if (relevantBhrIds.size > 0 || selectedBhrIds.length > 0 || selectedZhrIds.length > 0 || globalSelectedVhrIds.length > 0) {
@@ -291,9 +291,9 @@ export default function CHRVisitsMadePage() {
 
   if (isLoading && !user) {
     return (
-        <div className="flex items-center justify-center h-screen">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
     );
   }
 
@@ -313,20 +313,15 @@ export default function CHRVisitsMadePage() {
   }, [globalSelectedVhrIds, globalVhrOptions]);
 
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
       <PageTitle title={pageTitleText} description="View and filter all submitted branch visits across the organization." />
-
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FilterIcon className="h-5 w-5 text-primary"/>Filters</CardTitle>
-          <CardDescription>Refine visits by ZHR, BHR, Branch, Date Range, and Search Term. Applied with global VHR filter.</CardDescription>
-        </CardHeader>
+      <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
         <CardContent className="space-y-6 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
                     {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
                     <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                   </Button>
@@ -335,28 +330,28 @@ export default function CHRVisitsMadePage() {
                   <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                  zhrOptions.length > 0 ? zhrOptions.map(option => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={selectedZhrIds.includes(option.value)}
-                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
+                    zhrOptions.length > 0 ? zhrOptions.map(option => (
+                      <DropdownMenuCheckboxItem
+                        key={option.value}
+                        checked={selectedZhrIds.includes(option.value)}
+                        onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {option.label}
+                      </DropdownMenuCheckboxItem>
+                    )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
                 </DropdownMenuContent>
               </DropdownMenu>
               {selectedZhrIds.length > 0 && (
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
-                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                </Button>
               )}
             </div>
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
                     {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
                     <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                   </Button>
@@ -365,28 +360,28 @@ export default function CHRVisitsMadePage() {
                   <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                  bhrOptions.length > 0 ? bhrOptions.map(option => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={selectedBhrIds.includes(option.value)}
-                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No BHRs match current VHR/ZHR filter.</DropdownMenuLabel>}
+                    bhrOptions.length > 0 ? bhrOptions.map(option => (
+                      <DropdownMenuCheckboxItem
+                        key={option.value}
+                        checked={selectedBhrIds.includes(option.value)}
+                        onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {option.label}
+                      </DropdownMenuCheckboxItem>
+                    )) : <DropdownMenuLabel>No BHRs match current VHR/ZHR filter.</DropdownMenuLabel>}
                 </DropdownMenuContent>
               </DropdownMenu>
-               {selectedBhrIds.length > 0 && (
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
-                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
+              {selectedBhrIds.length > 0 && (
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                </Button>
               )}
             </div>
             <div className="relative flex items-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between pr-10">
+                  <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
                     {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
                     <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                   </Button>
@@ -395,71 +390,71 @@ export default function CHRVisitsMadePage() {
                   <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                  branchOptions.length > 0 ? branchOptions.map(option => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={selectedBranchIds.includes(option.value)}
-                      onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+                    branchOptions.length > 0 ? branchOptions.map(option => (
+                      <DropdownMenuCheckboxItem
+                        key={option.value}
+                        checked={selectedBranchIds.includes(option.value)}
+                        onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {option.label}
+                      </DropdownMenuCheckboxItem>
+                    )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
                 </DropdownMenuContent>
               </DropdownMenu>
-               {selectedBranchIds.length > 0 && (
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
-                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
+              {selectedBranchIds.length > 0 && (
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                </Button>
               )}
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
-                <Label htmlFor="search-visits-made" className="sr-only">Search</Label>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search-visits-made"
-                  placeholder="Search by BHR, Branch, E-Code, Location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              <Label htmlFor="search-visits-made" className="sr-only">Search</Label>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search-visits-made"
+                placeholder="Search by BHR, Branch, E-Code, Location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full"/>
+            <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
           </div>
-          <Button variant="outline" onClick={handleClearAllLocalFilters} className="w-full md:w-auto mt-4">
-            <XCircle className="mr-2 h-4 w-4" /> Clear All Local Filters & Dates
+          <Button variant="outline" onClick={handleClearAllLocalFilters} className="h-9 sm:h-10 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center justify-center p-2 sm:px-4 shrink-0">
+            <XCircle className="h-4 w-4 text-red-600 sm:mr-2" /> <span className="hidden sm:inline">Clear</span>
           </Button>
         </CardContent>
       </Card>
 
       {isLoading && allSubmittedVisitsGlobal.length === 0 ? (
-         <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="ml-2 text-muted-foreground">Loading visits...</p>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="ml-2 text-muted-foreground">Loading visits...</p>
         </div>
       ) : (
         <DataTable
-            columns={columns}
-            data={filteredVisits}
-            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
-            emptyStateMessage={
-                allSubmittedVisitsGlobal.length === 0 && !isLoading
-                ? "No submitted visits found in the system."
-                : (isLoading ? "Loading visits..." : "No submitted visits match your current filter combination.")
-            }
+          columns={columns}
+          data={filteredVisits}
+          tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+          emptyStateMessage={
+            allSubmittedVisitsGlobal.length === 0 && !isLoading
+              ? "No submitted visits found in the system."
+              : (isLoading ? "Loading visits..." : "No submitted visits match your current filter combination.")
+          }
         />
       )}
 
       {selectedVisitForView && (
         <ViewVisitDetailsModal
-            visit={selectedVisitForView}
-            isOpen={isViewModalOpen}
-            onClose={() => {
-                setIsViewModalOpen(false);
-                setSelectedVisitForView(null);
-            }}
+          visit={selectedVisitForView}
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setSelectedVisitForView(null);
+          }}
         />
       )}
     </div>

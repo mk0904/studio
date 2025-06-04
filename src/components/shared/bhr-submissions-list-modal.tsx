@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
@@ -121,25 +120,31 @@ export function BhrSubmissionsListModal({ bhrUser, isOpen, onClose }: BhrSubmiss
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Submitted Visits for {bhrUser.name}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-3xl bg-white/90 backdrop-blur-lg shadow-2xl border border-slate-200 rounded-2xl p-0">
+          <DialogHeader className="px-8 pt-8 pb-2">
+            <DialogTitle className="text-2xl font-bold tracking-tight text-[#004C8F]">Submitted Visits for {bhrUser.name}</DialogTitle>
+            <DialogDescription className="text-muted-foreground/80 mt-1 text-base">
               Showing all submitted visit reports by {bhrUser.name} ({bhrUser.email}).
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-6 px-8">
             {isLoading ? (
               <div className="flex items-center justify-center h-40">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Loading submissions...</p>
               </div>
             ) : submissions.length > 0 ? (
-              <DataTable
-                columns={columns}
-                data={submissions}
-                emptyStateMessage="No submitted visits found for this BHR."
-              />
+              <div className="rounded-xl overflow-hidden shadow border border-slate-100 bg-white/95">
+                <DataTable
+                  columns={columns}
+                  data={submissions}
+                  emptyStateMessage="No submitted visits found for this BHR."
+                  className="!border-0 !shadow-none !rounded-xl"
+                  rowClassName="hover:bg-primary/5 transition border-b border-slate-100 last:border-0"
+                  cellClassName="py-4 px-4 text-base"
+                  headerClassName="bg-muted/40 text-slate-700 text-base font-semibold border-b border-slate-100"
+                />
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-40 text-center">
                   <ListChecks className="w-12 h-12 text-muted-foreground mb-3" />
@@ -148,9 +153,9 @@ export function BhrSubmissionsListModal({ bhrUser, isOpen, onClose }: BhrSubmiss
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-8 pb-8">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Close</Button>
+              <Button type="button" variant="outline" className="rounded-full px-6 py-2 text-base font-semibold shadow hover:bg-primary/10 transition">Close</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>

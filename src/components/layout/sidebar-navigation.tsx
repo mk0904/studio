@@ -38,7 +38,7 @@ const ALL_NAV_LINKS: Record<UserRole, NavItem[]> = {
     { href: '/chr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/chr/analytics', label: 'Analytics', icon: PieChart },
     { href: '/chr/visits-made', label: 'Visits Made', icon: ListChecks },
-    { href: '/chr/oversee-channel', label: 'Oversee Channel', icon: Network },
+    { href: '/chr/team-structure', label: 'Team Structure', icon: Network },
     { href: '/chr/export-data', label: 'Export Data', icon: FileText },
   ],
 };

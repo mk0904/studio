@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect } from 'react';
@@ -36,10 +35,11 @@ export default function DashboardLayout({
 
   const isBHRPage = pathname.startsWith('/bhr/');
   const isZHRPage = pathname.startsWith('/zhr/');
+  const isVHRPage = pathname.startsWith('/vhr/');
   const isAccountPage = pathname === '/account';
 
-  // Header should be hidden for BHR, ZHR, and Account pages.
-  const shouldShowHeader = !(isBHRPage || isZHRPage || isAccountPage);
+  // Header should be hidden for BHR, ZHR, VHR, and Account pages.
+  const shouldShowHeader = !(isBHRPage || isZHRPage || isVHRPage || isAccountPage);
 
   const content = (
     <div className="relative min-h-screen w-full bg-background">

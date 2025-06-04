@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -12,10 +11,29 @@ import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useChrFilter } from '@/contexts/chr-filter-context'; 
 import { isSameMonth, parseISO, startOfMonth } from 'date-fns';
+import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js/auto';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 export default function CHRDashboardPage() {
   const { user } = useAuth();
@@ -37,7 +55,7 @@ export default function CHRDashboardPage() {
         try {
           const [branchesRes, visitsRes] = await Promise.all([
             supabase.from('branches').select('*'),
-            supabase.from('visits').select('bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, cwt_cases').eq('status', 'submitted')
+            supabase.from('visits').select('id, bhr_id, branch_id, visit_date, manning_percentage, attrition_percentage, non_vendor_percentage, cwt_cases').eq('status', 'submitted')
           ]);
 
           if (branchesRes.error) throw branchesRes.error;
@@ -263,125 +281,331 @@ export default function CHRDashboardPage() {
   const barChartXAxisKey = 'name';
 
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
       <PageTitle title={`CHR Dashboard (${selectedHierarchyDetailsText.name})`} description={`Human Resources Overview ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-        <Card className="shadow-lg bg-yellow-50 dark:bg-yellow-900/40">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-800/30 rounded-lg">
-                <TrendingUp className="h-7 w-7 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">Avg Manning</p>
-                <p className="text-3xl font-bold text-yellow-800 dark:text-yellow-200">
-                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgManningPercentageThisMonth}%`}
-                </p>
-              </div>
-            </div>
-            <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-700/50 dark:text-yellow-300 border-yellow-300/50 dark:border-yellow-600/50 text-xs px-2 py-1">
-              this month
-            </Badge>
-          </CardContent>
-        </Card>
 
-        <Card className="shadow-lg bg-red-50 dark:bg-red-900/40">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-red-100 dark:bg-red-800/30 rounded-lg">
-                <Briefcase className="h-7 w-7 text-red-600 dark:text-red-400" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-5xl">
+          {/* Avg Manning */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-yellow-500/10 bg-gradient-to-br from-white to-yellow-500/5 transition-all duration-200 hover:border-yellow-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-yellow-700">Avg Manning</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Average manning percentage
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">
+                {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgManningPercentageThisMonth}%`}
               </div>
-              <div>
-                <p className="text-sm text-red-700 dark:text-red-300">Avg Attrition</p>
-                <p className="text-3xl font-bold text-red-800 dark:text-red-200">
-                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgAttritionPercentageThisMonth}%`}
-                </p>
+              <div className="text-xs text-yellow-600/90 flex items-center gap-1">
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span>This Month</span>
               </div>
-            </div>
-            <Badge className="bg-red-100 text-red-700 dark:bg-red-700/50 dark:text-red-300 border-red-300/50 dark:border-red-600/50 text-xs px-2 py-1">
-              this month
-            </Badge>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-lg bg-cyan-50 dark:bg-cyan-900/40">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-cyan-100 dark:bg-cyan-800/30 rounded-lg">
-                <Users className="h-7 w-7 text-cyan-600 dark:text-cyan-400" />
+          {/* Avg Attrition */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-red-500/10 bg-gradient-to-br from-white to-red-500/5 transition-all duration-200 hover:border-red-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-red-700">Avg Attrition</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Average attrition percentage
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">
+                {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgAttritionPercentageThisMonth}%`}
               </div>
-              <div>
-                <p className="text-sm text-cyan-700 dark:text-cyan-300">Avg Non-Vendor</p>
-                <p className="text-3xl font-bold text-cyan-800 dark:text-cyan-200">
-                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgNonVendorPercentageThisMonth}%`}
-                </p>
+              <div className="text-xs text-red-600/90 flex items-center gap-1">
+                <Briefcase className="h-3.5 w-3.5" />
+                <span>This Month</span>
               </div>
-            </div>
-            <Badge className="bg-cyan-100 text-cyan-700 dark:bg-cyan-700/50 dark:text-cyan-300 border-cyan-300/50 dark:border-cyan-600/50 text-xs px-2 py-1">
-              this month
-            </Badge>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-lg bg-orange-50 dark:bg-orange-900/40">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="flex items-start space-x-3">
-              <div className="p-2 bg-orange-100 dark:bg-orange-800/30 rounded-lg">
-                <ShieldAlert className="h-7 w-7 text-orange-600 dark:text-orange-400" />
+          {/* Avg Non-Vendor */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-cyan-500/10 bg-gradient-to-br from-white to-cyan-500/5 transition-all duration-200 hover:border-cyan-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-cyan-700">Avg Non-Vendor</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Average non-vendor percentage
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">
+                {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.avgNonVendorPercentageThisMonth}%`}
               </div>
-              <div>
-                <p className="text-sm text-orange-700 dark:text-orange-300">Total CWT Cases</p>
-                <p className="text-3xl font-bold text-orange-800 dark:text-orange-200">
-                  {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : `${dashboardStats.totalCWTCasesThisMonth}`}
-                </p>
+              <div className="text-xs text-cyan-600/90 flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                <span>This Month</span>
               </div>
-            </div>
-            <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-700/50 dark:text-orange-300 border-orange-300/50 dark:border-orange-600/50 text-xs px-2 py-1">
-              this month
-            </Badge>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
 
+          {/* Total CWT Cases */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-orange-500/10 bg-gradient-to-br from-white to-orange-500/5 transition-all duration-200 hover:border-orange-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-orange-700">Total CWT Cases</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Total CWT cases this month
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">
+                {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : dashboardStats.totalCWTCasesThisMonth}
+              </div>
+              <div className="text-xs text-orange-600/90 flex items-center gap-1">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                <span>This Month</span>
+              </div>
+            </CardContent>
+          </Card>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total VHRs" value={dashboardStats.vhrCount} icon={Users} description={`Monitored VHRs`}/>
-        <StatCard title="Total ZHRs" value={dashboardStats.zhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
-        <StatCard title="Total BHRs" value={dashboardStats.bhrCount} icon={Users} description={`In ${selectedHierarchyDetailsText.name}`}/>
-        <StatCard 
-            title="Branch Coverage" 
-            value={`${dashboardStats.branchCoveragePercentage}%`} 
-            icon={Building2} 
-            description={`Overall branch visit coverage`}
-        />
-      </div>
-       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-         <StatCard title="Submitted Visits" value={dashboardStats.totalSubmittedVisits} icon={CalendarDays} description={`Total submitted visits in ${selectedHierarchyDetailsText.name}`}/>
-         <StatCard 
-            title="Avg Visits / Visited Branch" 
-            value={dashboardStats.avgSubmittedVisitsPerBranch} 
-            icon={TrendingUp} 
-            description={`Avg visits per unique branch with activity in ${selectedHierarchyDetailsText.name}`}
-        />
-      </div>
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-         <Link href="/chr/analytics" className="w-full">
-            <Button className="w-full h-full text-lg py-8" variant="outline">
-                <BarChartBig className="mr-2 h-8 w-8" /> View Deep Analytics
-            </Button>
-        </Link>
-      </div>
+          {/* Total VHRs */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-indigo-500/10 bg-gradient-to-br from-white to-indigo-500/5 transition-all duration-200 hover:border-indigo-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-indigo-700">Total VHRs</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Monitored VHRs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.vhrCount}</div>
+              <div className="text-xs text-indigo-600/90 flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                <span>VHRs</span>
+              </div>
+            </CardContent>
+          </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+          {/* Total ZHRs */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-emerald-500/10 bg-gradient-to-br from-white to-emerald-500/5 transition-all duration-200 hover:border-emerald-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-emerald-700">Total ZHRs</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                In {selectedHierarchyDetailsText.name}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.zhrCount}</div>
+              <div className="text-xs text-emerald-600/90 flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                <span>ZHRs</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total BHRs */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-sky-500/10 bg-gradient-to-br from-white to-sky-500/5 transition-all duration-200 hover:border-sky-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-sky-700">Total BHRs</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                In {selectedHierarchyDetailsText.name}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.bhrCount}</div>
+              <div className="text-xs text-sky-600/90 flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" />
+                <span>BHRs</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Branch Coverage */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-amber-500/10 bg-gradient-to-br from-white to-amber-500/5 transition-all duration-200 hover:border-amber-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-amber-700">Branch Coverage</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Overall branch visit coverage
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.branchCoveragePercentage}%</div>
+              <div className="text-xs text-amber-600/90 flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Coverage</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submitted Visits */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-emerald-500/10 bg-gradient-to-br from-white to-emerald-500/5 transition-all duration-200 hover:border-emerald-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-emerald-700">Submitted Visits</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Total submitted visits in {selectedHierarchyDetailsText.name}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.totalSubmittedVisits}</div>
+              <div className="text-xs text-emerald-600/90 flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5" />
+                <span>Total</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Avg Visits / Branch */}
+          <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-blue-500/10 bg-gradient-to-br from-white to-blue-500/5 transition-all duration-200 hover:border-blue-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm font-semibold text-blue-700">Avg Visits / Branch</CardTitle>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Avg visits per unique branch with activity in {selectedHierarchyDetailsText.name}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+              <div className="text-3xl font-bold text-slate-800 mb-1">{dashboardStats.avgSubmittedVisitsPerBranch}</div>
+              <div className="text-xs text-blue-600/90 flex items-center gap-1">
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span>Average</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* View Deep Analytics */}
+          <Link href="/chr/analytics" className="w-full">
+            <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-orange-500/10 bg-gradient-to-br from-white to-orange-500/5 transition-all duration-200 hover:border-orange-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
+              <CardHeader className="pb-1 pt-3 px-4">
+                <CardTitle className="text-sm font-semibold text-orange-700">View Deep Analytics</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                  Dive deeper into trends and insights
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-2 pb-3 px-4 flex-grow flex flex-col justify-end">
+                <div className="flex items-center justify-center gap-2">
+                  <BarChartBig className="h-7 w-7 text-orange-600" />
+                  <span className="text-orange-600/90">Explore Analytics</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      
+
+      <div className="grid grid-cols-1 gap-6">
         {visitsByEntityChartData.length > 0 ? (
-            <PlaceholderBarChart
-            data={visitsByEntityChartData}
-            title={barChartTitle}
-            description={`Total submitted visits, reflecting current VHR filters.`}
-            xAxisKey={barChartXAxisKey}
-            dataKey="value"
-            />
+          <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold text-[#004C8F]">
+                <BarChartBig className="h-5 w-5" />Submitted Visits by VHR
+              </CardTitle>
+              <CardDescription className="text-sm text-muted-foreground/90">
+                Total submitted visits, reflecting current VHR filters.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="relative w-full h-[350px] p-4">
+                <Bar
+                  data={{
+                    labels: visitsByEntityChartData.map(item => item.name),
+                    datasets: [
+                      {
+                        label: 'Visits',
+                        data: visitsByEntityChartData.map(item => item.value),
+                        backgroundColor: [
+                          '#0E2B72', // Royal Blue
+                          '#386FA4', // Sapphire
+                          '#5D4E6D', // Deep Purple
+                          '#FFD700', // Gold
+                          '#10B981', // Emerald
+                          '#C62828', // Ruby
+                          '#7E6B8F', // Amethyst
+                          '#4A5859', // Slate
+                        ],
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        maxBarThickness: 65
+                      }
+                    ]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                      duration: 800,
+                      easing: 'easeOutQuart'
+                    },
+                    layout: {
+                      padding: {
+                        top: 30,
+                        right: 20,
+                        bottom: 10,
+                        left: 20
+                      }
+                    },
+                    plugins: {
+                      legend: {
+                        display: false
+                      },
+                      tooltip: {
+                        backgroundColor: '#0E2B72',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#FFFFFF',
+                        borderWidth: 0,
+                        padding: 12,
+                        cornerRadius: 4,
+                        boxPadding: 6,
+                        titleFont: {
+                          size: 13,
+                          weight: 'bold'
+                        },
+                        bodyFont: {
+                          size: 12
+                        },
+                        displayColors: false,
+                        callbacks: {
+                          label: (context) => `${Math.round(context.parsed.y)} visits`,
+                          title: (items) => items[0].label
+                        }
+                      }
+                    },
+                    scales: {
+                      x: {
+                        grid: {
+                          display: false
+                        },
+                        border: {
+                          display: false
+                        },
+                        ticks: {
+                          color: '#666666',
+                          font: {
+                            size: 12,
+                            weight: 'normal'
+                          },
+                          padding: 8
+                        }
+                      },
+                      y: {
+                        border: {
+                          display: false
+                        },
+                        grid: {
+                          color: '#E5E5E5',
+                          drawTicks: false,
+                          lineWidth: 1
+                        },
+                        ticks: {
+                          color: '#666666',
+                          font: {
+                            size: 12,
+                            weight: 'normal'
+                          },
+                          padding: 12,
+                          stepSize: 1,
+                          callback: function (value) { return typeof value === 'number' ? Math.round(value).toString() : value }
+                        },
+                        beginAtZero: true
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
         ) : (
             <Card className="shadow-lg flex items-center justify-center min-h-[300px]">
                 <div className="text-center text-muted-foreground">

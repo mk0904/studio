@@ -58,7 +58,7 @@ export function DashboardPageHeader({ className }: DashboardPageHeaderProps) {
   };
 
   const showGlobalChrVhrFilter = isChr && 
-    pathname !== '/chr/oversee-channel' && 
+    pathname !== '/chr/team-structure' && 
     pathname !== '/account' &&
     pathname !== '/chr/export-data';
 

@@ -537,7 +537,7 @@ export default function VHRAnalyticsPage() {
   const showBranchSpecificCharts = selectedBranchIds.length === 0;
 
   return (
-    <div className="container space-y-8 py-8 px-4 md:px-8 lg:px-12 xl:px-16 py-16 2xl:px-24">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
       <PageTitle
   title="VHR Analytics Dashboard"
   description={`Review key metrics and trends for your ZHRs and Branches. ${user?.name ? `Welcome, ${user.name}!` : ''}`}

@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BhrSubmissionsListModal } from '@/components/shared/bhr-submissions-list-modal';
 
-export default function OverseeChannelPage() {
+export default function TeamStructurePage() {
   const { user: currentUser } = useAuth();
   const [initialRootUserNodes, setInitialRootUserNodes] = useState<UserNode[]>([]);
   const [displayedRootUserNodes, setDisplayedRootUserNodes] = useState<UserNode[]>([]);
@@ -153,7 +153,7 @@ export default function OverseeChannelPage() {
   }, [initialRootUserNodes, debouncedSearchTerm, isLoading, filterUserTree]);
 
 
-  const pageTitle = "Oversee Channel (Global)";
+  const pageTitle = "Team Structure (Global)";
 
 
   if (isLoading) {
@@ -166,15 +166,10 @@ export default function OverseeChannelPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6">
       <PageTitle title={pageTitle} description="Visual representation of the organizational reporting structure. Search users below." />
 
-      <Card className="shadow-md">
-        <CardHeader>
-            <CardTitle className="text-lg">Search Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-            <div className="relative">
+      <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, email, role, E-Code, location..."
@@ -183,8 +178,6 @@ export default function OverseeChannelPage() {
                 className="pl-10"
               />
             </div>
-        </CardContent>
-      </Card>
 
       {error && (
         <Alert variant="destructive">

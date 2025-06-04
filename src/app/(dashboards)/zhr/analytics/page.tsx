@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -371,7 +370,7 @@ export default function ZHRAnalyticsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="sflex min-h-full w-full flex-col items-center bg-gradient-to-b from-slate-50 to-white">
       <PageTitle title="Zonal Performance Trends" description="Analyze key metrics and qualitative assessments from submitted visits in your zone over time." />
       
       <Card className="shadow-xl border-slate-200/50 hover:shadow-2xl transition-shadow duration-200">
@@ -551,7 +550,20 @@ export default function ZHRAnalyticsPage() {
                   <PolarGrid stroke="hsl(var(--border)/0.7)" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                  <Radar name="Average Score" dataKey="score" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-3))" fillOpacity={0.6} strokeWidth={2}/>
+                  <Radar 
+                    name="Average Score" 
+                    dataKey="score" 
+                    stroke="hsl(var(--chart-1))" 
+                    fill="url(#radarGradient)" 
+                    fillOpacity={0.8} 
+                    strokeWidth={2}
+                  />
+                  <defs>
+                    <linearGradient id="radarGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-2))" stopOpacity={0.4} />
+                    </linearGradient>
+                  </defs>
                   <Tooltip
                       contentStyle={{
                           backgroundColor: 'hsl(var(--background))',
