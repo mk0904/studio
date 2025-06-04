@@ -344,9 +344,9 @@ export default function MyVisitsPage() {
             </div>
 
             {/* Bottom Row: Month and Category Selects */}
-            <div className="flex flex-col sm:flex-row gap-3 items-center w-full mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
               {/* Month Select */}
-              <div className="flex-1 w-full">
+              <div className="flex-1 w-full mb-2 sm:mb-6">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-full h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
                     <Calendar className="mr-2 h-4 w-4 text-[#004C8F]" />
@@ -366,7 +366,7 @@ export default function MyVisitsPage() {
                 </Select>
               </div>
               {/* Category Select */}
-              <div className="flex-1 w-full">
+              <div className="flex-1 w-full mb-2 sm:mb-6">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-full h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
                     <Building2 className="mr-2 h-4 w-4 text-[#004C8F]" />
