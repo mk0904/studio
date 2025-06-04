@@ -48,7 +48,7 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null | boo
   return (
     <div className="mb-2">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-medium">{displayValue}</p>
+      <div className="text-sm font-medium">{displayValue}</div>
     </div>
   );
 };

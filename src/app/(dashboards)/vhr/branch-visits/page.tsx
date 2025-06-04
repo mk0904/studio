@@ -18,6 +18,7 @@ import { DatePickerWithRange } from '@/components/shared/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { ZhrFilterDropdown } from '@/components/shared/ZhrFilterDropdown';
 
 export default function VHRBranchVisitsPage() {
   const { user } = useAuth();
@@ -258,7 +259,7 @@ export default function VHRBranchVisitsPage() {
 
   return (
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
-      <PageTitle title={pageTitleText.title} description={pageTitleText.subtitle} />
+      <PageTitle title={pageTitleText.title} description={pageTitleText.subtitle} action={<ZhrFilterDropdown />}/>
 
       <div className="space-y-2 mb-8">
         {/* Row 1: Search and Clear Button - Always in a row */}

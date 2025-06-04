@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { DataTable, ColumnConfig } from '@/components/shared/data-table';
+import { PageTitle } from '@/components/shared/page-title';
+import { ZhrFilterDropdown } from '@/components/shared/ZhrFilterDropdown';
 import { format, parseISO } from 'date-fns';
 import { ViewVisitDetailsModal, type EnrichedVisitForModal } from '@/components/zhr/view-visit-details-modal';
 import { useVhrFilter } from '@/contexts/vhr-filter-context';
@@ -176,15 +178,11 @@ export default function VHRDashboardPage() {
       <div className="flex min-h-full w-full flex-col items-center bg-gradient-to-b from-slate-50 to-white">
         <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
           <div className="flex flex-col space-y-4 sm:space-y-6">
-            <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#004C8F] to-[#0070CC]">
-                {pageTitleText}
-              </h1>
-              <p className="text-sm sm:text-base text-muted-foreground/90 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-[#004C8F]/70" />
-                Loading data for {format(new Date(), 'MMMM yyyy')}...
-              </p>
-            </div>
+            <PageTitle
+  title={pageTitleText}
+  description={`Loading data for ${format(new Date(), 'MMMM yyyy')}...`}
+  action={<ZhrFilterDropdown />}
+/>
           </div>
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-12 w-12 animate-spin text-[#004C8F]" />
@@ -200,15 +198,11 @@ export default function VHRDashboardPage() {
 
         <div className="flex flex-col space-y-4 sm:space-y-6">
           <div className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#004C8F] to-[#0070CC]">
-                {pageTitleText}
-              </h1>
-              <p className="text-sm sm:text-base text-muted-foreground/90 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-[#004C8F]/70" />
-                Submitted Data Overview for {format(new Date(), 'MMMM yyyy')}. {selectedZhrIds.length === 0 ? "Showing all ZHRs in your vertical." : ""}
-              </p>
-            </div>
+            <PageTitle
+  title={pageTitleText}
+  description={`Submitted Data Overview for ${format(new Date(), 'MMMM yyyy')}. ${selectedZhrIds.length === 0 ? "Showing all ZHRs in your vertical." : ""}`}
+  action={<ZhrFilterDropdown />}
+/>
           </div>
         </div>
 
