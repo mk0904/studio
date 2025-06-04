@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -214,6 +213,12 @@ export default function ZHRBranchAssignmentsPage() {
     setUnassignTarget(null);
   };
 
+  // New function to handle the click and pass the target directly
+  const handleConfirmUnassignClick = (target: typeof unassignTarget) => {
+    if (!target) return; // Should not happen if button is correctly rendered
+    confirmUnassignBHR(); // Call the core logic
+  };
+
   const columns: ColumnConfig<BranchAssignmentView>[] = [
     { accessorKey: 'name', header: 'Branch Name' },
     { 
@@ -331,107 +336,119 @@ export default function ZHRBranchAssignmentsPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
-      <PageTitle title="Branch Mapping" description="Assign branches to Branch Head Representatives (BHRs)" />
-      
-      {error && branchesInZone.length > 0 && ( 
-         <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Partial Data Error</AlertTitle>
-            <AlertDescription>
-                There was an issue fetching some data: {error} Displaying potentially incomplete results.
-            </AlertDescription>
+    <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
+      <PageTitle
+        title="Branch Assignments"
+        description="Manage BHR assignments to branches within your zone. Select a branch from the table to assign a BHR."
+      />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <Card className="border-0 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
-        <CardHeader className="border-b pb-4 px-4 sm:px-6 pt-5">
-            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
-              <div className="relative flex-grow w-full sm:w-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search branches by name or location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200"
-                />
-              </div>
-              <div className="w-full sm:w-auto sm:min-w-[180px]">
-                <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={branchCategories.length <= 1}>
-                  <SelectTrigger className="h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branchCategories.map(category => (
-                      <SelectItem key={category} value={category}>
-                        {category === 'all' ? 'All Categories' : category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <DataTable
-            columns={columns}
-            data={filteredBranches}
-            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-[0.7rem] [&_thead_th]:sm:text-xs [&_thead_th]:font-semibold [&_thead_th]:text-slate-500 [&_thead_th]:h-10 [&_thead_th]:sm:h-12 [&_thead_th]:px-2 [&_thead_th]:sm:px-4 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-2 [&_tbody_td]:sm:px-4 [&_tbody_td]:py-2 [&_tbody_td]:sm:py-3 [&_tbody_td]:text-xs [&_tbody_td]:sm:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
-            emptyStateMessage={
-              isLoading ? "Loading..." : 
-              (error ? `Error loading data.` : 
-              (branchesInZone.length === 0 ? "No branches found in the system." : "No branches match your current filters."))
-            }
-          />
+      {/* Search and Filter Controls */}
+      <Card className="shadow-lg border-slate-200/50">
+        <CardContent className="flex flex-col md:flex-row items-center gap-4 p-4 sm:p-6">
+           {/* Search Input */}
+          <div className="relative w-full md:flex-grow">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by branch name, location, or code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 pr-3 py-2 border-slate-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+          </div>
+
+          {/* Category Filter */}
+          <div className="w-full md:w-auto">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full md:w-[180px] border-slate-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <SelectValue placeholder="Filter by Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="Diamond">Diamond</SelectItem>
+                <SelectItem value="Platinum">Platinum</SelectItem>
+                <SelectItem value="Gold">Gold</SelectItem>
+                <SelectItem value="Silver">Silver</SelectItem>
+                <SelectItem value="Bronze">Bronze</SelectItem>
+                <SelectItem value="Uncategorized">Uncategorized</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
+      <Card className="shadow-lg border-slate-200/50">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-slate-800">Branches in Your Zone</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground">Overview of branches and their current BHR assignments.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading branches...</p>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={filteredBranches}
+              emptyStateMessage="No branches found matching your criteria."
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Assign BHR Dialog */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px] bg-white shadow-2xl border border-slate-200 rounded-xl p-6">
           <DialogHeader>
-            <DialogTitle>Assign BHR to {selectedBranchForAssignment?.name}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-bold tracking-tight text-[#004C8F]">Assign BHR to {selectedBranchForAssignment?.name}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground/80 mt-1">
               Select a BHR from your zone to assign to this branch.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="bhr-select" className="text-right">
-                BHR
-              </Label>
+            <div className="space-y-2">
+              <Label htmlFor="bhr-select" className="text-sm font-medium text-slate-700">Select BHR</Label>
               <Select value={selectedBhrForAssignment} onValueChange={setSelectedBhrForAssignment}>
-                <SelectTrigger id="bhr-select" className="col-span-3">
+                <SelectTrigger className="w-full border-slate-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500">
                   <SelectValue placeholder="Select a BHR" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bhrsInZoneForDialog.length > 0 ? bhrsInZoneForDialog.map(bhrUser => (
-                    <SelectItem key={bhrUser.id} value={bhrUser.id}>{bhrUser.name}</SelectItem>
-                  )) : <SelectItem value="nobhrs" disabled>No BHRs in your zone</SelectItem>}
+                  {bhrsInZoneForDialog.map(bhr => (
+                    <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAssignBHR} disabled={isLoading || !selectedBhrForAssignment || bhrsInZoneForDialog.length === 0}><UserPlus className="mr-2 h-4 w-4" />Assign</Button>
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-end sm:space-x-2 gap-2 mt-4">
+            <Button type="button" variant="outline" onClick={() => setIsAssignDialogOpen(false)} className="rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition border border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400">Cancel</Button>
+            <Button type="button" onClick={handleAssignBHR} className="bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow rounded-lg px-4 py-2 text-sm font-semibold">Assign BHR</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Unassign BHR Dialog */}
       <AlertDialog open={isUnassignDialogOpen} onOpenChange={setIsUnassignDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white shadow-2xl border border-slate-200 rounded-xl p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Unassignment</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to unassign {unassignTarget?.bhrName || 'this BHR'} from {unassignTarget?.branchName || 'this branch'}?
+            <AlertDialogTitle className="text-xl font-bold tracking-tight text-slate-800">Confirm Unassignment</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground/80 mt-1">
+              Are you sure you want to unassign <strong className="text-slate-800">{unassignTarget?.bhrName || 'this BHR'}</strong> from <strong className="text-slate-800">{unassignTarget?.branchName || 'this branch'}</strong>?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {setIsUnassignDialogOpen(false); setUnassignTarget(null);}}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmUnassignBHR} disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Confirm Unassign
-            </AlertDialogAction>
+          <AlertDialogFooter className="flex flex-col sm:flex-row sm:justify-end sm:space-x-2 gap-2 mt-4">
+            <AlertDialogCancel className="rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition border border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleConfirmUnassignClick(unassignTarget)} className="bg-red-600 hover:bg-red-700 text-white shadow rounded-lg px-4 py-2 text-sm font-semibold">Unassign</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

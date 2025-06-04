@@ -106,8 +106,8 @@ export function BhrSubmissionsListModal({ bhrUser, isOpen, onClose }: BhrSubmiss
           setIsDetailModalOpen(true);
         };
         return (
-          <Button variant="outline" size="sm" onClick={handleViewDetailsClick}>
-            <Eye className="mr-2 h-4 w-4" /> View Report
+          <Button variant="default" size="sm" onClick={handleViewDetailsClick} className="bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow rounded-lg">
+            <Eye className="mr-2 h-4 w-4" /> View
           </Button>
         );
       }
@@ -120,8 +120,8 @@ export function BhrSubmissionsListModal({ bhrUser, isOpen, onClose }: BhrSubmiss
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent className="sm:max-w-3xl bg-white/90 backdrop-blur-lg shadow-2xl border border-slate-200 rounded-2xl p-0">
-          <DialogHeader className="px-8 pt-8 pb-2">
+        <DialogContent className="sm:max-w-3xl bg-white backdrop-blur-lg shadow-2xl border border-slate-200 rounded-2xl p-0 overflow-hidden">
+          <DialogHeader className="px-8 pt-8 pb-2 border-b border-slate-100">
             <DialogTitle className="text-2xl font-bold tracking-tight text-[#004C8F]">Submitted Visits for {bhrUser.name}</DialogTitle>
             <DialogDescription className="text-muted-foreground/80 mt-1 text-base">
               Showing all submitted visit reports by {bhrUser.name} ({bhrUser.email}).
@@ -155,7 +155,7 @@ export function BhrSubmissionsListModal({ bhrUser, isOpen, onClose }: BhrSubmiss
           </div>
           <DialogFooter className="px-8 pb-8">
             <DialogClose asChild>
-              <Button type="button" variant="outline" className="rounded-full px-6 py-2 text-base font-semibold shadow hover:bg-primary/10 transition">Close</Button>
+              <Button type="button" variant="outline" className="rounded-lg px-6 py-2 text-base font-semibold shadow-sm transition border border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400">Close</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>

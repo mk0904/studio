@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'HR View',
+  title: 'HDFC Life Visit Management System',
   description: 'HR Management System by Firebase Studio',
 };
 

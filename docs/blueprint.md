@@ -1,4 +1,4 @@
-# **App Name**: HR View
+# **App Name**: HDFC Life Visit Management System
 
 ## Core Features:
 
