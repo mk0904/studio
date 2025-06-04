@@ -1,4 +1,3 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -74,9 +73,6 @@ export function LoginForm() {
             <FormItem>
               <div className="flex items-center justify-between">
                 <FormLabel className="text-sm font-medium text-gray-700">Password</FormLabel>
-                <Link href="#" className="text-sm font-medium text-[#004C8F] hover:text-[#003972] transition-colors">
-                  Forgot password?
-                </Link>
               </div>
               <FormControl>
                 <div className="relative">
@@ -102,6 +98,11 @@ export function LoginForm() {
                   </Button>
                 </div>
               </FormControl>
+              <div className="flex items-center justify-between">
+                <Link href="/auth/reset-password" className="text-sm font-medium text-[#004C8F] hover:text-[#003972] transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
               <FormMessage className="text-xs font-medium text-red-500 mt-1.5" />
             </FormItem>
           )}
