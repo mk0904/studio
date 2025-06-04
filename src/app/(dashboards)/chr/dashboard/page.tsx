@@ -6,7 +6,7 @@ import { StatCard } from '@/components/shared/stat-card';
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Visit, Branch } from '@/types';
 import { supabase } from '@/lib/supabaseClient';
-import { Users, CalendarDays, BarChartBig, TrendingUp, Loader2, Briefcase, Percent, ShieldAlert, Building2 } from 'lucide-react';
+import { Users, CalendarDays, BarChartBig, TrendingUp, Loader2, Briefcase, Percent, ShieldAlert, Building2, ChevronsUpDown, XCircle } from 'lucide-react';
 import { PlaceholderBarChart } from '@/components/charts/placeholder-bar-chart';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js/auto';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 ChartJS.register(
   CategoryScale,
@@ -41,7 +42,8 @@ export default function CHRDashboardPage() {
   
   const { 
     selectedVhrIds, vhrOptions, 
-    allUsersForContext, isLoadingAllUsers 
+    allUsersForContext, isLoadingAllUsers,
+    setSelectedVhrIds
   } = useChrFilter();
 
   const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
@@ -282,10 +284,49 @@ export default function CHRDashboardPage() {
 
   return (
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
-      <PageTitle title={`CHR Dashboard (${selectedHierarchyDetailsText.name})`} description={`Human Resources Overview ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <PageTitle title={`CHR Dashboard (${selectedHierarchyDetailsText.name})`} description={`Human Resources Overview ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
+        {/* VHR Filter - top right, matching analytics page */}
+        <div className="w-full sm:w-auto relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-[200px] h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+                <span className="truncate">
+                  {vhrOptions.length > 0 ? selectedVhrIds.length === 0 ? "All VHRs" : selectedVhrIds.length === 1 ? vhrOptions.find(opt => opt.value === selectedVhrIds[0])?.label : `${selectedVhrIds.length} VHRs Selected` : isLoadingAllUsers ? "Loading VHRs..." : "No VHRs found"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+              {vhrOptions.length === 0 && !isLoadingAllUsers && <DropdownMenuLabel>No VHRs found</DropdownMenuLabel>}
+              {isLoadingAllUsers && <DropdownMenuLabel className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading VHRs...</DropdownMenuLabel>}
+              {vhrOptions.map((option) => (
+                <DropdownMenuCheckboxItem
+                  key={option.value}
+                  checked={selectedVhrIds.includes(option.value)}
+                  onCheckedChange={() => {
+                    if (selectedVhrIds.includes(option.value)) {
+                      setSelectedVhrIds(selectedVhrIds.filter(id => id !== option.value));
+                    } else {
+                      setSelectedVhrIds([...selectedVhrIds, option.value]);
+                    }
+                  }}
+                  className="capitalize"
+                >
+                  {option.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {selectedVhrIds.length > 0 && (
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedVhrIds([]); }} aria-label="Clear VHR filter">
+              <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
+            </Button>
+          )}
+        </div>
+      </div>
 
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-5xl">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full">
           {/* Avg Manning */}
           <Card className="h-full w-full min-h-[180px] relative overflow-hidden border border-yellow-500/10 bg-gradient-to-br from-white to-yellow-500/5 transition-all duration-200 hover:border-yellow-500/20 hover:shadow-lg hover:-translate-y-0.5 flex flex-col col-span-1 group">
             <CardHeader className="pb-1 pt-3 px-4">

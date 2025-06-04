@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -34,8 +33,7 @@ interface FilterOption { value: string; label: string; }
 export default function CHRVisitsMadePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions } = useChrFilter();
-
+  const { selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions, setSelectedVhrIds } = useChrFilter();
   const [isLoading, setIsLoading] = useState(true);
   const [allSubmittedVisitsGlobal, setAllSubmittedVisitsGlobal] = useState<Visit[]>([]);
   const [allUsersGlobal, setAllUsersGlobal] = useState<User[]>([]);
@@ -65,7 +63,7 @@ export default function CHRVisitsMadePage() {
         setIsLoading(true);
         try {
           const [usersRes, branchesRes, visitsRes] = await Promise.all([
-            supabase.from('users').select('id, name, role, reports_to, e_code'),
+            supabase.from('users').select('id, name, role, reports_to, e_code, email'),
             supabase.from('branches').select('id, name, category, code, location'),
             supabase.from('visits').select('*').eq('status', 'submitted').order('visit_date', { ascending: false })
           ]);
@@ -314,118 +312,230 @@ export default function CHRVisitsMadePage() {
 
   return (
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
-      <PageTitle title={pageTitleText} description="View and filter all submitted branch visits across the organization." />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <PageTitle title={pageTitleText} description="View and filter all submitted branch visits across the organization." />
+        {/* VHR Filter - top right, matching analytics/dashboard */}
+        <div className="w-full sm:w-auto relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-[200px] h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+                <span className="truncate">
+                  {globalVhrOptions.length > 0 ? globalSelectedVhrIds.length === 0 ? "All VHRs" : globalSelectedVhrIds.length === 1 ? globalVhrOptions.find(opt => opt.value === globalSelectedVhrIds[0])?.label : `${globalSelectedVhrIds.length} VHRs Selected` : "No VHRs found"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+              {globalVhrOptions.length === 0 && <DropdownMenuLabel>No VHRs found</DropdownMenuLabel>}
+              {globalVhrOptions.map((option) => (
+                <DropdownMenuCheckboxItem
+                  key={option.value}
+                  checked={globalSelectedVhrIds.includes(option.value)}
+                  onCheckedChange={() => {
+                    if (globalSelectedVhrIds.includes(option.value)) {
+                      setSelectedVhrIds(globalSelectedVhrIds.filter(id => id !== option.value));
+                    } else {
+                      setSelectedVhrIds([...globalSelectedVhrIds, option.value]);
+                    }
+                  }}
+                  className="capitalize"
+                >
+                  {option.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {globalSelectedVhrIds.length > 0 && (
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedVhrIds([]); }} aria-label="Clear VHR filter">
+              <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
+            </Button>
+          )}
+        </div>
+      </div>
       <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
         <CardContent className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="relative flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
-                    {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                    zhrOptions.length > 0 ? zhrOptions.map(option => (
-                      <DropdownMenuCheckboxItem
-                        key={option.value}
-                        checked={selectedZhrIds.includes(option.value)}
-                        onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        {option.label}
-                      </DropdownMenuCheckboxItem>
-                    )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {selectedZhrIds.length > 0 && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
-                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                </Button>
-              )}
-            </div>
-            <div className="relative flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
-                    {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                    bhrOptions.length > 0 ? bhrOptions.map(option => (
-                      <DropdownMenuCheckboxItem
-                        key={option.value}
-                        checked={selectedBhrIds.includes(option.value)}
-                        onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        {option.label}
-                      </DropdownMenuCheckboxItem>
-                    )) : <DropdownMenuLabel>No BHRs match current VHR/ZHR filter.</DropdownMenuLabel>}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {selectedBhrIds.length > 0 && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
-                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                </Button>
-              )}
-            </div>
-            <div className="relative flex items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
-                    {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                    branchOptions.length > 0 ? branchOptions.map(option => (
-                      <DropdownMenuCheckboxItem
-                        key={option.value}
-                        checked={selectedBranchIds.includes(option.value)}
-                        onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        {option.label}
-                      </DropdownMenuCheckboxItem>
-                    )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {selectedBranchIds.length > 0 && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
-                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                </Button>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
+          {/* Row 1: Search + Clear (mobile), Search only (desktop) */}
+          <div className="grid grid-cols-[1fr_auto] md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div className="col-span-1 md:col-span-1 flex items-center">
               <Label htmlFor="search-visits-made" className="sr-only">Search</Label>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="search-visits-made"
-                placeholder="Search by BHR, Branch, E-Code, Location..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search-visits-made"
+                  placeholder="Search by BHR, Branch, E-Code, Location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
+            {/* Clear button (mobile only) */}
+            <div className="flex items-center md:hidden">
+              <Button 
+                variant="outline" 
+                onClick={handleClearAllLocalFilters} 
+                className="h-9 w-9 p-0 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 rounded-lg flex items-center justify-center"
+                aria-label="Clear filters"
+              >
+                <XCircle className="h-5 w-5 text-red-600" />
+              </Button>
+            </div>
+            {/* DatePicker (desktop only) */}
+            <div className="hidden md:block md:col-span-1">
+              <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
+            </div>
+            {/* Branches (desktop only) */}
+            <div className="hidden md:block md:col-span-1">
+              <div className="relative flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+                      {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                    <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                      branchOptions.length > 0 ? branchOptions.map(option => (
+                        <DropdownMenuCheckboxItem
+                          key={option.value}
+                          checked={selectedBranchIds.includes(option.value)}
+                          onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {option.label}
+                        </DropdownMenuCheckboxItem>
+                      )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {selectedBranchIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
-          <Button variant="outline" onClick={handleClearAllLocalFilters} className="h-9 sm:h-10 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center justify-center p-2 sm:px-4 shrink-0">
-            <XCircle className="h-4 w-4 text-red-600 sm:mr-2" /> <span className="hidden sm:inline">Clear</span>
-          </Button>
+          {/* Row 2: Date picker | Branches (mobile only) */}
+          <div className="grid grid-cols-2 gap-4 md:hidden">
+            <div className="col-span-1">
+              <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
+            </div>
+            <div className="col-span-1">
+              <div className="relative flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+                      {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                    <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                      branchOptions.length > 0 ? branchOptions.map(option => (
+                        <DropdownMenuCheckboxItem
+                          key={option.value}
+                          checked={selectedBranchIds.includes(option.value)}
+                          onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {option.label}
+                        </DropdownMenuCheckboxItem>
+                      )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {selectedBranchIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* Row 3: ZHR | BHR | Clear (desktop only) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-0">
+            {/* ZHR */}
+            <div className="col-span-1 md:col-span-1">
+              <div className="relative flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+                      {getMultiSelectButtonText(zhrOptions, selectedZhrIds, "All ZHRs", "ZHR", "ZHRs", isLoadingZhrOptions)}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                    <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                      zhrOptions.length > 0 ? zhrOptions.map(option => (
+                        <DropdownMenuCheckboxItem
+                          key={option.value}
+                          checked={selectedZhrIds.includes(option.value)}
+                          onCheckedChange={() => handleMultiSelectChange(option.value, selectedZhrIds, setSelectedZhrIds)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {option.label}
+                        </DropdownMenuCheckboxItem>
+                      )) : <DropdownMenuLabel>No ZHRs match current VHR filter.</DropdownMenuLabel>}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {selectedZhrIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            {/* BHR */}
+            <div className="col-span-1 md:col-span-1">
+              <div className="relative flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+                      {getMultiSelectButtonText(bhrOptions, selectedBhrIds, "All BHRs", "BHR", "BHRs", isLoadingBhrOptions)}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                    <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
+                      bhrOptions.length > 0 ? bhrOptions.map(option => (
+                        <DropdownMenuCheckboxItem
+                          key={option.value}
+                          checked={selectedBhrIds.includes(option.value)}
+                          onCheckedChange={() => handleMultiSelectChange(option.value, selectedBhrIds, setSelectedBhrIds)}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {option.label}
+                        </DropdownMenuCheckboxItem>
+                      )) : <DropdownMenuLabel>No BHRs match current VHR/ZHR filter.</DropdownMenuLabel>}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {selectedBhrIds.length > 0 && (
+                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            {/* Clear button (desktop only, rightmost) */}
+            <div className="hidden md:flex md:col-span-1 items-center justify-end">
+              <Button 
+                variant="outline" 
+                onClick={handleClearAllLocalFilters} 
+                className="h-9 sm:h-10 w-full md:w-auto bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center justify-center p-2 sm:px-4 shrink-0"
+              >
+                <XCircle className="h-4 w-4 text-red-600 sm:mr-2" /> <span className="hidden sm:inline">Clear</span>
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

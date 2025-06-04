@@ -62,12 +62,12 @@ interface TimeframeOption {
 }
 
 const TIMEFRAME_OPTIONS: TimeframeOption[] = [
-  { key: 'past_week', label: 'Past Week' },
-  { key: 'past_month', label: 'Past Month' },
-  { key: 'last_3_months', label: 'Last 3 Months' },
-  { key: 'last_6_months', label: 'Last 6 Months' },
-  { key: 'last_year', label: 'Last Year' },
-  { key: 'last_3_years', label: 'Last 3 Years' },
+  { key: 'past_week', label: '1W' },
+  { key: 'past_month', label: '1M' },
+  { key: 'last_3_months', label: '3M' },
+  { key: 'last_6_months', label: '6M' },
+  { key: 'last_year', label: '1Y' },
+  { key: 'last_3_years', label: '3Y' },
 ];
 
 type TrendChartDataPoint = { date: string; [key: string]: any; };
@@ -96,10 +96,10 @@ const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, 
         size="sm" 
         onClick={() => onTimeframeChange(tf.key)}
         className={cn(
-          "h-9 text-xs sm:text-sm font-medium transition-all duration-200 rounded-md",
-          selectedTimeframe === tf.key 
-              ? "bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow-md" 
-              : "border-slate-300 hover:bg-slate-50 hover:border-slate-400"
+          "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 rounded-lg shadow-sm",
+            selectedTimeframe === tf.key 
+                ? "bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow-md" 
+            : "border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
         )}
       >
         {tf.label}

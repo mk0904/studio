@@ -138,6 +138,7 @@ export default function CHRAnalyticsPage() {
   const { toast } = useToast();
   const { 
     selectedVhrIds: globalSelectedVhrIds, vhrOptions: globalVhrOptions,
+    setSelectedVhrIds,
     allUsersForContext, isLoadingAllUsers 
   } = useChrFilter();
 
@@ -629,18 +630,58 @@ export default function CHRAnalyticsPage() {
 
   return (
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
-      <PageTitle title={`CHR Analytics (${selectedHierarchyDetailsText.name})`} description={`Deep dive into analytics ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <PageTitle title={`CHR Analytics (${selectedHierarchyDetailsText.name})`} description={`Deep dive into analytics ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
+        
+        {/* VHR Filter */}
+        <div className="w-full sm:w-auto relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-[200px] h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+                <div className="flex items-center overflow-hidden">
+                  <span className="truncate">
+                    {globalVhrOptions.length > 0 ? globalSelectedVhrIds.length === 0 ? "All VHRs" : globalSelectedVhrIds.length === 1 ? globalVhrOptions.find(opt => opt.value === globalSelectedVhrIds[0])?.label : `${globalSelectedVhrIds.length} VHRs Selected` : isLoadingAllUsers ? "Loading VHRs..." : "No VHRs found"}
+                  </span>
+                </div>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+              {globalVhrOptions.length === 0 && !isLoadingAllUsers && <DropdownMenuLabel>No VHRs found</DropdownMenuLabel>}
+              {isLoadingAllUsers && <DropdownMenuLabel className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading VHRs...</DropdownMenuLabel>}
+              {globalVhrOptions.map((option) => (
+                <DropdownMenuCheckboxItem
+                  key={option.value}
+                  checked={globalSelectedVhrIds.includes(option.value)}
+                  onCheckedChange={() => {
+                    if (globalSelectedVhrIds.includes(option.value)) {
+                      setSelectedVhrIds(globalSelectedVhrIds.filter(id => id !== option.value));
+                    } else {
+                      setSelectedVhrIds([...globalSelectedVhrIds, option.value]);
+                    }
+                  }}
+                  className="capitalize"
+                >
+                  {option.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {globalSelectedVhrIds.length > 0 && (
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedVhrIds([]); }} aria-label="Clear VHR filter">
+              <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Filter Section */}
       <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
         <CardContent className="space-y-6">
-
           {/* Hierarchy Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
             {/* ZHR Filter */}
             <div className="space-y-2 relative">
-              <Label className="text-sm font-medium text-slate-700">ZHR Filter</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
@@ -661,9 +702,9 @@ export default function CHRAnalyticsPage() {
                       checked={selectedZhrIds.includes(option.value)}
                       onCheckedChange={() => {
                         if (selectedZhrIds.includes(option.value)) {
-                          setSelectedZhrIds(prev => prev.filter(id => id !== option.value));
+                          setSelectedZhrIds((prev: string[]) => prev.filter((id: string) => id !== option.value));
                         } else {
-                          setSelectedZhrIds(prev => [...prev, option.value]);
+                          setSelectedZhrIds((prev: string[]) => [...prev, option.value]);
                         }
                       }}
                       className="capitalize"
@@ -682,7 +723,6 @@ export default function CHRAnalyticsPage() {
 
             {/* BHR Filter */}
             <div className="space-y-2 relative">
-              <Label className="text-sm font-medium text-slate-700">BHR Filter</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
@@ -703,9 +743,9 @@ export default function CHRAnalyticsPage() {
                       checked={selectedBhrIds.includes(option.value)}
                       onCheckedChange={() => {
                         if (selectedBhrIds.includes(option.value)) {
-                          setSelectedBhrIds(prev => prev.filter(id => id !== option.value));
+                          setSelectedBhrIds((prev: string[]) => prev.filter((id: string) => id !== option.value));
                         } else {
-                          setSelectedBhrIds(prev => [...prev, option.value]);
+                          setSelectedBhrIds((prev: string[]) => [...prev, option.value]);
                         }
                       }}
                       className="capitalize"
@@ -724,7 +764,6 @@ export default function CHRAnalyticsPage() {
             
             {/* Branch Filter */}
             <div className="space-y-2 relative">
-              <Label className="text-sm font-medium text-slate-700">Branch Filter</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
@@ -745,9 +784,9 @@ export default function CHRAnalyticsPage() {
                       checked={selectedBranchIds.includes(option.value)}
                       onCheckedChange={() => {
                         if (selectedBranchIds.includes(option.value)) {
-                          setSelectedBranchIds(prev => prev.filter(id => id !== option.value));
+                          setSelectedBranchIds((prev: string[]) => prev.filter((id: string) => id !== option.value));
                         } else {
-                          setSelectedBranchIds(prev => [...prev, option.value]);
+                          setSelectedBranchIds((prev: string[]) => [...prev, option.value]);
                         }
                       }}
                       className="capitalize"

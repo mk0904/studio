@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -128,26 +127,22 @@ interface TimeframeButtonsProps {
 }
 
 const TimeframeButtons: React.FC<TimeframeButtonsProps> = ({ selectedTimeframe, onTimeframeChange }) => (
-  <div className="flex items-center gap-3"> {/* Outer container for icon + button group */}
-    <CalendarDays className="h-5 w-5 text-blue-600 shrink-0" /> {/* Single icon */}
-    <div className="flex flex-wrap gap-2"> {/* Container for the buttons */}
-      {TIMEFRAME_OPTIONS.map(tf => (
-        <Button
-          key={tf.key}
-          size="sm"
-          onClick={() => onTimeframeChange(tf.key)}
-          className={cn(
-            "h-8 sm:h-10 text-xs sm:text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center", // Adjusted height and font size for phone screens
-            selectedTimeframe === tf.key 
-              ? 'bg-blue-50 text-blue-700 font-semibold border-transparent shadow-sm hover:bg-blue-100 focus:ring-2 focus:ring-offset-1 focus:ring-blue-500' 
-              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 focus:ring-1 focus:ring-offset-1 focus:ring-blue-500'
-          )}
-        >
-          {/* CalendarDays icon removed from individual buttons */}
-          {tf.label}
-        </Button>
-      ))}
-    </div>
+  <div className="flex flex-wrap gap-2">
+    {TIMEFRAME_OPTIONS.map(tf => (
+      <Button
+        key={tf.key}
+        size="sm"
+        onClick={() => onTimeframeChange(tf.key)}
+        className={cn(
+          "h-9 sm:h-10 text-xs sm:text-sm font-medium transition-all duration-200 rounded-lg shadow-sm",
+          selectedTimeframe === tf.key 
+            ? "bg-[#004C8F] hover:bg-[#004C8F]/90 text-white shadow-md"
+            : "border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+        )}
+      >
+        {tf.label}
+      </Button>
+    ))}
   </div>
 );
 
