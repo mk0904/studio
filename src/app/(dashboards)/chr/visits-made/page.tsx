@@ -314,8 +314,8 @@ export default function CHRVisitsMadePage() {
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <PageTitle title={pageTitleText} description="View and filter all submitted branch visits across the organization." />
-        {/* VHR Filter - top right, matching analytics/dashboard */}
-        <div className="w-full sm:w-auto relative">
+        {/* VHR Filter - top right */}
+        <div className="w-auto ml-auto relative">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full sm:w-[200px] h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
@@ -354,10 +354,10 @@ export default function CHRVisitsMadePage() {
       </div>
       <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
         <CardContent className="space-y-6 pt-4">
-          {/* Row 1: Search + Clear (mobile), Search only (desktop) */}
-          <div className="grid grid-cols-[1fr_auto] md:grid-cols-3 gap-4">
+          {/* Row 1: Search + Clear (side by side on desktop/tablet, stacked on mobile) */}
+          <div className="grid grid-cols-[1fr_auto] gap-4 md:grid-cols-[1fr_auto] md:gap-4">
             {/* Search */}
-            <div className="col-span-1 md:col-span-1 flex items-center">
+            <div className="flex items-center">
               <Label htmlFor="search-visits-made" className="sr-only">Search</Label>
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -370,23 +370,26 @@ export default function CHRVisitsMadePage() {
                 />
               </div>
             </div>
-            {/* Clear button (mobile only) */}
-            <div className="flex items-center md:hidden">
-              <Button 
-                variant="outline" 
-                onClick={handleClearAllLocalFilters} 
-                className="h-9 w-9 p-0 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 rounded-lg flex items-center justify-center"
+            {/* Clear button (always visible, side by side with search on md+) */}
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                onClick={handleClearAllLocalFilters}
+                className="h-9 w-9 md:w-auto p-0 md:p-2 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 rounded-lg flex items-center justify-center"
                 aria-label="Clear filters"
               >
-                <XCircle className="h-5 w-5 text-red-600" />
+                <XCircle className="h-5 w-5 text-red-600 md:mr-2" /> <span className="hidden md:inline">Clear</span>
               </Button>
             </div>
-            {/* DatePicker (desktop only) */}
-            <div className="hidden md:block md:col-span-1">
+          </div>
+          {/* Each filter in its own row (full width) on mobile, grid on desktop */}
+          <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
+            {/* Date Picker */}
+            <div>
               <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
             </div>
-            {/* Branches (desktop only) */}
-            <div className="hidden md:block md:col-span-1">
+            {/* Branches */}
+            <div>
               <div className="relative flex items-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -395,7 +398,7 @@ export default function CHRVisitsMadePage() {
                       <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                  <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                     <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
@@ -418,49 +421,8 @@ export default function CHRVisitsMadePage() {
                 )}
               </div>
             </div>
-          </div>
-          {/* Row 2: Date picker | Branches (mobile only) */}
-          <div className="grid grid-cols-2 gap-4 md:hidden">
-            <div className="col-span-1">
-              <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full" />
-            </div>
-            <div className="col-span-1">
-              <div className="relative flex items-center">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
-                      {getMultiSelectButtonText(branchOptions, selectedBranchIds, "All Branches", "Branch", "Branches", isLoadingBranchOptions)}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
-                    <DropdownMenuLabel>Filter by Branch</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {isLoadingBranchOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
-                      branchOptions.length > 0 ? branchOptions.map(option => (
-                        <DropdownMenuCheckboxItem
-                          key={option.value}
-                          checked={selectedBranchIds.includes(option.value)}
-                          onCheckedChange={() => handleMultiSelectChange(option.value, selectedBranchIds, setSelectedBranchIds)}
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          {option.label}
-                        </DropdownMenuCheckboxItem>
-                      )) : <DropdownMenuLabel>No branches available.</DropdownMenuLabel>}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {selectedBranchIds.length > 0 && (
-                  <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
-                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-          {/* Row 3: ZHR | BHR | Clear (desktop only) */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-0">
             {/* ZHR */}
-            <div className="col-span-1 md:col-span-1">
+            <div>
               <div className="relative flex items-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -469,7 +431,7 @@ export default function CHRVisitsMadePage() {
                       <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                  <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                     <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {isLoadingZhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
@@ -493,7 +455,7 @@ export default function CHRVisitsMadePage() {
               </div>
             </div>
             {/* BHR */}
-            <div className="col-span-1 md:col-span-1">
+            <div>
               <div className="relative flex items-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -502,7 +464,7 @@ export default function CHRVisitsMadePage() {
                       <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full max-h-72 overflow-y-auto">
+                  <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-72 overflow-y-auto">
                     <DropdownMenuLabel>Filter by BHR</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {isLoadingBhrOptions ? <DropdownMenuLabel>Loading...</DropdownMenuLabel> :
@@ -525,16 +487,6 @@ export default function CHRVisitsMadePage() {
                 )}
               </div>
             </div>
-            {/* Clear button (desktop only, rightmost) */}
-            <div className="hidden md:flex md:col-span-1 items-center justify-end">
-              <Button 
-                variant="outline" 
-                onClick={handleClearAllLocalFilters} 
-                className="h-9 sm:h-10 w-full md:w-auto bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center justify-center p-2 sm:px-4 shrink-0"
-              >
-                <XCircle className="h-4 w-4 text-red-600 sm:mr-2" /> <span className="hidden sm:inline">Clear</span>
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -545,16 +497,18 @@ export default function CHRVisitsMadePage() {
           <p className="ml-2 text-muted-foreground">Loading visits...</p>
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={filteredVisits}
-          tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
-          emptyStateMessage={
-            allSubmittedVisitsGlobal.length === 0 && !isLoading
-              ? "No submitted visits found in the system."
-              : (isLoading ? "Loading visits..." : "No submitted visits match your current filter combination.")
-          }
-        />
+        <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white/90 backdrop-blur-sm shadow-sm">
+          <DataTable
+            columns={columns}
+            data={filteredVisits}
+            tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+            emptyStateMessage={
+              allSubmittedVisitsGlobal.length === 0 && !isLoading
+                ? "No submitted visits found in the system."
+                : (isLoading ? "Loading visits..." : "No submitted visits match your current filter combination.")
+            }
+          />
+        </div>
       )}
 
       {selectedVisitForView && (

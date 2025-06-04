@@ -56,7 +56,7 @@ export function ZhrFilterDropdown() {
               <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56 bg-white text-popover-foreground border border-slate-200 shadow-lg rounded-xl max-h-72 overflow-y-auto right-0 ml-auto">
+          <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] bg-white text-popover-foreground border border-slate-200 shadow-lg rounded-xl max-h-72 overflow-y-auto right-0 ml-auto">
             <DropdownMenuLabel>Filter by ZHR</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {zhrOptions.length > 0 ? (
@@ -79,7 +79,7 @@ export function ZhrFilterDropdown() {
       )}
       {selectedZhrIds.length > 0 && !isLoadingZhrOptions && (
         <Button variant="ghost" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
-          <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+          <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
         </Button>
       )}
     </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
@@ -285,12 +284,11 @@ export default function VHRBranchVisitsPage() {
           >
             <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Clear</span>
-            <span className="sm:hidden">×</span>
           </Button>
         </div>
         
-        {/* Row 2 for BHR and Branch Filters (Mobile) */}
-        <div className="grid grid-cols-2 gap-2 lg:hidden">
+        {/* Mobile: Each filter in its own row except search+clear */}
+        <div className="space-y-2 lg:hidden">
           <div className="w-full">
             <Select value={localBhrFilter} onValueChange={setLocalBhrFilter} disabled={localBhrOptions.length === 0 && !isLoadingBhrsInVhrVertical}>
               <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
@@ -307,7 +305,7 @@ export default function VHRBranchVisitsPage() {
           <div className="w-full">
             <Select value={localBranchFilter} onValueChange={setLocalBranchFilter} disabled={localBranchOptions.length === 0 && !isLoadingPageData}>
               <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                  <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
                 <SelectValue placeholder="All Branches" />
               </SelectTrigger>
               <SelectContent className="border-0 shadow-md">
@@ -317,17 +315,15 @@ export default function VHRBranchVisitsPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
-        
-        {/* Row 3 for Date Range Picker (Mobile) */}
-        <div className="w-full lg:hidden">
-           <DatePickerWithRange
+          <div className="w-full">
+            <DatePickerWithRange
               date={dateRange}
               onDateChange={setDateRange}
               className="w-full h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
             />
+          </div>
         </div>
-
+        
         {/* Combined Row for All Three Filters (Desktop) */}
         <div className="hidden lg:grid grid-cols-3 gap-2">
           <div className="w-full">

@@ -541,8 +541,8 @@ export default function VHRAnalyticsPage() {
 
       <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
         <CardContent className="space-y-6 pt-4">
-          <div className="flex flex-row gap-4">
-            <div className="relative flex items-center w-1/2">
+          <div className="space-y-4 md:space-y-0 md:flex md:flex-row md:gap-4">
+            <div className="relative flex items-center w-full md:w-1/2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
@@ -573,12 +573,12 @@ export default function VHRAnalyticsPage() {
               </DropdownMenu>
               {selectedMetrics.length > 0 && (
                 <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedMetrics(METRIC_CONFIGS.map(config => config.key)); }} aria-label="Clear BHR filter">
-                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
                 </Button>
               )}
             </div>
 
-            <div className="relative flex items-center w-1/2">
+            <div className="relative flex items-center w-full md:w-1/2 mt-4 md:mt-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="w-full h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
@@ -609,15 +609,17 @@ export default function VHRAnalyticsPage() {
               </DropdownMenu>
               {selectedBranchIds.length > 0 && (
                 <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
-                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
                 </Button>
               )}
             </div>
           </div>
-          <div>
+          <div className="mt-4 md:mt-0">
             <Label className="text-sm font-medium mb-2 block">Select Timeframe (Global for this page)</Label>
-            <div className="flex items-center justify-between gap-4">
-              <TimeframeButtons selectedTimeframe={globalTimeframe} onTimeframeChange={setGlobalTimeframe} />
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <TimeframeButtons selectedTimeframe={globalTimeframe} onTimeframeChange={setGlobalTimeframe} />
+              </div>
               <Button 
                 onClick={handleClearAllLocalFilters} 
                 className="h-9 sm:h-10 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center justify-center p-2 sm:px-4 shrink-0">

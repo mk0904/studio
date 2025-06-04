@@ -631,12 +631,11 @@ export default function CHRAnalyticsPage() {
   return (
     <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <PageTitle title={`CHR Analytics (${selectedHierarchyDetailsText.name})`} description={`Deep dive into analytics ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
-        
-        {/* VHR Filter */}
-        <div className="w-full sm:w-auto relative">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+        <PageTitle title={`CHR Analytics (${selectedHierarchyDetailsText.name})`} description={`Detailed HR Analytics ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
+        {/* VHR Filter - top right */}
+        <div className="w-auto ml-auto relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full sm:w-[200px] h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
                 <div className="flex items-center overflow-hidden">
                   <span className="truncate">
@@ -644,8 +643,8 @@ export default function CHRAnalyticsPage() {
                   </span>
                 </div>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
               {globalVhrOptions.length === 0 && !isLoadingAllUsers && <DropdownMenuLabel>No VHRs found</DropdownMenuLabel>}
               {isLoadingAllUsers && <DropdownMenuLabel className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading VHRs...</DropdownMenuLabel>}
@@ -677,7 +676,7 @@ export default function CHRAnalyticsPage() {
 
       {/* Filter Section */}
       <Card className="shadow-lg border-slate-200/50 hover:shadow-xl transition-shadow duration-200">
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 px-4 py-4 sm:px-6 sm:py-6">
           {/* Hierarchy Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* ZHR Filter */}
@@ -715,7 +714,7 @@ export default function CHRAnalyticsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
               {selectedZhrIds.length > 0 && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1.5 -translate-y-2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedZhrIds([]); }} aria-label="Clear ZHR filter">
                   <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
                   </Button>
               )}
@@ -756,7 +755,7 @@ export default function CHRAnalyticsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
               {selectedBhrIds.length > 0 && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1.5 -translate-y-2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBhrIds([]); }} aria-label="Clear BHR filter">
                   <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
                   </Button>
               )}
@@ -797,7 +796,7 @@ export default function CHRAnalyticsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
               {selectedBranchIds.length > 0 && (
-                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1.5 -translate-y-2 h-7 w-7 z-10" onClick={(e) => { e.stopPropagation(); setSelectedBranchIds([]); }} aria-label="Clear Branch filter">
                   <XCircle className="h-4 w-4 text-red-600 hover:text-red-700" />
                   </Button>
               )}

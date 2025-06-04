@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -198,89 +197,92 @@ export default function ZHRVisitsMadePage() {
 
       <Card className="border-0 bg-gradient-to-br from-white via-slate-50/50 to-slate-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
         <CardContent className="px-4 sm:px-6 pb-6 pt-6 space-y-5 sm:space-y-6">
-          <div className="space-y-4 sm:space-y-0">
-            <div className="flex flex-col lg:flex-row lg:items-end gap-4 mb-8">
-              <div className="flex flex-col sm:flex-row gap-2 items-center w-full lg:flex-1">
-                <div className="relative flex-1 w-full">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                  </div>
-                  <Input
-                    placeholder="Search BHR, Branch, E-Code, Location..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200 w-full"
-                  />
+          {/* Filter Layout Container - Responsive */}
+          <div className="space-y-4 md:space-y-6">
+            {/* Row 1: Search + Clear (Mobile & Desktop) */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
                 </div>
-                <Button
-                  onClick={handleClearFilters}
-                  variant="outline"
-                  className="h-9 sm:h-10 text-xs sm:text-sm font-medium border-slate-200/70 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 active:bg-slate-100 transition-all duration-200 whitespace-nowrap rounded-lg px-3 sm:px-4 inline-flex items-center gap-1.5 sm:gap-2 shadow-sm w-full sm:w-auto"
-                >
-                  <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Clear</span>
-                  <span className="sm:hidden">×</span>
-                </Button>
+                <Input
+                  placeholder="Search BHR, Branch, E-Code, Location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200 w-full"
+                />
               </div>
-              
-              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-                <div className="flex-1 lg:min-w-[160px]">
-                  <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
-                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                      <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                      <SelectValue placeholder="Filter by BHR" />
-                    </SelectTrigger>
-                    <SelectContent className="border-0 shadow-md">
-                      <SelectItem value="all">All BHRs</SelectItem>
-                      {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1 lg:min-w-[160px]">
-                  <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
-                    <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
-                        <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
-                      <SelectValue placeholder="Filter by Branch" />
-                    </SelectTrigger>
-                    <SelectContent className="border-0 shadow-md">
-                      <SelectItem value="all">All Branches</SelectItem>
-                      {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1 lg:min-w-[200px] lg:w-auto">
-                  <DatePickerWithRange
-                    date={dateRange}
-                    onDateChange={setDateRange}
-                    className="h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
-                  />
-                </div>
-              </div>
+              <Button
+                onClick={handleClearFilters}
+                className="h-9 sm:h-10 bg-white border border-red-500 text-red-600 hover:bg-red-50 hover:border-red-600 focus:ring-1 focus:ring-offset-1 focus:ring-red-500 text-sm shadow-sm rounded-lg transition-all duration-200 flex items-center justify-center p-2 sm:px-4 shrink-0"
+              >
+                <XCircle className="h-4 w-4 text-red-600 sm:mr-2" /> <span className="hidden sm:inline">Clear</span>
+              </Button>
             </div>
 
-            <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white/90 backdrop-blur-sm shadow-sm">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#004C8F]/60" />
-                </div>
-              ) : filteredVisits.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4">
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100/80 rounded-full p-4 sm:p-5 mb-4 sm:mb-5 shadow-sm ring-1 ring-slate-100">
-                    <FileQuestion className="h-8 w-8 sm:h-9 sm:w-9 text-[#004C8F]/60" />
-                  </div>
-                  <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-2">No visits found</h3>
-                  <p className="text-sm sm:text-base text-slate-600 max-w-sm">
-                    {allVisits.length === 0 ? "No submitted visits by BHRs in your zone yet." : "Try adjusting your filters."}
-                  </p>
-                </div>
-              ) : (
-                <DataTable
-                  columns={columns}
-                  data={filteredVisits}
-                  tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+            {/* Row 2: Other Filters (Responsive) */}
+            <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-3 md:gap-4">
+              {/* BHR Filter */}
+              <div className="w-full md:w-auto">
+                <Select value={bhrFilter} onValueChange={setBhrFilter} disabled={bhrOptions.length === 0}>
+                  <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                    <Users className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                    <SelectValue placeholder="Filter by BHR" />
+                  </SelectTrigger>
+                  <SelectContent className="border-0 shadow-md">
+                    <SelectItem value="all">All BHRs</SelectItem>
+                    {bhrOptions.map(bhr => <SelectItem key={bhr.id} value={bhr.id}>{bhr.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Branches Filter */}
+              <div className="w-full md:w-auto">
+                <Select value={branchFilter} onValueChange={setBranchFilter} disabled={branchOptions.length === 0}>
+                  <SelectTrigger className="w-full h-9 sm:h-10 bg-white/80 backdrop-blur-sm border-slate-200/70 hover:bg-slate-50/50 text-sm shadow-sm focus:ring-1 focus:ring-[#004C8F]/20 focus:ring-offset-1 rounded-lg transition-all duration-200">
+                      <Building2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#004C8F]" />
+                    <SelectValue placeholder="Filter by Branch" />
+                  </SelectTrigger>
+                  <SelectContent className="border-0 shadow-md">
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {branchOptions.map(branch => <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Picker */}
+              <div className="w-full md:w-auto">
+                <DatePickerWithRange
+                  date={dateRange}
+                  onDateChange={setDateRange}
+                  className="h-9 sm:h-10 [&>button]:bg-white/80 [&>button]:backdrop-blur-sm [&>button]:border-slate-200/70 [&>button]:hover:bg-slate-50/50 [&>button]:text-sm [&>button]:shadow-sm [&>button]:focus:ring-1 [&>button]:focus:ring-[#004C8F]/20 [&>button]:focus:ring-offset-1 [&>button]:rounded-lg [&>button]:transition-all [&>button]:duration-200"
                 />
-              )}
+              </div>
             </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white/90 backdrop-blur-sm shadow-sm">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-[#004C8F]/60" />
+              </div>
+            ) : filteredVisits.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4">
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100/80 rounded-full p-4 sm:p-5 mb-4 sm:mb-5 shadow-sm ring-1 ring-slate-100">
+                  <FileQuestion className="h-8 w-8 sm:h-9 sm:w-9 text-[#004C8F]/60" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-2">No visits found</h3>
+                <p className="text-sm sm:text-base text-slate-600 max-w-sm">
+                  {allVisits.length === 0 ? "No submitted visits by BHRs in your zone yet." : "Try adjusting your filters."}
+                </p>
+              </div>
+            ) : (
+              <DataTable
+                columns={columns}
+                data={filteredVisits}
+                tableClassName="[&_thead_th]:bg-slate-50/80 [&_thead_th]:text-sm [&_thead_th]:font-medium [&_thead_th]:text-slate-600 [&_thead_th]:h-14 [&_thead_th]:px-6 [&_thead]:border-b [&_thead]:border-slate-200/60 [&_tbody_td]:px-6 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_tr:hover]:bg-blue-50/30 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100/60 [&_tr]:transition-colors [&_td]:align-middle [&_tbody_tr:last-child]:border-0"
+              />
+            )}
           </div>
         </CardContent>
       </Card>

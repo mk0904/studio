@@ -287,10 +287,10 @@ export default function CHRDashboardPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <PageTitle title={`CHR Dashboard (${selectedHierarchyDetailsText.name})`} description={`Human Resources Overview ${selectedHierarchyDetailsText.descriptionSuffix}.`} />
         {/* VHR Filter - top right, matching analytics page */}
-        <div className="w-full sm:w-auto relative">
+        <div className="w-auto ml-auto relative">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-[200px] h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
+              <Button variant="outline" className="w-[200px] h-9 sm:h-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm shadow-sm focus:ring-1 focus:ring-offset-1 focus:ring-blue-500 rounded-lg transition-all duration-200 flex items-center justify-between text-left pl-3 pr-10">
                 <span className="truncate">
                   {vhrOptions.length > 0 ? selectedVhrIds.length === 0 ? "All VHRs" : selectedVhrIds.length === 1 ? vhrOptions.find(opt => opt.value === selectedVhrIds[0])?.label : `${selectedVhrIds.length} VHRs Selected` : isLoadingAllUsers ? "Loading VHRs..." : "No VHRs found"}
                 </span>
