@@ -633,30 +633,29 @@ export function VisitForm({
 
         {!isViewMode && (
           <div className="flex flex-col sm:flex-row justify-end gap-4 pt-8 border-t">
-            {/* Only show Save as Draft if the visit is a draft */}
-            {initialData?.status === 'draft' && (
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={form.handleSubmit(handleInternalSubmit('draft'))} 
-                disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0} 
-                className="w-full sm:w-auto bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400"
-              >
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                {draftButtonText}
-              </Button>
-            )}
-            {/* Only show Submit if the visit is a draft */}
-            {initialData?.status === 'draft' && (
-              <Button 
-                type="submit" 
-                className="w-full sm:w-auto bg-gradient-to-r from-[#004C8F] to-[#003B6F] hover:from-[#003B6F] hover:to-[#002B4F] text-white shadow-md hover:shadow-lg transition-all duration-200" 
-                disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0}
-              >
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                {submitButtonText}
-              </Button>
-            )}
+            {/* Save as Draft Button */}
+            {/* Show if not in view mode (new or draft edit) */}
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={form.handleSubmit(handleInternalSubmit('draft'))} 
+              disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0} 
+              className="w-full sm:w-auto bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400"
+            >
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {draftButtonText}
+            </Button>
+
+            {/* Submit Button */}
+            {/* Show if not in view mode (new or draft edit) */}
+            <Button 
+              type="submit" 
+              className="w-full sm:w-auto bg-gradient-to-r from-[#004C8F] to-[#003B6F] hover:from-[#003B6F] hover:to-[#002B4F] text-white shadow-md hover:shadow-lg transition-all duration-200" 
+              disabled={isSubmitting || isLoadingBranches || assignedBranches.length === 0}
+            >
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {submitButtonText}
+            </Button>
           </div>
         )}
       </form>
