@@ -174,6 +174,20 @@ export function VisitForm({
         visit_date: initialData.visit_date ? (typeof initialData.visit_date === 'string' ? parseISO(initialData.visit_date) : initialData.visit_date) : new Date(),
       };
       form.reset(dataToReset);
+
+      // Directly set selectedBranchInfo if initialData has branch_id and branches are loaded
+      if (initialData.branch_id && assignedBranches.length > 0) {
+        const branch = assignedBranches.find(b => b.id === initialData.branch_id);
+        if (branch) {
+          setSelectedBranchInfo({ category: branch.category, code: branch.code, name: branch.name });
+        } else {
+           console.warn("Branch from initialData not found in assignedBranches upon initial load:", initialData.branch_id);
+           setSelectedBranchInfo(null);
+        }
+      } else if (!initialData.branch_id) {
+          setSelectedBranchInfo(null);
+      }
+
     } else { // If initialData becomes null, reset form to default
       form.reset({
           hr_connect_conducted: false,
@@ -196,11 +210,12 @@ export function VisitForm({
         });
       setSelectedBranchInfo(null);
     }
-  }, [initialData, form]);
+  }, [initialData, assignedBranches]); // Removed 'form' dependency
 
   useEffect(() => {
-    // Effect to update selectedBranchInfo when watchedBranchId or assignedBranches change
-    if (watchedBranchId && assignedBranches.length > 0) {
+    // Effect to update selectedBranchInfo when watchedBranchId or assignedBranches change (for manual select changes)
+    // This effect should not run on initial load if initialData is present and handled by the effect above.
+    if (!initialData && watchedBranchId && assignedBranches.length > 0) { // Only run if no initialData
       const branch = assignedBranches.find(b => b.id === watchedBranchId);
       if (branch) {
         setSelectedBranchInfo({ category: branch.category, code: branch.code, name: branch.name });
@@ -208,35 +223,12 @@ export function VisitForm({
         console.warn("Watched branch ID not found in assigned branches:", watchedBranchId);
         setSelectedBranchInfo(null);
       }
-    } else if (!watchedBranchId) {
+    } else if (!initialData && !watchedBranchId) { // Only clear if no initialData
        setSelectedBranchInfo(null);
-    } else if (watchedBranchId && assignedBranches.length === 0) {
-       // Keep selectedBranchInfo null or show loading state if branchId is set but branches not loaded
+    } else if (!initialData && watchedBranchId && assignedBranches.length === 0) { // Only run if no initialData
        setSelectedBranchInfo(null); // Or a loading indicator state
     }
-  }, [watchedBranchId, assignedBranches]);
-
-  // New effect to synchronize form's branch_id and selectedBranchInfo with initialData and assignedBranches
-  useEffect(() => {
-    if (initialData?.branch_id && assignedBranches.length > 0) {
-      const branch = assignedBranches.find(b => b.id === initialData.branch_id);
-      if (branch) {
-        // Set the form value directly
-        form.setValue('branch_id', initialData.branch_id);
-        // Also set the derived branch info
-        setSelectedBranchInfo({ category: branch.category, code: branch.code, name: branch.name });
-      } else {
-        console.warn("Branch from initialData not found in assignedBranches upon loading:", initialData.branch_id);
-        setSelectedBranchInfo(null);
-      }
-    } else if (!initialData?.branch_id) {
-      // If initialData has no branch_id, ensure form and state are clear
-      form.setValue('branch_id', '');
-      setSelectedBranchInfo(null);
-    }
-    // This effect does not need to clear state when initialData becomes null,
-    // as the effect that resets the form handles that.
-  }, [initialData?.branch_id, assignedBranches, form]); // Depend on initialData.branch_id, assignedBranches, and form
+  }, [watchedBranchId, assignedBranches, initialData]); // Added initialData dependency
 
   useEffect(() => {
     if (hrConnectConducted && employeesInvited && employeesInvited > 0 && participants !== undefined) {

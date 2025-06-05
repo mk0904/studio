@@ -96,9 +96,24 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
     }
     setIsSubmitting(true);
 
+    console.log("handleFormSubmitInModal: Submitting visit with data:", data);
+    console.log("handleFormSubmitInModal: Status to set:", statusToSet);
+    console.log("handleFormSubmitInModal: visitToEdit:", visitToEdit);
+    console.log("handleFormSubmitInModal: user:", user);
+    console.log("handleFormSubmitInModal: assignedBranches:", assignedBranches);
+
+    // Ensure branches are loaded before proceeding
+    if (isLoadingBranches) {
+      toast({ title: "Loading Data", description: "Branch data is still loading. Please wait a moment and try again.", variant: "default" });
+      setIsSubmitting(false);
+      return;
+    }
+    
     const currentSelectedBranchInfo = assignedBranches.find(b => b.id === data.branch_id);
+    
+    // Explicitly check if the branch was found
     if (!currentSelectedBranchInfo) {
-      toast({ title: "Error", description: "Selected branch details not found. Please re-select the branch.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not find details for the selected branch. It may not be assigned to you or there was a loading issue.", variant: "destructive" });
       setIsSubmitting(false);
       return;
     }
@@ -106,8 +121,6 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
     const visitPayload = {
       ...data,
       bhr_id: user.id, 
-      bhr_name: user.name,
-      branch_name: currentSelectedBranchInfo.name,
       visit_date: format(data.visit_date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
       status: statusToSet, 
       hr_connect_conducted: data.hr_connect_conducted,
@@ -117,6 +130,8 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
     
     const { id: visitId, ...payloadWithoutId } = visitPayload as any;
 
+    console.log("handleFormSubmitInModal: Payload for update:", payloadWithoutId);
+    console.log("handleFormSubmitInModal: Updating visit with ID:", visitToEdit.id, "and BHR ID:", user.id);
 
     try {
       const { error } = await supabase
@@ -144,8 +159,9 @@ export function EditVisitModal({ visitToEdit, isOpen, onClose, onVisitUpdated }:
 
   const getModalTitle = () => {
     if (!visitToEdit) return '';
+    if (isLoadingBranches) return 'Loading branch...';
     const branch = assignedBranches.find(b => b.id === visitToEdit.branch_id);
-    const branchName = branch?.name || 'Branch';
+    const branchName = branch?.name || 'Unknown Branch';
     const visitDate = visitToEdit.visit_date ? format(new Date(visitToEdit.visit_date), 'MMMM do, yyyy') : '';
     return `${branchName} - ${visitDate}`;
   };
