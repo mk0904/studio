@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Enter a valid email address." }),
@@ -18,6 +19,7 @@ type ResetPasswordFormValues = z.infer<typeof formSchema>;
 
 export function ResetPasswordForm() {
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(formSchema),
@@ -38,6 +40,9 @@ export function ResetPasswordForm() {
         title: "Password Reset Link Sent",
         description: "Check your email for the link to reset your password.",
       });
+
+      // Redirect to login page after showing toast
+      router.push('/auth/login');
 
     } catch (error: any) {
       toast({

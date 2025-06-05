@@ -98,7 +98,7 @@ export function LoginForm() {
                   </Button>
                 </div>
               </FormControl>
-              <div className="flex items-center justify-between">
+              <div className="flex justify-end mt-1">
                 <Link href="/auth/reset-password" className="text-sm font-medium text-[#004C8F] hover:text-[#003972] transition-colors">
                   Forgot password?
                 </Link>
